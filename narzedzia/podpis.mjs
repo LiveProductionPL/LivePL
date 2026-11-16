@@ -22,7 +22,8 @@ const PROBY = 3;
 // wtedy się nie udaje albo wisi. Dlatego sesję sprawdza próbny podpis, a każdy podpis ma limit czasu.
 export const ZALOGUJ = 'Podpis Certum teraz nie działa: sesja SimplySign Desktop wygasła albo się nie połączyła. '
   + 'Zaloguj się w SimplySign Desktop (kod z aplikacji SimplySign w telefonie) i uruchom jeszcze raz.';
-const LIMIT_PROBY = 60_000;
+// sam start PowerShella przy obciążonym komputerze potrafi trwać blisko minutę (16.11.2026: 50 s)
+const LIMIT_PROBY = 180_000;
 const LIMIT_PODPISU = 300_000;
 
 function powershell(skrypt, env = {}, limit = 0) {
@@ -90,14 +91,27 @@ function stanPodpisu(plik) {
   try { return wpisPodpisu(fd); } finally { closeSync(fd); }
 }
 
-// cofnięcie do stanu sprzed podpisu: obcięcie pliku i wyzerowanie wpisu tabeli certyfikatów
+const czekaj = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+// cofnięcie do stanu sprzed podpisu: obcięcie pliku i wyzerowanie wpisu tabeli certyfikatów.
+// Zaraz po podpisie Windows (najpewniej Defender) potrafi trzymać duży plik zmapowany i odrzuca skrócenie
+// (ftruncate: UNKNOWN, errno -4094); po kilkudziesięciu sekundach przechodzi, więc ponawiamy do 90 s.
 function przywroc(plik, dlugosc) {
-  const fd = openSync(plik, 'r+');
-  try {
-    const w = wpisPodpisu(fd);
-    writeSync(fd, Buffer.alloc(8), 0, 8, w.pole);
-    ftruncateSync(fd, dlugosc);
-  } finally { closeSync(fd); }
+  const koniec = Date.now() + 90_000;
+  for (;;) {
+    try {
+      const fd = openSync(plik, 'r+');
+      try {
+        const w = wpisPodpisu(fd);
+        writeSync(fd, Buffer.alloc(8), 0, 8, w.pole);
+        ftruncateSync(fd, dlugosc);
+      } finally { closeSync(fd); }
+      return;
+    } catch (e) {
+      if (!['UNKNOWN', 'EBUSY', 'EPERM', 'EACCES'].includes(e.code) || Date.now() > koniec) throw e;
+      czekaj(2000);
+    }
+  }
 }
 
 function podpiszJeden(plik, certyfikat) {
@@ -128,9 +142,9 @@ function podpiszJeden(plik, certyfikat) {
         throw new Error(ZALOGUJ);
       }
     }
+    console.log(`    podpis ${plik.split(/[\\/]/).pop()} nieudany (${blad})${proba < PROBY ? ', cofam i próbuję jeszcze raz' : ''}`);
     przywroc(plik, przed.dlugosc);
-    console.log(`    podpis ${plik.split(/[\\/]/).pop()} nieudany (${blad})${proba < PROBY ? ', próbuję jeszcze raz' : ''}`);
-    if (proba < PROBY) execFileSync('powershell.exe', ['-NoProfile', '-Command', 'Start-Sleep -Seconds 3']);
+    if (proba < PROBY) czekaj(5000);
   }
   throw new Error(`Nie udało się podpisać ${plik} po ${PROBY} próbach`);
 }
