@@ -1,0 +1,74 @@
+[
+  {
+    "id": "poczta",
+    "nazwa": "Poczta",
+    "adres": "https://poczta.livepl.eu/",
+    "ikona": "poczta",
+    "przyStarcie": true,
+    "wTle": true,
+    "opis": "Poczta firmowa"
+  },
+  {
+    "id": "liveproduction",
+    "nazwa": "Live Production",
+    "skrot": "LiveProd",
+    "adres": "https://liveproduction.pl/",
+    "ikona": "strona",
+    "obrazek": "assets/programy/liveproduction-dzien.png",
+    "obrazekNoc": "assets/programy/liveproduction-noc.png",
+    "szeroki": true,
+    "opis": "Strona firmy Live Production"
+  },
+  {
+    "id": "tvml",
+    "nazwa": "TVML",
+    "skrot": "TVML",
+    "adres": "https://tvml.pl/",
+    "ikona": "lekcje",
+    "obrazek": "assets/programy/tvml-dzien.png",
+    "obrazekNoc": "assets/programy/tvml-noc.png",
+    "szeroki": true,
+    "opis": "Telewizja: wiadomości, wideo, sport"
+  },
+  {
+    "id": "urzad",
+    "nazwa": "Urząd certyfikacji",
+    "skrot": "Urząd",
+    "adres": "https://cert.livepl.eu/panel",
+    "ikona": "tarcza",
+    "tylkoZYubiKey": true,
+    "opis": "Certyfikaty LivePL, logowanie YubiKey"
+  },
+  {
+    "id": "klient",
+    "nazwa": "Strefa klienta",
+    "skrot": "Klient",
+    "adres": "https://klient.livepl.eu/",
+    "ikona": "klient",
+    "ukryty": true,
+    "opis": "Strefa klienta LivePL"
+  },
+  {
+    "id": "sevetoo",
+    "nazwa": "Sevetoo",
+    "adres": "https://sevetoo.livepl.eu/",
+    "ikona": "lekcje",
+    "ukryty": true
+  },
+  {
+    "id": "egzamin",
+    "nazwa": "Egzamin",
+    "adres": "https://egzamin.info.pl/",
+    "ikona": "egzamin",
+    "ukryty": true
+  },
+  {
+    "id": "serwer",
+    "nazwa": "Panel serwera",
+    "skrot": "Serwer",
+    "adres": "https://livepl.eu:2222/",
+    "ikona": "serwer",
+    "ukryty": true,
+    "opis": "DirectAdmin: domeny, poczta, pliki"
+  }
+]

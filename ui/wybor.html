@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:">
+  <title>Udostępnij ekran</title>
+  <link rel="stylesheet" href="strony.css">
+  <link rel="stylesheet" href="wybor.css">
+</head>
+<body>
+  <header>
+    <h1>Co chcesz pokazać?</h1>
+    <p id="kto">Strona chce zobaczyć Twój ekran.</p>
+  </header>
+  <section>
+    <h2>Cały ekran</h2>
+    <div class="siatka" id="ekrany"></div>
+    <h2>Okno programu</h2>
+    <div class="siatka" id="okna"></div>
+  </section>
+  <footer>
+    <label id="dzwiek-etykieta" hidden><input type="checkbox" id="dzwiek"> Udostępnij też dźwięk z komputera</label>
+    <span class="odstep"></span>
+    <button class="przycisk" id="anuluj" type="button">Anuluj</button>
+    <button class="przycisk glowny" id="udostepnij" type="button" disabled>Udostępnij</button>
+  </footer>
+  <script src="wybor.js"></script>
+</body>
+</html>

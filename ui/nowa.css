@@ -1,0 +1,169 @@
+/* Strona nowej karty i strona startowa LivePL. Kolory ze strony.css (dzień i noc). */
+
+main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 9vh 32px 40px;
+}
+
+.powitanie { margin-bottom: 22px; }
+#data { font-size: 13px; margin-bottom: 2px; }
+h1 { font-size: 30px; margin: 0; }
+
+h2 {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--slaby);
+  margin: 30px 0 12px;
+}
+
+kbd {
+  font: 600 11px/1 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  padding: 3px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--ramka);
+  background: var(--tlo);
+  color: var(--slaby);
+}
+
+/* ---------------------------------------------------------------- wyszukiwanie */
+
+.szukaj {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 54px;
+  padding: 0 14px 0 18px;
+  border-radius: 14px;
+  border: 1px solid var(--ramka);
+  background: var(--karta);
+  box-shadow: 0 1px 2px rgba(20, 35, 50, 0.06);
+}
+
+.szukaj:focus-within { border-color: var(--turkus); box-shadow: 0 0 0 3px color-mix(in srgb, var(--turkus) 18%, transparent); }
+.szukaj-ik { color: var(--slaby); display: grid; place-items: center; }
+.szukaj-ik .ik { width: 20px; height: 20px; }
+.szukaj input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--tekst); font: inherit; font-size: 17px; }
+.szukaj input::placeholder { color: var(--slaby); opacity: 0.8; }
+
+/* ---------------------------------------------------------------- na pasku */
+
+.kafle {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.kafel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 14px;
+  border: 1px solid var(--ramka);
+  background: var(--karta);
+  color: var(--tekst);
+  text-decoration: none;
+  transition: border-color 0.12s, transform 0.12s, box-shadow 0.12s;
+}
+
+.kafel:hover { border-color: var(--slaby); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08); }
+.kafel:focus-visible { outline: 2px solid var(--turkus); outline-offset: 2px; }
+
+.znak {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: color-mix(in srgb, var(--czerwony) 12%, transparent);
+  color: var(--czerwony);
+}
+
+.znak .ik { width: 24px; height: 24px; }
+.znak.z-obrazkiem { width: auto; min-width: 48px; padding: 0 8px; background: none; justify-content: start; }
+.znak picture { display: grid; place-items: center; }
+.znak .obrazek { max-width: 92px; max-height: 44px; object-fit: contain; }
+.znak.literka { font-size: 20px; font-weight: 700; color: var(--tekst); background: color-mix(in srgb, var(--slaby) 16%, transparent); }
+
+.kafel-tekst { display: flex; flex-direction: column; min-width: 0; }
+.kafel b { font-size: 15px; font-weight: 600; }
+.kafel-opis { color: var(--slaby); font-size: 13px; }
+.kafel small { color: var(--slaby); font-size: 12px; opacity: 0.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kafel .skrot { position: absolute; top: 14px; right: 14px; opacity: 0; transition: opacity 0.12s; }
+.kafel:hover .skrot { opacity: 1; }
+
+/* ---------------------------------------------------------------- więcej programów */
+
+.male-kafle {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.maly-kafel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  color: var(--tekst);
+  text-decoration: none;
+}
+
+.maly-kafel:hover { background: var(--karta); border-color: var(--ramka); }
+.maly-kafel .znak { width: 36px; height: 36px; border-radius: 10px; background: color-mix(in srgb, var(--slaby) 14%, transparent); color: var(--tekst); }
+.maly-kafel .znak .ik { width: 20px; height: 20px; }
+.maly-kafel span { display: flex; flex-direction: column; min-width: 0; }
+.maly-kafel b { font-weight: 600; }
+.maly-kafel small { color: var(--slaby); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------------------------------------------------------------- dodaj stronę */
+
+.dodaj .opis { margin: -4px 0 12px; font-size: 13px; }
+.dodaj-forma { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.dodaj-forma input {
+  flex: 1 1 200px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--ramka);
+  background: var(--karta);
+  color: var(--tekst);
+  font: inherit;
+}
+
+.dodaj-forma input:focus { outline: 2px solid var(--turkus); outline-offset: -1px; }
+.dodaj-forma .przycisk { height: 40px; }
+.wynik { margin: 10px 0 0; font-weight: 600; }
+.wynik.ok { color: #1f8a4c; }
+.wynik.zly { color: var(--czerwony); }
+
+@media (prefers-color-scheme: dark) {
+  .wynik.ok { color: #45c486; }
+}
+
+/* ---------------------------------------------------------------- skróty */
+
+.skroty {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin-top: 40px;
+  padding-top: 18px;
+  border-top: 1px solid var(--ramka);
+  color: var(--slaby);
+  font-size: 12.5px;
+}
+
+.skroty b { color: var(--tekst); }
+
+/* główny przycisk w kolorze LivePL (w nocy też czerwony, nie biały) */
+.dodaj-forma .przycisk.glowny { background: #b0261f; border-color: #b0261f; color: #fff; }
+@media (prefers-color-scheme: dark) { .dodaj-forma .przycisk.glowny { background: #c42b23; border-color: #c42b23; } }

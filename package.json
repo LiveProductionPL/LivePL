@@ -1,0 +1,26 @@
+{
+  "name": "przegladarka-livepl",
+  "productName": "LivePL",
+  "version": "0.1.8",
+  "description": "Przeglądarka LivePL – poczta, strefa klienta, Sevetoo i panel w jednym oknie",
+  "author": "Karol Kowalski",
+  "license": "MIT",
+  "homepage": "https://app.livepl.eu/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LiveProductionPL/LivePL.git"
+  },
+  "main": "src/start.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "exe": "node narzedzia/zrob-exe.mjs",
+    "klucze": "node narzedzia/klucze-wydan.mjs",
+    "wydanie": "node narzedzia/wydanie.mjs",
+    "instalator": "node narzedzia/zrob-instalator.mjs"
+  },
+  "devDependencies": {
+    "electron": "^45.3.2",
+    "rcedit": "^5.0.2"
+  }
+}

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:">
+  <title>Instalator LivePL</title>
+  <link rel="stylesheet" href="instalator.css">
+</head>
+<body>
+  <aside class="marka-panel">
+    <div class="wstega-tlo" aria-hidden="true"></div>
+    <img class="logo" src="../assets/wstega-ciemna.png" alt="" draggable="false">
+    <div class="nazwa"><b>Live<em>PL</em></b><span>Przeglądarka Live Production</span></div>
+    <span class="wersja" id="wersja"></span>
+    <p class="prawa">© Live Production</p>
+  </aside>
+
+  <section class="tresc">
+    <header class="pasek-okna">
+      <span class="tytul-okna" id="tytul-okna">Instalator LivePL</span>
+      <button type="button" class="okno-przycisk" id="minimalizuj" aria-label="Minimalizuj"></button>
+      <button type="button" class="okno-przycisk zamknij" id="zamknij" aria-label="Zamknij"></button>
+    </header>
+
+    <!-- powitanie -->
+    <div class="ekran" id="ekran-start" hidden>
+      <h1 id="start-tytul">Zainstaluj LivePL</h1>
+      <p class="wstep" id="start-wstep">Firmowa przeglądarka Live Production: poczta, strony firmy i bezpieczne logowanie w jednym oknie.</p>
+      <ul class="cechy">
+        <li><span class="cecha-ik" data-ik="karty"></span><div><b>Programy firmy pod ręką</b><span>Poczta, Live Production i TVML na pasku; dodasz też własne strony.</span></div></li>
+        <li><span class="cecha-ik" data-ik="slonce"></span><div><b>Dzień i noc</b><span>Jasny i ciemny wygląd, sam albo jak Windows.</span></div></li>
+        <li><span class="cecha-ik" data-ik="tarcza"></span><div><b>Bezpieczeństwo</b><span>Certyfikaty LivePL, klucz w TPM, logowanie YubiKey, zaszyfrowane hasła.</span></div></li>
+      </ul>
+      <label class="opcja"><input type="checkbox" id="opcja-pulpit" checked><span class="znacznik"></span>Skrót na pulpicie</label>
+      <label class="opcja" id="opcja-ca-etykieta" hidden><input type="checkbox" id="opcja-ca" checked><span class="znacznik"></span><span>Zaufaj urzędowi LivePL w Windows<small>Certyfikaty firmy też w Edge i Outlooku; Windows poprosi o potwierdzenie.</small></span></label>
+      <p class="uwaga" id="start-dziala" hidden>LivePL jest teraz uruchomiony. Instalator zamknie go na chwilę.</p>
+      <div class="dol">
+        <p class="gdzie" id="start-gdzie"></p>
+        <div class="przyciski">
+          <button type="button" class="przycisk tekstowy" id="start-anuluj">Anuluj</button>
+          <button type="button" class="przycisk glowny" id="start-instaluj">Zainstaluj</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- odinstalowanie -->
+    <div class="ekran" id="ekran-odinstaluj" hidden>
+      <h1>Odinstaluj LivePL</h1>
+      <p class="wstep" id="odinstaluj-wstep">LivePL zniknie z tego komputera razem ze skrótami w menu Start i na pulpicie.</p>
+      <label class="opcja"><input type="checkbox" id="opcja-dane"><span class="znacznik"></span>Usuń też moje dane LivePL (zapamiętane hasła, ustawienia, dodane strony)</label>
+      <p class="uwaga" id="odinstaluj-dziala" hidden>LivePL jest teraz uruchomiony. Zamknę go przed odinstalowaniem.</p>
+      <div class="dol">
+        <p class="gdzie">Certyfikaty LivePL w Windows i na YubiKey zostają bez zmian.</p>
+        <div class="przyciski">
+          <button type="button" class="przycisk tekstowy" id="odinstaluj-anuluj">Anuluj</button>
+          <button type="button" class="przycisk glowny" id="odinstaluj-tak">Odinstaluj</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- postęp -->
+    <div class="ekran" id="ekran-postep" hidden>
+      <h1 id="postep-tytul">Instaluję LivePL…</h1>
+      <p class="wstep" id="postep-opis">Przygotowuję…</p>
+      <div class="pasek-postepu" aria-hidden="true"><i id="postep-pasek"></i></div>
+      <p class="procent" id="postep-procent">0%</p>
+    </div>
+
+    <!-- gotowe -->
+    <div class="ekran srodek" id="ekran-gotowe" hidden>
+      <div class="gotowe-ik" id="gotowe-ik"></div>
+      <h1 id="gotowe-tytul">LivePL jest gotowy</h1>
+      <p class="wstep" id="gotowe-opis"></p>
+      <div class="przyciski">
+        <button type="button" class="przycisk tekstowy" id="gotowe-zamknij">Zamknij</button>
+        <button type="button" class="przycisk glowny" id="gotowe-uruchom">Uruchom LivePL</button>
+      </div>
+    </div>
+
+    <!-- błąd -->
+    <div class="ekran srodek" id="ekran-blad" hidden>
+      <div class="gotowe-ik zly" id="blad-ik"></div>
+      <h1>Coś poszło nie tak</h1>
+      <p class="wstep" id="blad-opis"></p>
+      <div class="przyciski">
+        <button type="button" class="przycisk tekstowy" id="blad-zamknij">Zamknij</button>
+        <button type="button" class="przycisk glowny" id="blad-ponow">Spróbuj jeszcze raz</button>
+      </div>
+    </div>
+  </section>
+
+  <script src="ikony.js"></script>
+  <script src="instalator.js"></script>
+</body>
+</html>

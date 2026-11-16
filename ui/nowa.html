@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:">
+  <title>Nowa karta</title>
+  <link rel="stylesheet" href="strony.css">
+  <link rel="stylesheet" href="nowa.css">
+</head>
+<body>
+  <main>
+    <header class="powitanie">
+      <p id="data"></p>
+      <h1 id="powitanie">Dzień dobry</h1>
+    </header>
+
+    <form id="szukaj" class="szukaj" autocomplete="off" role="search">
+      <span class="szukaj-ik" id="szukaj-ik"></span>
+      <input id="szukaj-pole" type="text" spellcheck="false" placeholder="Szukaj w Google albo wpisz adres strony" aria-label="Szukaj w Google albo wpisz adres strony" autofocus>
+      <kbd>Enter</kbd>
+    </form>
+
+    <section>
+      <h2>Na pasku</h2>
+      <div id="na-pasku" class="kafle"></div>
+    </section>
+
+    <section id="sekcja-wiecej" hidden>
+      <h2>Więcej programów</h2>
+      <div id="wiecej" class="male-kafle"></div>
+    </section>
+
+    <section id="sekcja-dodaj" class="dodaj" hidden>
+      <h2>Dodaj stronę na pasek</h2>
+      <p class="opis">Strona pojawi się po lewej, pod programami, i zostanie tam na stałe. Usuniesz ją prawym przyciskiem na jej ikonie.</p>
+      <form id="dodaj-forma" class="dodaj-forma" autocomplete="off">
+        <input id="dodaj-adres" type="text" spellcheck="false" placeholder="Adres, np. allegro.pl" aria-label="Adres strony" required>
+        <input id="dodaj-nazwa" type="text" maxlength="40" placeholder="Nazwa (niekoniecznie)" aria-label="Nazwa na pasku">
+        <button type="submit" class="przycisk glowny" id="dodaj-przycisk">Dodaj na pasek</button>
+      </form>
+      <p id="dodaj-wynik" class="wynik" hidden></p>
+    </section>
+
+    <footer class="skroty">
+      <span><kbd>Ctrl</kbd>+<kbd>T</kbd> nowa karta</span>
+      <span><kbd>Ctrl</kbd>+<kbd>K</kbd> pole adresu</span>
+      <span><kbd>Ctrl</kbd>+<kbd>1</kbd>…<kbd>8</kbd> programy z paska</span>
+      <span>Otwarta strona: przycisk <b>Dodaj</b> u góry</span>
+    </footer>
+  </main>
+  <script src="ikony.js"></script>
+  <script src="nowa.js"></script>
+</body>
+</html>

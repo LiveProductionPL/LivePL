@@ -1,0 +1,26 @@
+main {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 36px 32px 32px;
+}
+
+ul {
+  margin: 8px 0 24px;
+  padding-left: 18px;
+  line-height: 1.9;
+}
+
+a { color: var(--turkus); }
+
+.przyciski { display: flex; justify-content: flex-end; }
+
+/* treść licencji LivePL: przewijany blok, czytelny w trybie dziennym i nocnym */
+.licencja {
+  white-space: pre-wrap;
+  font: 12px/1.5 ui-monospace, Consolas, monospace;
+  max-height: 180px;
+  overflow: auto;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(127, 127, 127, 0.1);
+}

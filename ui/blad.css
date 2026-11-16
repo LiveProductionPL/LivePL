@@ -1,0 +1,31 @@
+main {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 18vh 32px 48px;
+}
+
+.znak {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: var(--karta);
+  border: 1px solid var(--ramka);
+  color: #d98a1c;
+  margin-bottom: 22px;
+}
+
+.gdzie {
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+#opis { margin-bottom: 22px; }
+
+.przyciski { display: flex; gap: 8px; margin-bottom: 26px; }
+
+.kod {
+  font-size: 12px;
+  opacity: 0.75;
+}

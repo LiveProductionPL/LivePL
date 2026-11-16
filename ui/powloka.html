@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: https: http:; style-src 'self'; script-src 'self'">
+  <title>LivePL</title>
+  <link rel="stylesheet" href="powloka.css">
+</head>
+<body>
+  <div id="uchwyt"></div>
+  <div id="gora">
+    <div id="wiadomosci" aria-live="polite"></div>
+    <form id="adres-forma" autocomplete="off">
+      <span class="ik-miejsce" id="adres-ikona"></span>
+      <input id="adres" type="text" spellcheck="false" placeholder="Adres albo szukaj" aria-label="Adres albo szukaj">
+      <kbd id="adres-skrot">Ctrl+K</kbd>
+    </form>
+    <button id="zoom" type="button" hidden title="Przywróć domyślny rozmiar (Ctrl+0)"></button>
+    <button id="przypnij" type="button" hidden title="Dodaj tę stronę na stałe do paska po lewej" aria-label="Dodaj stronę do paska"></button>
+    <button id="pobrane" type="button" title="Pobrane pliki (Ctrl+J)" aria-label="Pobrane pliki"></button>
+    <button id="menu" type="button" title="Menu" aria-label="Menu"></button>
+  </div>
+
+  <aside id="bok">
+    <div id="logo">
+      <picture>
+        <source srcset="../assets/wstega-ciemna.png" media="(prefers-color-scheme: dark)">
+        <img src="../assets/wstega-jasna.png" alt="LivePL" draggable="false">
+      </picture>
+    </div>
+    <nav id="programy" aria-label="Programy"></nav>
+    <div id="kreska" hidden></div>
+    <nav id="karty" aria-label="Otwarte karty"></nav>
+    <button id="nowa" type="button" title="Nowa karta (Ctrl+T)" aria-label="Nowa karta"></button>
+  </aside>
+
+  <div id="ramka-strony" aria-hidden="true"></div>
+
+  <footer id="dol">
+    <div id="ladowanie"></div>
+    <div class="nawigacja">
+      <button id="wstecz" type="button" title="Wstecz (Alt+←)" aria-label="Wstecz"></button>
+      <button id="odswiez" type="button" title="Odśwież (F5)" aria-label="Odśwież"></button>
+    </div>
+    <button id="ssl" type="button" hidden></button>
+    <div id="miejsce"><b id="miejsce-nazwa"></b><span id="miejsce-adres"></span></div>
+    <div id="odstep-dol"></div>
+
+    <div id="szukaj" hidden>
+      <span class="ik-miejsce" id="szukaj-ikona"></span>
+      <input id="szukaj-tekst" type="text" spellcheck="false" placeholder="Znajdź na stronie" aria-label="Znajdź na stronie">
+      <span id="szukaj-wynik"></span>
+      <button id="szukaj-wstecz" type="button" title="Poprzednie (Shift+Enter)" aria-label="Poprzednie"></button>
+      <button id="szukaj-dalej" type="button" title="Następne (Enter)" aria-label="Następne"></button>
+      <button id="szukaj-zamknij" type="button" title="Zamknij (Esc)" aria-label="Zamknij szukanie"></button>
+    </div>
+    <button id="motyw" type="button" aria-label="Tryb dzień i noc"></button>
+    <span id="zegar"></span>
+  </footer>
+
+  <script src="ikony.js"></script>
+  <script src="powloka.js"></script>
+</body>
+</html>

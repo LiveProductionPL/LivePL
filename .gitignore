@@ -1,0 +1,22 @@
+# zależności i wyniki budowania
+node_modules/
+wydanie/
+dist/
+*.exe
+*.pakiet
+*.zip
+*.log
+
+# klucze i sekrety nigdy nie trafiają do repozytorium
+*.pem
+*.key
+*.p12
+*.pfx
+*.cer
+*.crt
+.env
+.env.*
+
+# publiczne certyfikaty urzędu LivePL są częścią programu
+!assets/ca/*.crt
+!assets/ca/posrednie/*.crt

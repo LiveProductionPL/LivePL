@@ -1,0 +1,79 @@
+body {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+}
+
+header { padding: 20px 24px 6px; }
+header h1 { font-size: 18px; }
+header p { margin: 0; }
+
+section {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 24px 16px;
+}
+
+h2 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--slaby);
+  margin: 14px 0 8px;
+}
+
+.siatka {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.zrodlo {
+  border: 2px solid transparent;
+  border-radius: 10px;
+  padding: 6px;
+  background: var(--karta);
+  outline: 1px solid var(--ramka);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.zrodlo:hover { outline-color: var(--slaby); }
+.zrodlo.wybrane { border-color: var(--turkus); outline-color: transparent; }
+
+.zrodlo img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: contain;
+  background: #000;
+  border-radius: 6px;
+  display: block;
+}
+
+.zrodlo span {
+  display: block;
+  margin-top: 6px;
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pusto { color: var(--slaby); font-size: 13px; }
+
+footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 24px;
+  border-top: 1px solid var(--ramka);
+  background: var(--karta);
+}
+
+footer label { display: flex; align-items: center; gap: 8px; }
+footer label[hidden] { display: none; }
+.odstep { flex: 1; }
