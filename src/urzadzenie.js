@@ -42,7 +42,7 @@ const ostatniStan = () => {
   const s = wczytaj();
   return {
     stan: s.stan, kod: s.kod || '', tpm: !!s.tpm, nazwa: s.nazwa || '', waznyDo: s.waznyDo || 0, wyslano: s.wyslano || 0, blad: s.blad || '',
-    polaczenie: s.polaczenie || '', dysk: s.dysk || '', dpapi: s.dpapi, raport: s.raport || 0
+    polaczenie: s.polaczenie || '', dysk: s.dysk || '', dpapi: s.dpapi, raport: s.raport || 0, odzyskano: s.odzyskano || 0
   };
 };
 
@@ -148,11 +148,74 @@ async function zapytaj(sciezka, opcje = {}) {
   return { status: r.status, dane };
 }
 
+// ---------------------------------------------------------------- numer rejestracji przy certyfikacie
+// Numer rejestracji zapisujemy też w nazwie certyfikatu w Windows („LivePL - urzadzenie <numer>”).
+// Gdy plik urzadzenie.json zniknie (np. nowy profil LivePL), przeglądarka odnajduje swój certyfikat,
+// pyta urząd o ten numer i wraca do tej samej rejestracji zamiast zakładać nową z nowym kluczem.
+
+const NAZWA_CERT = 'LivePL - urzadzenie';
+
+async function oznaczCertyfikat(s) {
+  if (process.platform !== 'win32' || !s.odcisk || !s.id || s.oznaczony === s.id) return;
+  await powershell(
+    "$c = Get-Item ('Cert:\\CurrentUser\\My\\' + $env:LIVEPL_ODCISK) -ErrorAction Stop; $c.FriendlyName = $env:LIVEPL_NAZWA",
+    { LIVEPL_ODCISK: s.odcisk, LIVEPL_NAZWA: `${NAZWA_CERT} ${s.id}` });
+  s.oznaczony = s.id;
+  zapisz();
+}
+
+async function certyfikatyZNumerem() {
+  if (process.platform !== 'win32') return [];
+  const json = (await powershell(
+    "$l = @(Get-ChildItem Cert:\\CurrentUser\\My | Where-Object { $_.HasPrivateKey -and $_.NotAfter -gt (Get-Date) -and $_.FriendlyName -like ($env:LIVEPL_NAZWA + ' *') } | " +
+    'Sort-Object NotBefore -Descending | ForEach-Object { $tpm = $null; ' +
+    'try { $tpm = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($_).Key.Provider.Provider -eq "Microsoft Platform Crypto Provider" } catch {} ' +
+    '[pscustomobject]@{ nazwa = $_.FriendlyName; der = [Convert]::ToBase64String($_.RawData); tpm = $tpm } }); ' +
+    'ConvertTo-Json -InputObject $l -Compress',
+    { LIVEPL_NAZWA: NAZWA_CERT })).trim();
+  try {
+    const w = JSON.parse(json || '[]');
+    return Array.isArray(w) ? w : (w ? [w] : []);
+  } catch {
+    return [];
+  }
+}
+
+// zwraca true, gdy przywróciliśmy wcześniejszą rejestrację tego komputera
+async function odzyskaj() {
+  const s = wczytaj();
+  if (s.stan !== 'brak' || s.csr || s.id) return false;
+  for (const c of await certyfikatyZNumerem()) {
+    const id = (String(c.nazwa).match(/ ([a-f0-9]{32})$/) || [])[1];
+    if (!id) continue;
+    let x;
+    try { x = new crypto.X509Certificate(Buffer.from(c.der, 'base64')); } catch { continue; }
+    if (CA1 && !(x.checkIssued(CA1) && x.verify(CA1.publicKey))) continue;
+    const { status, dane } = await zapytaj('/urzadzenia/stan/' + id);
+    if (status !== 200 || dane.stan !== 'wydany' || !dane.certyfikat) continue;
+    // urząd musi znać dokładnie ten certyfikat, nie tylko ten numer
+    if (new crypto.X509Certificate(dane.certyfikat).fingerprint !== x.fingerprint) continue;
+    const spki = x.publicKey.export({ type: 'spki', format: 'der' });
+    stan = {
+      stan: 'gotowe', id, kod: kodZKlucza(spki), nazwa: nazwaKomputera(), tpm: c.tpm !== false,
+      odcisk: x.fingerprint.replace(/:/g, ''), waznyDo: new Date(x.validTo).getTime(),
+      oznaczony: id, odzyskano: Date.now(), blad: ''
+    };
+    zapisz();
+    return true;
+  }
+  return false;
+}
+
 let trwa = false;
 
 // pierwszy krok: klucz, wniosek i wysłanie (albo ponowne wysłanie tego samego wniosku)
 async function zarejestruj() {
   if (trwa) throw new Error('Rejestracja już trwa');
+  // ten komputer był już zarejestrowany: wracamy do tamtej rejestracji, bez nowego wpisu w urzędzie
+  try {
+    if (await odzyskaj()) return ostatniStan();
+  } catch { /* nie udało się sprawdzić: zwykła rejestracja */ }
   trwa = true;
   try {
     const s = wczytaj();
@@ -242,6 +305,7 @@ async function sprawdz() {
   }
   Object.assign(s, { stan: 'gotowe', odcisk, waznyDo: new Date(x.validTo).getTime(), blad: '' });
   zapisz();
+  try { await oznaczCertyfikat(s); } catch { /* spróbujemy przy następnym raporcie */ }
   return true;
 }
 
@@ -289,6 +353,8 @@ async function raport(teraz = false) {
   const uniewazniony = dane.stan === 'uniewazniony';
   if (uniewazniony) s.stan = 'uniewazniony';
   zapisz();
+  // rejestracje sprzed 0.1.10 dostają numer przy certyfikacie przy pierwszym raporcie
+  if (!uniewazniony) { try { await oznaczCertyfikat(s); } catch { /* następnym razem */ } }
   return uniewazniony;
 }
 
@@ -298,4 +364,4 @@ function zapiszBlad(e) {
   zapisz();
 }
 
-module.exports = { ostatniStan, zarejestruj, sprawdz, raport, zapiszBlad, kodZKlucza, spkiZWniosku };
+module.exports = { ostatniStan, zarejestruj, odzyskaj, sprawdz, raport, zapiszBlad, kodZKlucza, spkiZWniosku };

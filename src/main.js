@@ -161,12 +161,49 @@ function zbudujProgramy() {
     wlasny: true,
     host: hostZ(s.adres)
   }));
-  programy = [...programyPodstawowe, ...wlasne];
+  programy = ulozWedlugKolejnosci([...programyPodstawowe, ...wlasne]);
   // otwarte karty przypiętych stron wskazują na aktualne wpisy
   for (const p of wlasne) {
     const k = karty.get(p.id);
     if (k) k.program = p;
   }
+}
+
+// kolejność ikon na pasku ustawiona przeciąganiem (ustawienia.kolejnoscProgramow);
+// programy spoza zapisanej listy (np. nowe albo świeżo przypięte) idą na koniec w zwykłej kolejności
+function ulozWedlugKolejnosci(lista) {
+  const zapisana = Array.isArray(ustawienia.kolejnoscProgramow) ? ustawienia.kolejnoscProgramow : [];
+  const miejsce = new Map(zapisana.map((id, i) => [id, i]));
+  return lista
+    .map((p, i) => ({ p, klucz: miejsce.has(p.id) ? miejsce.get(p.id) : zapisana.length + i }))
+    .sort((a, b) => a.klucz - b.klucz)
+    .map(x => x.p);
+}
+
+// pasek przysyła nową kolejność widocznych ikon; ukryte (np. Urząd bez YubiKey) zostają na swoich miejscach
+function ustawKolejnoscProgramow(ids) {
+  const widoczne = programy.filter(widoczny).map(p => p.id);
+  if (!Array.isArray(ids) || ids.length !== widoczne.length || new Set(ids).size !== ids.length ||
+      !ids.every(id => typeof id === 'string' && widoczne.includes(id))) {
+    wyslijStan();
+    return;
+  }
+  let j = 0;
+  ustawienia.kolejnoscProgramow = programy.map(p => (widoczny(p) ? ids[j++] : p.id));
+  zapiszUstawienia();
+  zbudujProgramy();
+  wyslijStan();
+}
+
+// karta przeciągnięta w inne miejsce listy kart
+function przesunKarte(id, gdzie) {
+  const i = dodatkowe.indexOf(id);
+  const n = Math.max(0, Math.min(dodatkowe.length - 1, Math.round(Number(gdzie) || 0)));
+  if (i >= 0 && i !== n) {
+    dodatkowe.splice(i, 1);
+    dodatkowe.splice(n, 0, id);
+  }
+  wyslijStan();
 }
 
 function zapiszWlasne(lista) {
@@ -1249,6 +1286,7 @@ function danePanelu() {
     certyfikatyWindows: panelStan.rodzaj === 'menu' ? certWin.ostatnieListy() : null,
     urzadzenie: urzadzenie.ostatniStan(),
     urzadzenieTrwa: trwaRejestracja,
+    zaufanieTrwa: trwaZaufanie,
     haslo: panelStan.haslo || null,
     haslaWybor: panelStan.haslaWybor || null,
     hasla: panelStan.rodzaj === 'menu' || panelStan.rodzaj === 'hasla'
@@ -1442,8 +1480,11 @@ function akcjaPanelu(nazwa, arg) {
     case 'haslo-usun': case 'haslo-nigdy-usun': case 'hasla-wlacz': case 'hasla-odswiez':
       akcjaHasla(nazwa, arg);
       break;
-    case 'urzadzenie-zarejestruj': zarejestrujUrzadzenie(); break;
-    case 'urzadzenie-sprawdz': sprawdzUrzadzenie(true); break;
+    case 'urzadzenie-zarejestruj': zarejestrujUrzadzenie({ zaufanie: !!(arg && arg.zaufanie) }); break;
+    case 'urzadzenie-sprawdz':
+      sprawdzUrzadzenie(true);
+      zaufanie.stan().catch(() => {}).then(() => { if (panelStan) wyslijDoPanelu(); });
+      break;
     case 'urzadzenie-pozniej':
       ustawienia.urzadzeniePozniej = Date.now();
       zapiszUstawienia();
@@ -1820,6 +1861,8 @@ ipcMain.on('powloka', (e, akcja, ...a) => {
     case 'menu': pokazPanel('menu', { prawo: a[0], gora: a[1] + 6 }); break;
     case 'menu-karty': pokazPanel('karta', { lewo: a[1], gora: a[2] }, { kartaId: a[0] }); break;
     case 'menu-programu': pokazPanel('program', { lewo: a[1], gora: a[2] }, { programId: a[0] }); break;
+    case 'przesun-karte': przesunKarte(a[0], a[1]); break;
+    case 'kolejnosc-programow': ustawKolejnoscProgramow(a[0]); break;
     case 'pobrane': pokazPanel('pobrane', { prawo: a[0], gora: a[1] + 6 }); break;
     case 'ssl': pokazPanel('ssl', { lewo: a[0], dol: a[1] }); break;
     case 'ai': pokazPanel('ai', { prawo: a[0], dol: a[1] }); break;
@@ -1960,14 +2003,22 @@ function akcjaHasla(nazwa, arg) {
 // ---------------------------------------------------------------- rejestracja przeglądarki (urządzenie)
 
 let trwaRejestracja = false;
-function zarejestrujUrzadzenie() {
+// opcje.zaufanie: najpierw certyfikat urzędu w Windows (Windows sam pyta o zgodę), potem rejestracja;
+// odmowa w oknie Windows nie przerywa rejestracji
+function zarejestrujUrzadzenie(opcje = {}) {
   if (trwaRejestracja) return;
   trwaRejestracja = true;
   if (panelStan) wyslijDoPanelu();
-  urzadzenie.zarejestruj()
+  const przedtem = opcje && opcje.zaufanie
+    ? zaufanie.stan().then((s) => (s && !s.zaufany ? zainstalujZaufanie(false) : null)).catch(() => {})
+    : Promise.resolve();
+  przedtem
+    .then(() => urzadzenie.zarejestruj())
     .then((s) => {
       dodajWiadomosc(s.stan === 'gotowe'
-        ? 'Przeglądarka jest zarejestrowana w urzędzie LivePL'
+        ? (s.odzyskano && Date.now() - s.odzyskano < 60 * 1000
+          ? 'Przywrócono wcześniejszą rejestrację tej przeglądarki w urzędzie LivePL'
+          : 'Przeglądarka jest zarejestrowana w urzędzie LivePL')
         : `Wysłano wniosek o rejestrację. Kod tej przeglądarki: ${s.kod}`, {}, 60 * 1000);
       if (s.stan === 'gotowe') urzadzenie.raport(true).catch(() => {}).finally(() => { if (panelStan) wyslijDoPanelu(); });
     })
@@ -2020,12 +2071,13 @@ app.on('select-client-certificate', (e, wc, url, lista, wybierz) => {
 // instalacja certyfikatu urzędu LivePL w Windows (zgoda użytkownika albo administratora)
 let trwaZaufanie = false;
 function zainstalujZaufanie(komputer) {
-  if (trwaZaufanie) return;
+  if (trwaZaufanie) return Promise.resolve();
   trwaZaufanie = true;
+  if (panelStan) wyslijDoPanelu();
   const podpowiedz = dodajWiadomosc(komputer
     ? 'Windows zapyta o zgodę administratora na instalację certyfikatu urzędu LivePL'
     : 'Windows zapyta, czy zainstalować certyfikat urzędu LivePL. Sprawdź odcisk (zaczyna się od E2:7C:75) i kliknij Tak', {}, 3 * 60 * 1000);
-  (komputer ? zaufanie.zainstalujDlaKomputera() : zaufanie.zainstalujDlaMnie())
+  return (komputer ? zaufanie.zainstalujDlaKomputera() : zaufanie.zainstalujDlaMnie())
     .then((s) => dodajWiadomosc(s && s.zaufany
       ? 'Zainstalowano certyfikat urzędu LivePL. Windows rozpoznaje teraz nasze certyfikaty'
       : 'Windows nie potwierdził instalacji certyfikatu urzędu LivePL'))
@@ -2193,30 +2245,37 @@ app.whenReady().then(() => {
   setTimeout(sprawdzAuto, 6000);
   setInterval(sprawdzAuto, 4 * 60 * 60 * 1000);
 
-  // po starcie: jeśli Windows nie ma jeszcze naszego roota, okienko „Zainstaluj certyfikat urzędu”
-  // (po „Nie teraz” wraca dopiero po dobie; gdy root już jest, nic się nie pokazuje)
-  // potem rejestracja przeglądarki: okienko „Zarejestruj tę przeglądarkę”, gdy urząd jest już zaufany
+  // po starcie najwyżej jedno okienko (po „Nie teraz” każde wraca dopiero po dobie):
+  // 1. „Zarejestruj tę przeglądarkę” — jednym przyciskiem; przy okazji instaluje certyfikat urzędu,
+  //    jeśli Windows go jeszcze nie ma. Rejestracja nie czeka już na ten certyfikat.
+  //    Komputer zarejestrowany wcześniej (certyfikat z numerem w Windows) wraca do swojej rejestracji sam.
+  // 2. gdy przeglądarka jest zarejestrowana, a Windows nie ufa urzędowi: „Zainstaluj certyfikat urzędu”
   const DOBA = 24 * 60 * 60 * 1000;
-  setTimeout(() => {
-    zaufanie.stan().then((s) => {
-      if (!s) return;
-      if (!s.zaufany) {
-        if (Date.now() - (ustawienia.zaufaniePozniej || 0) < DOBA) return;
-        if (panelStan || !win || win.isDestroyed() || !win.isVisible()) {
-          dodajWiadomosc('Windows nie zna jeszcze urzędu LivePL. Kliknij, żeby zainstalować jego certyfikat', { akcja: 'zaufanie' });
+  const okienkoPoStarcie = (rodzaj, tekst) => {
+    if (panelStan || !win || win.isDestroyed() || !win.isVisible()) {
+      dodajWiadomosc(tekst, { akcja: rodzaj });
+      return;
+    }
+    pokazPanel(rodzaj, { srodek: true });
+  };
+  setTimeout(async () => {
+    try {
+      const s = await zaufanie.stan().catch(() => null);
+      if (urzadzenie.ostatniStan().stan === 'brak') {
+        if (await urzadzenie.odzyskaj().catch(() => false)) {
+          dodajWiadomosc('Przywrócono wcześniejszą rejestrację tej przeglądarki w urzędzie LivePL', {}, 60 * 1000);
+          urzadzenie.raport(true).catch(() => {});
           return;
         }
-        pokazPanel('zaufanie', { srodek: true });
+        if (Date.now() - (ustawienia.urzadzeniePozniej || 0) >= DOBA) {
+          okienkoPoStarcie('urzadzenie', 'Zarejestruj tę przeglądarkę w urzędzie LivePL. Kliknij, żeby zacząć');
+        }
         return;
       }
-      const u = urzadzenie.ostatniStan();
-      if (u.stan !== 'brak' || Date.now() - (ustawienia.urzadzeniePozniej || 0) < DOBA) return;
-      if (panelStan || !win || win.isDestroyed() || !win.isVisible()) {
-        dodajWiadomosc('Zarejestruj tę przeglądarkę w urzędzie LivePL. Kliknij, żeby zacząć', { akcja: 'urzadzenie' });
-        return;
+      if (s && !s.zaufany && Date.now() - (ustawienia.zaufaniePozniej || 0) >= DOBA) {
+        okienkoPoStarcie('zaufanie', 'Windows nie zna jeszcze urzędu LivePL. Kliknij, żeby zainstalować jego certyfikat');
       }
-      pokazPanel('urzadzenie', { srodek: true });
-    }).catch(() => {});
+    } catch { /* bez okienek przy tym starcie */ }
   }, 2500);
 
   // wniosek wysłany: sprawdzamy, czy urząd go zatwierdził (po starcie i co 15 minut)

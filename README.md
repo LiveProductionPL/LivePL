@@ -24,6 +24,9 @@ Układ nazywa się **Reżyserka**: strona jest jak monitor w ramce, programy są
 - **Pasek wiadomości na dole.** Pokazuje powiadomienia z naszych programów (np. nowa wiadomość w poczcie), wzrost liczby nieprzeczytanych i pobrane pliki, każde z godziną. Kliknięcie przenosi do programu albo otwiera plik.
 - **Adres albo szukaj (Ctrl+K)** w prawym dolnym rogu. Pole rozwija się na cały pasek, gdy coś wpisujesz.
 - **Inne strony otwierają się jako karty** pod kanałami. Linki z poczty trafiają do nowej karty, a poczta zostaje na miejscu.
+- **Dużo ikon na pasku.** Gdy kanały albo karty się nie mieszczą, przewijasz je kółkiem myszy. Nad listą i pod nią widać strzałkę z liczbą schowanych ikon, a kliknięcie strzałki przewija listę. Aktywna karta jest zawsze widoczna.
+- **Przestawianie ikon.** Kanał albo kartę chwytasz myszą i upuszczasz wyżej lub niżej. Kolejność kanałów LivePL zapamiętuje (Ctrl+1…8 idzie według niej), a kolejność kart obowiązuje do zamknięcia programu.
+- **Rejestracja przeglądarki w urzędzie LivePL** to jedno okienko i jeden przycisk „Zarejestruj”. Przy okazji LivePL może zainstalować certyfikat urzędu w Windows (Windows pyta o zgodę). Rejestracja już na to nie czeka. Numer rejestracji jest zapisany także przy certyfikacie urządzenia w Windows, więc gdy dane LivePL znikną, przeglądarka wraca do swojej rejestracji, a w urzędzie nie pojawia się drugi wpis. Ręcznie: menu ⋮ → Ustawienia → Urządzenie LivePL.
 - **Pobrane pliki zapisują się same** w zwykłym folderze `Pobrane` (Ctrl+J go otwiera).
 - **Po zamknięciu okna program działa dalej** przy zegarze, więc poczta sprawdza nowe wiadomości. Program zamykasz prawym przyciskiem na tej ikonie. Działanie w tle można wyłączyć w menu ⋮ → Ustawienia.
 - **Dzień i noc** przełączają się same razem z trybem Windows: kolory, logo w rogu, ikona okna, ikona przy zegarze i ikona skrótu na pulpicie.

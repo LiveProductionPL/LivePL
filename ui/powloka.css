@@ -123,19 +123,29 @@ button {
   display: block;
 }
 
+/* programy i karty przewijają się kółkiem myszy, gdy się nie mieszczą; programy ustępują miejsca
+   kartom dopiero wtedy, gdy kart jest naprawdę dużo (mniejsze flex-shrink) */
 #programy {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
   width: 100%;
   align-items: center;
-  flex: none;
+  flex: 0 0.2 auto;
+  min-height: 48px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
 }
+
+#programy::-webkit-scrollbar { display: none; }
 
 .program {
   position: relative;
+  flex: none;
   width: 56px;
-  height: 56px;
+  height: 46px;
   border-radius: 8px;
   display: flex;
   flex-direction: column;
@@ -155,7 +165,7 @@ button {
 
 .licznik {
   position: absolute;
-  top: 5px;
+  top: 2px;
   left: 33px;
   min-width: 16px;
   height: 15px;
@@ -171,7 +181,7 @@ button {
 
 .program .kropka {
   position: absolute;
-  top: 8px;
+  top: 5px;
   left: 38px;
   width: 7px;
   height: 7px;
@@ -187,11 +197,13 @@ button {
   width: 32px;
   height: 1px;
   background: var(--kreska);
-  margin: 10px 0 8px;
+  margin: 8px 0 6px;
   flex: none;
 }
 
 #karty {
+  position: relative;
+  flex: 0 1 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -205,6 +217,39 @@ button {
 }
 
 #karty::-webkit-scrollbar { display: none; }
+
+/* lista ucięta u góry albo u dołu: ostatnia widoczna ikona łagodnie znika zamiast być ucięta nożem */
+#programy.dalej-gora, #karty.dalej-gora { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22px); }
+#programy.dalej-dol, #karty.dalej-dol { -webkit-mask-image: linear-gradient(to top, transparent 0, #000 22px); }
+#programy.dalej-gora.dalej-dol, #karty.dalej-gora.dalej-dol {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+}
+
+/* „jest więcej”: strzałka z liczbą ukrytych ikon; kliknięcie przewija, przy przeciąganiu wystarczy najechać */
+.wiecej {
+  flex: none;
+  width: 44px;
+  height: 20px;
+  margin: 1px 0;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--kanal);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.wiecej[hidden] { display: none; }
+.wiecej:hover { background: var(--hover); color: var(--tekst); }
+.wiecej .ik { width: 13px; height: 13px; stroke-width: 2.4; }
+
+/* przeciąganie ikon i kart */
+.program.przeciagana, .karta.przeciagana { opacity: 0.35; }
+#programy.przeciaganie .program:hover, #karty.przeciaganie .karta:hover { background: none; }
+#karty.przeciaganie .karta .x { display: none; }
 
 .karta {
   position: relative;

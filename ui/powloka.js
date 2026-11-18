@@ -64,6 +64,8 @@ function rysujProgramy() {
       el = document.createElement('button');
       el.type = 'button';
       el.className = 'program';
+      el.dataset.id = p.id;
+      el.draggable = true;
       el.addEventListener('click', () => api.wyslij('program', p.id));
       el.addEventListener('contextmenu', (e) => {
         e.preventDefault();
@@ -71,7 +73,7 @@ function rysujProgramy() {
       });
       elementyProgramow.set(p.id, el);
     }
-    if (nav.children[idx] !== el) nav.insertBefore(el, nav.children[idx] || null);
+    if (!przeciagany && nav.children[idx] !== el) nav.insertBefore(el, nav.children[idx] || null);
     ustawIkoneProgramu(el, p);
     el.classList.toggle('wlasny', !!p.wlasny);
     // bez podpisów pod ikonami: nazwa jest w podpowiedzi i dla czytników ekranu
@@ -103,6 +105,8 @@ function rysujProgramy() {
       kropka.remove();
     }
   });
+  pokazAktywna(nav, '.program.aktywny');
+  odswiezWskazniki();
 }
 
 // ---------------------------------------------------------------- dodatkowe karty
@@ -124,6 +128,8 @@ function rysujKarty() {
       el = document.createElement('button');
       el.type = 'button';
       el.className = 'karta';
+      el.dataset.id = k.id;
+      el.draggable = true;
       el.innerHTML = '<span class="ikonka"></span><span class="x" title="Zamknij kartę (Ctrl+W)">' + ikona('zamknij') + '</span>';
       el.addEventListener('click', (e) => {
         if (e.target.closest('.x')) api.wyslij('zamknij', k.id);
@@ -137,7 +143,7 @@ function rysujKarty() {
       });
       elementyKart.set(k.id, el);
     }
-    if (nav.children[i] !== el) nav.insertBefore(el, nav.children[i] || null);
+    if (!przeciagany && nav.children[i] !== el) nav.insertBefore(el, nav.children[i] || null);
     el.title = k.odAI ? `${k.tytul} (otwarta przez AI)` : k.tytul;
     el.classList.toggle('od-ai', !!k.odAI);
     el.classList.toggle('aktywna', !!S.aktywna && S.aktywna.id === k.id);
@@ -159,6 +165,114 @@ function rysujKarty() {
     }
   });
   $('#kreska').hidden = S.karty.length === 0;
+  pokazAktywna(nav, '.karta.aktywna');
+  odswiezWskazniki();
+}
+
+// ---------------------------------------------------------------- dużo ikon: przewijanie i strzałki
+// Gdy programy albo karty się nie mieszczą, lista przewija się kółkiem myszy, a nad i pod nią
+// pojawia się strzałka z liczbą ukrytych ikon. Aktywna karta zawsze jest widoczna.
+
+const LISTY = [
+  { nav: $('#programy'), gora: $('#programy-gora'), dol: $('#programy-dol'), co: 'programów' },
+  { nav: $('#karty'), gora: $('#karty-gora'), dol: $('#karty-dol'), co: 'kart' }
+];
+
+const ostatnioAktywna = new WeakMap();
+function pokazAktywna(nav, selektor) {
+  const el = nav.querySelector(selektor);
+  if (!el || ostatnioAktywna.get(nav) === el) return;
+  ostatnioAktywna.set(nav, el);
+  el.scrollIntoView({ block: 'nearest' });
+}
+
+function ukryteIkony(nav) {
+  const gora = nav.scrollTop;
+  const dol = gora + nav.clientHeight;
+  let nad = 0;
+  let pod = 0;
+  for (const el of nav.children) {
+    // ikona „schowana”, gdy widać mniej niż jej połowę
+    const srodek = el.offsetTop + el.offsetHeight / 2;
+    if (srodek < gora) nad++;
+    else if (srodek > dol) pod++;
+  }
+  return { nad, pod };
+}
+
+function odswiezWskazniki() {
+  for (const l of LISTY) {
+    const { nad, pod } = ukryteIkony(l.nav);
+    const ustaw = (b, ile, kierunek) => {
+      b.hidden = ile === 0;
+      if (!ile) return;
+      const tekst = String(ile);
+      if (b.dataset.tekst !== kierunek + tekst) {
+        b.dataset.tekst = kierunek + tekst;
+        b.innerHTML = ikona(kierunek) + '<span>' + tekst + '</span>';
+      }
+      b.title = `${kierunek === 'gora' ? 'Wyżej' : 'Niżej'}: jeszcze ${ile} ${l.co}. Kliknij albo przewiń kółkiem myszy`;
+    };
+    ustaw(l.gora, nad, 'gora');
+    ustaw(l.dol, pod, 'dol');
+    l.nav.classList.toggle('dalej-gora', l.nav.scrollTop > 1);
+    l.nav.classList.toggle('dalej-dol', l.nav.scrollTop + l.nav.clientHeight < l.nav.scrollHeight - 1);
+  }
+}
+
+for (const l of LISTY) {
+  const przewin = (kierunek) => l.nav.scrollBy({ top: kierunek * Math.max(40, l.nav.clientHeight - 48), behavior: 'smooth' });
+  l.gora.addEventListener('click', () => przewin(-1));
+  l.dol.addEventListener('click', () => przewin(1));
+  // przy przeciąganiu: najechanie na strzałkę przewija listę
+  l.gora.addEventListener('dragover', (e) => { e.preventDefault(); l.nav.scrollBy({ top: -14 }); });
+  l.dol.addEventListener('dragover', (e) => { e.preventDefault(); l.nav.scrollBy({ top: 14 }); });
+  l.nav.addEventListener('scroll', odswiezWskazniki, { passive: true });
+  new ResizeObserver(odswiezWskazniki).observe(l.nav);
+}
+
+// ---------------------------------------------------------------- przestawianie ikon przeciąganiem
+// Ikonę programu albo kartę można chwycić myszą i upuścić wyżej lub niżej. Programy zapamiętują
+// kolejność w ustawieniach, karty tylko do zamknięcia LivePL. Przeciąganie działa w obrębie jednej listy.
+
+let przeciagany = null;
+let kolejnoscPrzed = '';
+
+const idsListy = (nav) => [...nav.children].map((el) => el.dataset.id).filter(Boolean);
+
+for (const l of LISTY) {
+  const nav = l.nav;
+  nav.addEventListener('dragstart', (e) => {
+    const el = e.target.closest && e.target.closest('.program, .karta');
+    if (!el || el.parentNode !== nav) return;
+    przeciagany = el;
+    kolejnoscPrzed = idsListy(nav).join(',');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('application/x-livepl-ikona', '1');
+    setTimeout(() => { if (przeciagany === el) { el.classList.add('przeciagana'); nav.classList.add('przeciaganie'); } }, 0);
+  });
+  nav.addEventListener('dragover', (e) => {
+    if (!przeciagany || przeciagany.parentNode !== nav) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    // wstawiamy przed pierwszą ikonę, której środek jest pod kursorem
+    const przed = [...nav.children].find((el) => el !== przeciagany && e.clientY < el.getBoundingClientRect().top + el.offsetHeight / 2) || null;
+    if (przed !== przeciagany.nextSibling) nav.insertBefore(przeciagany, przed);
+  });
+  nav.addEventListener('drop', (e) => { if (przeciagany) e.preventDefault(); });
+  nav.addEventListener('dragend', () => {
+    const el = przeciagany;
+    przeciagany = null;
+    if (!el) return;
+    el.classList.remove('przeciagana');
+    nav.classList.remove('przeciaganie');
+    const ids = idsListy(nav);
+    if (ids.join(',') !== kolejnoscPrzed) {
+      if (nav.id === 'programy') api.wyslij('kolejnosc-programow', ids);
+      else api.wyslij('przesun-karte', el.dataset.id, ids.indexOf(el.dataset.id));
+    }
+    odswiezWskazniki();
+  });
 }
 
 // ---------------------------------------------------------------- pasek na dole

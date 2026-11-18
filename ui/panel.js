@@ -370,6 +370,7 @@ function ekranCertOsobisty() {
 }
 
 // rejestracja tej przeglądarki w urzędzie LivePL (klucz w TPM, certyfikat urządzenia)
+let zaufanieZRejestracja = true;
 function ekranUrzadzenie() {
   const f = document.createDocumentFragment();
   const s = D.urzadzenie || { stan: 'brak' };
@@ -389,17 +390,37 @@ function ekranUrzadzenie() {
   const klucz = s.tpm ? 'w module TPM (nie da się go skopiować)' : 'w magazynie Windows (bez eksportu)';
 
   if (D.urzadzenieTrwa) {
-    naglowekStanu('ok', 'klucz', 'Rejestruję tę przeglądarkę…');
-    f.appendChild(el('div', 'opis', 'Moduł TPM tworzy klucz, a urząd LivePL wystawia certyfikat. To trwa kilka sekund.'));
+    if (D.zaufanieTrwa) {
+      naglowekStanu('uwaga', 'znacznik', 'Windows pyta o certyfikat urzędu');
+      f.appendChild(el('div', 'opis', 'W okienku Windows sprawdź odcisk (zaczyna się od E2:7C:75) i kliknij Tak. Zaraz potem LivePL zarejestruje przeglądarkę.'));
+    } else {
+      naglowekStanu('ok', 'klucz', 'Rejestruję tę przeglądarkę…');
+      f.appendChild(el('div', 'opis', 'Moduł TPM tworzy klucz, a urząd LivePL wystawia certyfikat. To trwa kilka sekund.'));
+    }
     return f;
   }
   if (s.stan === 'brak' || s.stan === 'odrzucony' || s.stan === 'uniewazniony') {
     if (s.stan === 'brak') naglowekStanu('uwaga', 'klucz', 'Zarejestruj tę przeglądarkę');
     else naglowekStanu('zly', 'uwaga', s.stan === 'odrzucony' ? 'Urząd odrzucił wniosek' : 'Rejestracja została unieważniona');
-    f.appendChild(el('div', 'opis', 'LivePL utworzy klucz w module TPM tego komputera (nie da się go skopiować) i zarejestruje przeglądarkę w urzędzie LivePL. Certyfikat urządzenia przyjdzie od razu.'));
+    f.appendChild(el('div', 'opis', 'Jedno kliknięcie: LivePL utworzy klucz w module TPM tego komputera (nie da się go skopiować) i zarejestruje przeglądarkę w urzędzie LivePL. Urząd dostanie nazwę komputera, użytkownika Windows i wersję systemu.'));
+    // certyfikat urzędu w Windows przy okazji (zaznaczone, gdy Windows go jeszcze nie ma)
+    const bezZaufania = !(D.zaufanie && D.zaufanie.zaufany);
+    if (bezZaufania) {
+      const b = el('button', 'poz poz-wysoka');
+      b.type = 'button';
+      b.setAttribute('role', 'checkbox');
+      b.setAttribute('aria-checked', String(zaufanieZRejestracja));
+      const pole = el('span', 'pole' + (zaufanieZRejestracja ? ' wl' : ''));
+      pole.appendChild(ikonaEl('znacznik'));
+      const t = el('span', 'tekst');
+      t.append(el('span', '', 'Zainstaluj też certyfikat urzędu w Windows'), el('span', 'podpis-pozycji', 'Wtedy Windows, Edge i Outlook też rozpoznają nasze certyfikaty. Windows zapyta o zgodę.'));
+      b.append(pole, t);
+      b.addEventListener('click', () => { zaufanieZRejestracja = !zaufanieZRejestracja; rysuj(); });
+      f.appendChild(b);
+    }
     const p = el('div', 'przyciski');
     const tak = el('button', 'przycisk czerwony', s.stan === 'brak' ? 'Zarejestruj' : 'Wyślij nowy wniosek'); tak.type = 'button';
-    tak.addEventListener('click', () => P.akcja('urzadzenie-zarejestruj'));
+    tak.addEventListener('click', () => P.akcja('urzadzenie-zarejestruj', { zaufanie: bezZaufania && zaufanieZRejestracja }));
     p.appendChild(tak);
     if (samodzielny) {
       const nie = el('button', 'przycisk tekstowy', 'Nie teraz'); nie.type = 'button';
