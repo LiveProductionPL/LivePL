@@ -1,31 +1,202 @@
-main {
-  max-width: 520px;
-  margin: 0 auto;
-  padding: 18vh 32px 48px;
+/* Strona „nie udało się wczytać”: przerwa w nadawaniu, telewizorek z miną zależną od błędu.
+   Kolory ze strony.css (dzień i noc). */
+
+:root {
+  --marka: #b0261f;
+  --ekran: #1f2a36;
+  --ekran-tekst: #f4f6f8;
 }
 
-.znak {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+@media (prefers-color-scheme: dark) {
+  :root {
+    --marka: #c42b23;
+    --ekran: #0b1016;
+  }
+}
+
+html, body { height: 100%; }
+
+body {
   display: grid;
   place-items: center;
-  background: var(--karta);
-  border: 1px solid var(--ramka);
-  color: #d98a1c;
-  margin-bottom: 22px;
+  /* delikatna poświata za telewizorkiem */
+  background:
+    radial-gradient(ellipse 60% 45% at 50% 30%, color-mix(in srgb, var(--turkus) 9%, transparent), transparent 70%),
+    var(--tlo);
 }
+
+main {
+  width: 100%;
+  max-width: 540px;
+  padding: 40px 28px 48px;
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------- telewizorek */
+
+.telewizor {
+  width: 184px;
+  margin: 0 auto 22px;
+}
+
+.telewizor svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+.tv-obudowa { fill: var(--karta); stroke: var(--tekst); stroke-width: 3; }
+.tv-ekran { fill: var(--ekran); }
+.tv-pasy rect { opacity: 0.32; }
+.tv-twarz { fill: none; stroke: var(--ekran-tekst); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+.tv-twarz .pelne { fill: var(--ekran-tekst); stroke: none; }
+.tv-antena { fill: none; stroke: var(--tekst); stroke-width: 3; stroke-linecap: round; }
+.tv-antena circle { fill: var(--tekst); stroke: none; }
+.tv-nogi { stroke: var(--tekst); stroke-width: 3; stroke-linecap: round; }
+.tv-pokretlo { fill: var(--tekst); opacity: 0.25; }
+.tv-fale { fill: none; stroke: var(--marka); stroke-width: 3; stroke-linecap: round; }
+.tv-dodatek { fill: none; stroke: var(--slaby); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.tv-dodatek text { fill: var(--slaby); stroke: none; font: 700 15px "Segoe UI", system-ui, sans-serif; }
+.tv-tarcza { fill: color-mix(in srgb, var(--marka) 14%, var(--karta)); stroke: var(--marka); stroke-width: 2.6; stroke-linejoin: round; }
+.tv-tarcza-znak { fill: none; stroke: var(--marka); stroke-width: 2.6; stroke-linecap: round; }
+
+/* fale nadawania pulsują, a brak sygnału je przygasza */
+.tv-fale path { animation: fala 2.4s ease-in-out infinite; }
+.tv-fale path:nth-child(2) { animation-delay: 0.3s; }
+.brak-sygnalu .tv-fale { stroke: var(--slaby); opacity: 0.45; }
+.brak-sygnalu .tv-fale path { animation: none; }
+.tv-zzz text { animation: zzz 3s ease-in-out infinite; }
+.tv-zzz text:nth-child(2) { animation-delay: 0.6s; }
+
+@keyframes fala { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes zzz { 0%, 100% { opacity: 0.25; transform: translateY(2px); } 50% { opacity: 1; transform: translateY(-2px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-fale path, .tv-zzz text { animation: none; }
+}
+
+/* ---------------------------------------------------------------- tekst */
 
 .gdzie {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 12px 4px 8px;
+  margin: 0 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ramka);
+  background: var(--karta);
+  color: var(--slaby);
   font-size: 13px;
-  margin-bottom: 4px;
 }
 
-#opis { margin-bottom: 22px; }
+.gdzie .ik { width: 16px; height: 16px; }
+.gdzie span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.przyciski { display: flex; gap: 8px; margin-bottom: 26px; }
+h1 {
+  font-size: 26px;
+  line-height: 1.25;
+  margin: 0 0 10px;
+}
 
-.kod {
+.opis {
+  font-size: 15px;
+  line-height: 1.55;
+  margin: 0 auto 24px;
+  max-width: 460px;
+}
+
+.opis b { color: var(--tekst); font-weight: 600; }
+
+/* ---------------------------------------------------------------- przyciski i odliczanie */
+
+.przyciski { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.przyciski .przycisk { height: 40px; padding: 0 20px; border-radius: 10px; }
+.przycisk.glowny { background: var(--marka); border-color: var(--marka); color: #fff; }
+
+.odliczanie { max-width: 240px; margin: 0 auto 6px; }
+.odliczanie p { font-size: 12.5px; margin: 6px 0 0; }
+
+.pasek-postepu {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--ramka);
+  overflow: hidden;
+}
+
+.pasek-postepu span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 4px;
+  background: var(--turkus);
+}
+
+/* ---------------------------------------------------------------- rady i szczegóły */
+
+.rady {
+  margin: 26px auto 0;
+  padding: 16px 20px;
+  border-radius: 14px;
+  border: 1px solid var(--ramka);
+  background: var(--karta);
+  text-align: left;
+}
+
+.rady h2 {
   font-size: 12px;
-  opacity: 0.75;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--slaby);
+  margin: 0 0 8px;
 }
+
+.rady ul { margin: 0; padding: 0; list-style: none; }
+
+.rady li {
+  position: relative;
+  padding: 4px 0 4px 22px;
+  color: var(--tekst);
+  font-size: 13.5px;
+}
+
+.rady li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 11px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--turkus);
+}
+
+.szczegoly {
+  margin: 18px auto 0;
+  color: var(--slaby);
+  font-size: 12.5px;
+}
+
+.szczegoly summary {
+  display: inline-block;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  list-style: none;
+}
+
+.szczegoly summary::-webkit-details-marker { display: none; }
+.szczegoly summary::after { content: " ▾"; }
+.szczegoly[open] summary::after { content: " ▴"; }
+.szczegoly summary:hover { color: var(--tekst); }
+.szczegoly summary:focus-visible { outline: 2px solid var(--turkus); }
+
+.szczegoly dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 14px;
+  margin: 10px auto 0;
+  max-width: 420px;
+  text-align: left;
+}
+
+.szczegoly dt { color: var(--slaby); }
+.szczegoly dd { margin: 0; color: var(--tekst); overflow-wrap: anywhere; font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; }

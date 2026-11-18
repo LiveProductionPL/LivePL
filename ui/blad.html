@@ -9,14 +9,30 @@
 </head>
 <body>
   <main>
-    <div class="znak" id="znak"></div>
-    <p class="gdzie" id="gdzie"></p>
+    <div class="telewizor" id="telewizor" aria-hidden="true"></div>
+
+    <p class="gdzie" id="gdzie" hidden></p>
     <h1 id="naglowek">Nie udało się otworzyć strony</h1>
-    <p id="opis"></p>
+    <p class="opis" id="opis"></p>
+
     <div class="przyciski">
-      <a class="przycisk glowny" id="ponow" href="#">Spróbuj ponownie</a>
+      <a class="przycisk glowny" id="ponow" href="#">Spróbuj teraz</a>
     </div>
-    <p class="kod" id="kod"></p>
+
+    <div class="odliczanie" id="odliczanie" hidden>
+      <div class="pasek-postepu"><span id="postep"></span></div>
+      <p id="odliczanie-tekst" aria-live="polite"></p>
+    </div>
+
+    <section class="rady" id="rady" hidden>
+      <h2>Co możesz zrobić</h2>
+      <ul id="rady-lista"></ul>
+    </section>
+
+    <details class="szczegoly" id="szczegoly" hidden>
+      <summary>Szczegóły techniczne</summary>
+      <dl id="szczegoly-lista"></dl>
+    </details>
   </main>
   <script src="ikony.js"></script>
   <script src="blad.js"></script>

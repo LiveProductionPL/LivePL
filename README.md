@@ -18,15 +18,43 @@ npm start
 
 Układ nazywa się **Reżyserka**: strona jest jak monitor w ramce, programy są kanałami po lewej, a na dole jest pasek wiadomości jak w telewizji.
 
-- **Kanały po lewej.** Liczba przy Poczcie to nieprzeczytane wiadomości. Ta sama liczba pojawia się na ikonie na pasku zadań.
+- **Kanały po lewej.** Same ikony (logo Poczty, Live Production, TVML), bez podpisów; nazwa jest w podpowiedzi. Liczba przy Poczcie to nieprzeczytane wiadomości. Ta sama liczba pojawia się na ikonie na pasku zadań.
+- **Strona się nie wczytała?** Zamiast suchego komunikatu jest telewizorek z „przerwą w nadawaniu”, prosty opis, co się stało (brak internetu, zerwane połączenie, zły certyfikat…), rady i odliczanie do kolejnej próby. Szczegóły techniczne są pod „Szczegóły techniczne”.
+- **Dostęp dla AI.** Claude i inne AI mogą korzystać z LivePL jak z dodatku w Chrome. Opis niżej.
 - **Pasek wiadomości na dole.** Pokazuje powiadomienia z naszych programów (np. nowa wiadomość w poczcie), wzrost liczby nieprzeczytanych i pobrane pliki, każde z godziną. Kliknięcie przenosi do programu albo otwiera plik.
 - **Adres albo szukaj (Ctrl+K)** w prawym dolnym rogu. Pole rozwija się na cały pasek, gdy coś wpisujesz.
 - **Inne strony otwierają się jako karty** pod kanałami. Linki z poczty trafiają do nowej karty, a poczta zostaje na miejscu.
-- **Pobrane pliki zapisują się same** w folderze `Pobrane\LivePL`.
+- **Pobrane pliki zapisują się same** w zwykłym folderze `Pobrane` (Ctrl+J go otwiera).
 - **Po zamknięciu okna program działa dalej** przy zegarze, więc poczta sprawdza nowe wiadomości. Program zamykasz prawym przyciskiem na tej ikonie. Działanie w tle można wyłączyć w menu ⋮ → Ustawienia.
 - **Dzień i noc** przełączają się same razem z trybem Windows: kolory, logo w rogu, ikona okna, ikona przy zegarze i ikona skrótu na pulpicie.
 - **Udostępnianie ekranu** (np. na lekcjach w Sevetoo) otwiera okienko wyboru ekranu albo okna.
 - **Prawy przycisk myszy:** kopiuj, wklej, poprawianie literówek, otwieranie linku w nowej karcie albo w zwykłej przeglądarce.
+
+## Dostęp dla AI (Claude i inne)
+
+LivePL może być „dodatkiem” dla AI, tak jak Claude w Chrome. Działa w standardzie MCP, więc obsługuje go Claude (aplikacja i Claude Code), a także Codex, Gemini, Copilot i inne AI, które umieją MCP.
+
+**Włączanie:** menu ⋮ → Ustawienia → Dostęp dla AI. Do wyboru:
+
+| Poziom | AI może |
+|---|---|
+| Wyłączony (domyślnie) | nic |
+| Tylko czytanie | widzieć listę kart, czytać strony, przewijać, robić zrzuty ekranu |
+| Czytanie i działanie | do tego otwierać strony, klikać, wpisywać tekst i naciskać klawisze |
+
+**Podłączenie AI** (ten sam ekran):
+- „Podłącz do aplikacji Claude” dopisuje LivePL do ustawień Claude (`claude_desktop_config.json`, kopia poprzedniej wersji obok jako `.przed-livepl`). Potem trzeba zamknąć i otworzyć Claude.
+- „Kopiuj polecenie dla Claude Code” kopiuje gotowe `claude mcp add livepl …`.
+- „Kopiuj ustawienia MCP dla innych AI” kopiuje wpis `mcpServers` do wklejenia w innym programie.
+
+**Bezpieczeństwo:**
+- Kiedy AI działa, na dole świeci czerwona lampka „AI” (z opisem, co robi), a ramka strony świeci na czerwono. Karty otwarte przez AI mają znaczek „AI”. Kliknięcie lampki → „Zatrzymaj AI teraz”.
+- Programy z `"dlaAI": false` w `programy.json` (Panel serwera, Urząd certyfikacji) są dla AI zamknięte: nie zobaczy ich, nie otworzy i nie przejdzie na ich adres.
+- AI nie wpisze nic w pole hasła (ani klawiszem, ani przez wklejanie) i nigdy nie dostaje wartości pól haseł. Zapisane hasła LivePL są poza jego zasięgiem.
+- Połączenie idzie tylko przez lokalny potok Windows z jednorazowym kluczem (`dostep-ai.json` w danych LivePL, nowy przy każdym starcie). LivePL nie otwiera żadnego portu sieciowego.
+- Kod AI działa w stronie w osobnym, odizolowanym świecie JavaScriptu: strona go nie widzi i nie może go podmienić.
+
+**Jak to działa:** aplikacja AI uruchamia `LivePL.exe src\ai-most.js` ze zmienną `ELECTRON_RUN_AS_NODE=1`. Ten most rozmawia z AI przez MCP, a z działającym LivePL przez potok. Narzędzia: `list_tabs`, `get_page_text`, `read_page`, `find`, `screenshot`, `switch_tab`, `wait`, `scroll`, `open_tab`, `navigate`, `close_tab`, `click`, `type`, `press_key` (`src/ai-narzedzia.js`, wykonanie w `src/dostep-ai.js`). Ramki z tej samej domeny są obsługiwane, z innych domen nie.
 
 ## Lista programów
 
@@ -41,6 +69,8 @@ Programy są w pliku `programy.json` (menu ⋮ → Ustawienia → Edytuj listę 
 | `ikona` | `poczta`, `klient`, `lekcje`, `egzamin`, `serwer` albo `strona` |
 | `przyStarcie` | `true` – wczytuje się od razu po włączeniu |
 | `wTle` | `true` – działa pełną parą także wtedy, gdy oglądasz inny program |
+| `obrazek`, `obrazekNoc` | logo programu zamiast ikony (np. `assets/programy/poczta.svg`), nocna wersja opcjonalnie |
+| `dlaAI` | `false` – AI nie ma dostępu do tego programu (np. panel serwera) |
 
 ## Skróty klawiszowe
 
@@ -64,6 +94,7 @@ Programy są w pliku `programy.json` (menu ⋮ → Ustawienia → Edytuj listę 
 ## Gdzie co jest
 
 - `src/main.js` – okno, karty, pobieranie, uprawnienia, zasobnik
+- `src/dostep-ai.js`, `src/ai-most.js`, `src/ai-narzedzia.js` – dostęp dla AI (MCP)
 - `ui/` – pasek boczny i górny, pusta karta, ekran błędu, wybór ekranu
 - dane przeglądarki (logowania, ustawienia okna): `%APPDATA%\LivePL`
 

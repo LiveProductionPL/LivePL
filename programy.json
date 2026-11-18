@@ -4,6 +4,7 @@
     "nazwa": "Poczta",
     "adres": "https://poczta.livepl.eu/",
     "ikona": "poczta",
+    "obrazek": "assets/programy/poczta.svg",
     "przyStarcie": true,
     "wTle": true,
     "opis": "Poczta firmowa"
@@ -37,6 +38,7 @@
     "adres": "https://cert.livepl.eu/panel",
     "ikona": "tarcza",
     "tylkoZYubiKey": true,
+    "dlaAI": false,
     "opis": "Certyfikaty LivePL, logowanie YubiKey"
   },
   {
@@ -69,6 +71,7 @@
     "adres": "https://livepl.eu:2222/",
     "ikona": "serwer",
     "ukryty": true,
+    "dlaAI": false,
     "opis": "DirectAdmin: domeny, poczta, pliki"
   }
 ]

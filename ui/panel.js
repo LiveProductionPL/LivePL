@@ -163,6 +163,7 @@ function ekranUstawienia() {
   f.appendChild(poz('serwer', 'Urządzenie LivePL', { dalej: true, klik: () => { ekran = 'urzadzenie'; rysuj(); P.akcja('urzadzenie-sprawdz'); } }));
   f.appendChild(poz('pinezka', 'Moje strony na pasku', { dalej: true, klik: () => { ekran = 'strony'; rysuj(); } }));
   f.appendChild(poz('klucz', 'Hasła', { dalej: true, klik: () => { ekran = 'hasla'; rysuj(); P.akcja('hasla-odswiez'); } }));
+  f.appendChild(poz('ai', 'Dostęp dla AI (Claude i inne)', { dalej: true, klik: () => { ekran = 'ai'; rysuj(); } }));
   f.appendChild(poz('przywroc', 'Uruchom LivePL ponownie', { akcja: 'restart' }));
   f.appendChild(kreska());
   f.appendChild(poz('kosz', 'Wyczyść pamięć podręczną', { akcja: 'pamiec' }));
@@ -577,7 +578,7 @@ function ekranPobrane() {
     f.appendChild(w);
   }
   f.appendChild(kreska());
-  f.appendChild(poz('folder', 'Otwórz folder Pobrane\\LivePL', { akcja: 'folder-pobranych' }));
+  f.appendChild(poz('folder', 'Otwórz folder Pobrane', { akcja: 'folder-pobranych' }));
   return f;
 }
 
@@ -784,6 +785,55 @@ function ekranHasla() {
   return f;
 }
 
+// ustawienia → Dostęp dla AI (też po kliknięciu lampki „AI” na pasku)
+function wyborAI(tekst, podpis, wartosc) {
+  const wl = D.ai.poziom === wartosc;
+  const b = el('button', 'poz poz-wysoka');
+  b.type = 'button';
+  b.setAttribute('role', 'menuitemradio');
+  b.setAttribute('aria-checked', String(wl));
+  const pole = el('span', 'pole okragle' + (wl ? ' wl' : ''));
+  pole.appendChild(ikonaEl('znacznik'));
+  const t = el('span', 'tekst');
+  t.append(el('span', '', tekst), el('small', 'podpis-pozycji', podpis));
+  b.append(pole, t);
+  b.addEventListener('click', () => {
+    if (wl) return;
+    D.ai.poziom = wartosc;
+    P.akcja('ai-poziom', wartosc);
+    rysuj();
+  });
+  return b;
+}
+
+function ekranAI() {
+  const f = document.createDocumentFragment();
+  const a = D.ai || { poziom: 'wylaczony', zablokowane: [] };
+  const wlaczony = a.poziom !== 'wylaczony';
+  f.appendChild(naglowek('Dostęp dla AI', 'ustawienia'));
+  f.appendChild(el('div', 'opis', 'Claude i inne AI mogą korzystać z LivePL jak z dodatku w Chrome: czytać strony, a jeśli pozwolisz, także klikać i pisać. Gdy AI działa, świeci lampka „AI” na dole i ramka strony.'));
+  f.appendChild(wyborAI('Wyłączony', 'AI nie widzi niczego w LivePL', 'wylaczony'));
+  f.appendChild(wyborAI('Tylko czytanie', 'widzi karty, czyta strony, robi zrzuty ekranu', 'czytanie'));
+  f.appendChild(wyborAI('Czytanie i działanie', 'do tego otwiera strony, klika i wpisuje tekst', 'pelny'));
+  if (wlaczony) {
+    const s = el('div', 'linia-bezp' + (a.polaczony ? ' ok' : ' slaby'));
+    s.append(ikonaEl(a.polaczony ? 'znacznik' : 'info'), el('span', '', a.polaczony ? `Połączono: ${a.kto}` : 'Czeka, aż AI się połączy'));
+    f.appendChild(s);
+    f.appendChild(kreska());
+    f.appendChild(el('div', 'sekcja-tytul', 'Podłącz AI'));
+    f.appendChild(poz('ai', a.claudeDesktopPodlaczony ? 'Claude: podłączony (podłącz ponownie)' : 'Podłącz do aplikacji Claude', {
+      akcja: 'ai-claude', wylaczona: !a.claudeDesktop
+    }));
+    f.appendChild(poz('kopiuj', 'Kopiuj polecenie dla Claude Code', { akcja: 'ai-kopiuj-code' }));
+    f.appendChild(poz('kopiuj', 'Kopiuj ustawienia MCP dla innych AI', { akcja: 'ai-kopiuj-mcp' }));
+  }
+  f.appendChild(kreska());
+  const zawsze = a.zablokowane && a.zablokowane.length ? `Zawsze zablokowane dla AI: ${a.zablokowane.join(', ')}. ` : '';
+  f.appendChild(el('div', 'opis', zawsze + 'AI nie wpisze hasła i nie zobaczy zapisanych haseł. Połączenie działa tylko na tym komputerze.'));
+  if (wlaczony) f.appendChild(poz('stop', 'Zatrzymaj AI teraz', { akcja: 'ai-zatrzymaj', czerwona: true }));
+  return f;
+}
+
 // prawy klik na programie albo przypiętej stronie na pasku bocznym
 function ekranProgram() {
   const f = document.createDocumentFragment();
@@ -876,7 +926,8 @@ function rysuj() {
     'hasla-wybor': ekranHaslaWybor,
     hasla: ekranHasla,
     podpis: ekranPodpis,
-    karta: ekranKarta
+    karta: ekranKarta,
+    ai: ekranAI
   };
   panelEl.replaceChildren((ekrany[ekran] || ekranMenu)());
 }

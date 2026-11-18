@@ -181,6 +181,12 @@ button {
 .pole .ik { width: 12px; height: 12px; stroke-width: 2.6; color: #fff; opacity: 0; }
 .pole.wl { background: var(--czerwony); border-color: var(--czerwony); }
 .pole.wl .ik { opacity: 1; }
+.pole.okragle { border-radius: 50%; }
+
+/* pozycja z podpisem w drugiej linii (np. wybór poziomu dostępu dla AI) */
+.poz.poz-wysoka { height: auto; min-height: 44px; padding-top: 5px; padding-bottom: 5px; }
+.poz-wysoka .tekst { display: flex; flex-direction: column; white-space: normal; text-align: left; }
+.podpis-pozycji { color: var(--slaby); font-size: 11.5px; line-height: 1.3; }
 
 /* opis i przyciski potwierdzenia */
 .opis {

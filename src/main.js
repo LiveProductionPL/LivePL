@@ -18,6 +18,7 @@ const zaufanie = require('./zaufanie');
 const hasla = require('./hasla');
 const certWin = require('./certyfikaty-windows');
 const urzadzenie = require('./urzadzenie');
+const dostepAI = require('./dostep-ai');
 const fs = require('fs');
 
 const ID_APLIKACJI = 'pl.livepl.przegladarka';
@@ -59,7 +60,8 @@ const ustawienia = {
   autoAktualizacje: true,
   dymekZasobnika: false,
   ostatnia: null,
-  motyw: 'auto' // auto (jak Windows), dzien, noc
+  motyw: 'auto', // auto (jak Windows), dzien, noc
+  ai: 'wylaczony' // dostęp dla AI (Claude i inne przez MCP): wylaczony, czytanie, pelny
 };
 const plikUstawien = () => path.join(app.getPath('userData'), 'ustawienia.json');
 let zapisUstawien = null;
@@ -596,7 +598,7 @@ function kliknietoWiadomosc(id) {
   if (w.akcja === 'aktualizacja') {
     pokazOkno();
     pokazPanel('aktualizacja', { srodek: true });
-  } else if (w.akcja === 'zaufanie' || w.akcja === 'urzadzenie') {
+  } else if (w.akcja === 'zaufanie' || w.akcja === 'urzadzenie' || w.akcja === 'ai') {
     pokazOkno();
     pokazPanel(w.akcja, { srodek: true });
   } else if (w.plikId) {
@@ -682,8 +684,9 @@ function stan() {
     programy: programyStan,
     karty: dodatkowe.map(id => {
       const k = karty.get(id);
-      return { id, tytul: k.tytul || k.adres || 'Nowa karta', ikonka: k.ikonka, laduje: k.laduje, adres: k.adres };
+      return { id, tytul: k.tytul || k.adres || 'Nowa karta', ikonka: k.ikonka, laduje: k.laduje, adres: k.adres, odAI: !!k.odAI };
     }),
+    ai: dostepAI.stan(),
     aktywna,
     nieprzeczytane: programyStan.reduce((s, p) => s + (p.licznik || 0), 0),
     pobieranie: {
@@ -826,11 +829,13 @@ function podepnij(k) {
 }
 
 function pokazBlad(k, kod, opis, url) {
+  // kolejna nieudana próba tego samego adresu: strona błędu wydłuża przerwę przed następną
+  k.proby = k.blad && k.blad.url === url ? (k.proby || 0) + 1 : 0;
   k.blad = { kod, url };
   k.adres = url || k.adres;
   k.laduje = false;
   k.wc.loadFile(path.join(UI, 'blad.html'), {
-    query: { kod, opis: opis || '', adres: url || '', nazwa: k.program ? k.program.nazwa : '' }
+    query: { kod, opis: opis || '', adres: url || '', nazwa: k.program ? k.program.nazwa : '', proba: String(k.proby) }
   }).catch(() => {});
   wyslijStan();
 }
@@ -1017,8 +1022,9 @@ function menuKontekstowe(wc, p, k, okno) {
 const pobrane = [];
 let licznikPobran = 1;
 
+// pobrane pliki trafiają prosto do folderu Pobrane, jak w każdej przeglądarce
 function folderPobranych() {
-  return path.join(app.getPath('downloads'), 'LivePL');
+  return app.getPath('downloads');
 }
 
 function otworzFolderPobranych() {
@@ -1258,6 +1264,7 @@ function danePanelu() {
     folderPobranych: folderPobranych(),
     folderDanych: app.getPath('userData'),
     pobrane: pobrane.slice(0, 12).map(p => ({ id: p.id, nazwa: p.nazwa, stan: p.stan, procent: p.procent || 0 })),
+    ai: dostepAI.danePanelu(),
     karta: kp ? { id: kp.id, adres: kp.blad ? kp.blad.url : kp.adres, nowa: !!kp.nowa, inne: dodatkowe.length > 1, przypinalna: !kp.nowa && /^https?:/i.test(kp.adres || '') } : null
   };
 }
@@ -1368,7 +1375,8 @@ function otworzOknoLicencji() {
 
 const ZOSTAW_OTWARTY = ['cert-osobisty-odswiez', 'zaufanie-odswiez', 'strona-dodaj', 'strona-nazwa', 'strona-usun',
   'haslo-usun', 'haslo-nigdy-usun', 'hasla-wlacz', 'hasla-odswiez', 'cert-win-odswiez', 'cert-win-kopiuj',
-  'urzadzenie-zarejestruj', 'urzadzenie-sprawdz', 'zoom-', 'zoom+', 'zoom0', 'tlo', 'autostart', 'pobrany-anuluj', 'aktualizacje-sprawdz', 'aktualizacje-pobierz', 'auto-aktualizacje'];
+  'urzadzenie-zarejestruj', 'urzadzenie-sprawdz', 'zoom-', 'zoom+', 'zoom0', 'tlo', 'autostart', 'pobrany-anuluj', 'aktualizacje-sprawdz', 'aktualizacje-pobierz', 'auto-aktualizacje',
+  'ai-poziom', 'ai-claude', 'ai-kopiuj-code', 'ai-kopiuj-mcp'];
 
 function akcjaPanelu(nazwa, arg) {
   if (nazwa === 'podpis-tak' || nazwa === 'podpis-nie') {
@@ -1404,6 +1412,17 @@ function akcjaPanelu(nazwa, arg) {
     }
     case 'narzedzia': if (k) k.wc.openDevTools({ mode: 'detach' }); break;
     case 'zakoncz': zakoncz(); break;
+    // dostęp dla AI (ustawienia → Dostęp dla AI, lampka „AI” na pasku)
+    case 'ai-poziom': dostepAI.ustawPoziom(arg); break;
+    case 'ai-zatrzymaj': dostepAI.ustawPoziom('wylaczony'); break;
+    case 'ai-claude': {
+      let w;
+      try { w = dostepAI.podlaczClaudeDesktop(); } catch (e) { w = { ok: false, tekst: 'Nie udało się zapisać ustawień Claude: ' + e.message }; }
+      dodajWiadomosc((w.ok ? 'Podłączono LivePL do Claude. ' : '') + w.tekst, {}, 30 * 1000);
+      break;
+    }
+    case 'ai-kopiuj-code': clipboard.writeText(dostepAI.polecenieClaudeCode()); dodajWiadomosc('Skopiowano polecenie dla Claude Code: wklej je w terminalu'); break;
+    case 'ai-kopiuj-mcp': clipboard.writeText(dostepAI.tekstKonfiguracji()); dodajWiadomosc('Skopiowano ustawienia MCP: wklej je w ustawieniach swojego AI'); break;
     case 'licencje': otworzOknoLicencji(); break;
     case 'cert-osobisty-odswiez':
       certOsobisty.lista().catch(() => {}).then(() => wyslijDoPanelu());
@@ -1803,6 +1822,8 @@ ipcMain.on('powloka', (e, akcja, ...a) => {
     case 'menu-programu': pokazPanel('program', { lewo: a[1], gora: a[2] }, { programId: a[0] }); break;
     case 'pobrane': pokazPanel('pobrane', { prawo: a[0], gora: a[1] + 6 }); break;
     case 'ssl': pokazPanel('ssl', { lewo: a[0], dol: a[1] }); break;
+    case 'ai': pokazPanel('ai', { prawo: a[0], dol: a[1] }); break;
+    case 'ai-zatrzymaj': dostepAI.ustawPoziom('wylaczony'); break;
     case 'pobrane-otworz': {
       const p = pobrane.find(x => x.id === a[0]);
       if (p) shell.openPath(p.sciezka);
@@ -2205,4 +2226,18 @@ app.whenReady().then(() => {
   // po włączeniu strona startowa (nowa karta); Poczta ładuje się w tle, żeby działały powiadomienia
   for (const p of programy) if (p.przyStarcie) kartaProgramu(p);
   nowaKarta(null);
+
+  // dostęp dla AI (domyślnie wyłączony): moduł dostaje tylko to, czego potrzebuje do kart
+  dostepAI.uruchom({
+    ustawienia: () => ustawienia,
+    zapiszUstawienia,
+    userData: () => app.getPath('userData'),
+    okno: () => win,
+    karty: () => karty,
+    dodatkowe: () => dodatkowe,
+    aktywnaId: () => aktywnaId,
+    programy: () => programy,
+    wszystkieProgramy: () => [...programy, ...programyUkryte],
+    aktywuj, przejdzDo, nowaKarta, zamknij, laduj, dodajWiadomosc, wyslijStan
+  });
 });

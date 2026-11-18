@@ -64,7 +64,6 @@ function rysujProgramy() {
       el = document.createElement('button');
       el.type = 'button';
       el.className = 'program';
-      el.innerHTML = '<span class="nazwa"></span>';
       el.addEventListener('click', () => api.wyslij('program', p.id));
       el.addEventListener('contextmenu', (e) => {
         e.preventDefault();
@@ -75,8 +74,9 @@ function rysujProgramy() {
     if (nav.children[idx] !== el) nav.insertBefore(el, nav.children[idx] || null);
     ustawIkoneProgramu(el, p);
     el.classList.toggle('wlasny', !!p.wlasny);
-    el.querySelector('.nazwa').textContent = p.skrot;
+    // bez podpisów pod ikonami: nazwa jest w podpowiedzi i dla czytników ekranu
     el.title = p.nazwa + (idx < 8 ? ` (Ctrl+${idx + 1})` : '');
+    el.setAttribute('aria-label', p.nazwa);
     el.classList.toggle('aktywny', !!S.aktywna && S.aktywna.id === p.id);
     el.classList.toggle('otwarty', p.otwarty);
     el.classList.toggle('laduje', p.laduje && !p.licznik);
@@ -138,7 +138,8 @@ function rysujKarty() {
       elementyKart.set(k.id, el);
     }
     if (nav.children[i] !== el) nav.insertBefore(el, nav.children[i] || null);
-    el.title = k.tytul;
+    el.title = k.odAI ? `${k.tytul} (otwarta przez AI)` : k.tytul;
+    el.classList.toggle('od-ai', !!k.odAI);
     el.classList.toggle('aktywna', !!S.aktywna && S.aktywna.id === k.id);
     el.classList.toggle('laduje', k.laduje);
     const miejsce = el.querySelector('.ikonka');
@@ -205,6 +206,7 @@ function rysujDol() {
   $('#miejsce-adres').textContent = adres;
   $('#miejsce').title = a && a.adres ? a.adres : '';
   rysujSsl(a ? a.ssl : null);
+  rysujAI();
 
   rysujWiadomosci();
 
@@ -350,6 +352,28 @@ function podPrzyciskiem(el) {
   const r = el.getBoundingClientRect();
   return [Math.round(r.right), Math.round(r.bottom)];
 }
+
+// lampka „AI” jak „na antenie” w studiu: przygaszona, gdy dostęp jest włączony, czerwona, gdy AI działa;
+// ramka strony świeci, gdy AI działa na karcie, którą właśnie widać
+function rysujAI() {
+  const ai = S.ai || { poziom: 'wylaczony' };
+  const b = $('#ai');
+  const wlaczony = ai.poziom && ai.poziom !== 'wylaczony';
+  b.hidden = !wlaczony;
+  b.classList.toggle('dziala', !!ai.dziala);
+  $('#ai-opis').textContent = ai.dziala ? `${ai.kto} ${ai.opis}` : '';
+  const rodzaj = ai.poziom === 'pelny' ? 'czytanie i działanie' : 'tylko czytanie';
+  b.title = ai.dziala
+    ? `${ai.kto} ${ai.opis}. Kliknij, żeby zobaczyć albo zatrzymać`
+    : `Dostęp dla AI włączony (${rodzaj}). Kliknij, żeby zmienić albo wyłączyć`;
+  b.setAttribute('aria-label', b.title);
+  $('#ramka-strony').classList.toggle('ai', !!ai.dziala && !!S.aktywna && ai.kartaId === S.aktywna.id);
+}
+
+$('#ai').addEventListener('click', (e) => {
+  const r = e.currentTarget.getBoundingClientRect();
+  api.wyslij('ai', Math.round(r.right), Math.round(r.top));
+});
 
 $('#ssl').addEventListener('click', (e) => {
   const r = e.currentTarget.getBoundingClientRect();

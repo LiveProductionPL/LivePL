@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="redGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff334b"/>
+      <stop offset="50%" stop-color="#e11d48"/>
+      <stop offset="100%" stop-color="#b72920"/>
+    </linearGradient>
+    <linearGradient id="cyanGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#16a8dd"/>
+      <stop offset="100%" stop-color="#35d0b5"/>
+    </linearGradient>
+  </defs>
+  <g transform="skewX(-13) translate(6, 4)">
+    <!-- Base L in Brand Red -->
+    <path d="M8 8 H20 V42 H48 V53 H8 Z" fill="url(#redGrad1)"/>
+    <!-- Mail Flap in Brand Cyan -->
+    <path d="M25 10 L37 20 L49 10" fill="none" stroke="url(#cyanGrad1)" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="25" y="10" width="24" height="18" rx="3" fill="none" stroke="url(#cyanGrad1)" stroke-width="4.5"/>
+  </g>
+</svg>
