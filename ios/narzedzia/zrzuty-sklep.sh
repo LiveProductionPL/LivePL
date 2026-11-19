@@ -1,12 +1,13 @@
 #!/bin/bash
 # Zrzuty do App Store w wymaganych rozmiarach: iPhone 6,9" (1320×2868) i iPad 13" (2064×2752).
-#   ios/narzedzia/zrzuty-sklep.sh <LivePL.app> <Poczta.app> <folder>
+#   ios/narzedzia/zrzuty-sklep.sh <LivePL.app> <Poczta.app> <folder> [Connect.app]
 # Na Macach GitHuba, gdy opis zmiany zawiera [zrzuty-sklep]. Wgrywa je ios/narzedzia/sklep-zrzuty.mjs.
 set -euo pipefail
 
 LIVEPL="$1"
 POCZTA="$2"
 WYJSCIE="$3"
+CONNECT="${4:-}"
 mkdir -p "$WYJSCIE"
 
 RUNTIME=$(xcrun simctl list runtimes -j | python3 -c '
@@ -36,6 +37,7 @@ zrob() {
     --cellularMode active --cellularBars 4 --wifiBars 3 || true
   xcrun simctl install "$UDID" "$LIVEPL"
   xcrun simctl install "$UDID" "$POCZTA"
+  if [ -n "$CONNECT" ]; then xcrun simctl install "$UDID" "$CONNECT"; fi
 
   ujecie() {
     local plik="$1" id="$2" wyglad="$3"
@@ -56,13 +58,22 @@ zrob() {
   xcrun simctl terminate "$UDID" eu.livepl.przegladarka 2>/dev/null || true
   ujecie poczta-1-dzien eu.livepl.poczta light
   ujecie poczta-2-noc eu.livepl.poczta dark
+  if [ -n "$CONNECT" ]; then
+    xcrun simctl terminate "$UDID" eu.livepl.poczta 2>/dev/null || true
+    ujecie connect-1-dzien eu.livepl.connect light
+    ujecie connect-2-noc eu.livepl.connect dark
+  fi
 
   xcrun simctl shutdown "$UDID" || true
   xcrun simctl delete "$UDID" || true
 }
 
-zrob iphone-69 'iPhone [0-9]+ Pro Max'
-zrob ipad-13 'iPad Pro 13-inch'
+# URZADZENIE=iphone-69 albo ipad-13: tylko jeden (workflow robi je równolegle); bez niego oba po kolei
+case "${URZADZENIE:-oba}" in
+  iphone-69) zrob iphone-69 'iPhone [0-9]+ Pro Max' ;;
+  ipad-13) zrob ipad-13 'iPad Pro 13-inch' ;;
+  *) zrob iphone-69 'iPhone [0-9]+ Pro Max'; zrob ipad-13 'iPad Pro 13-inch' ;;
+esac
 
 python3 - "$WYJSCIE" <<'EOF'
 import struct, sys, pathlib

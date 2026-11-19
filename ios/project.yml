@@ -1,4 +1,4 @@
-# Projekt Xcode dwóch aplikacji na iPhone'a i iPada: przeglądarki LivePL i Poczty LivePL.
+# Projekt Xcode trzech aplikacji na iPhone'a i iPada: przeglądarki LivePL, Poczty LivePL i LivePL Connect.
 # Wspólny kod (karty, WKWebView, certyfikaty LivePL, tłumacz) jest w folderze Wspolne.
 # Plik .xcodeproj nie leży w repozytorium: tworzy go XcodeGen (`xcodegen generate` w tym folderze),
 # na Macach GitHuba robi to .github/workflows/ios.yml.
@@ -135,6 +135,56 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: eu.livepl.poczta
         PRODUCT_NAME: Poczta
 
+  # LivePL Connect: zdalny pulpit (connect.livepl.eu) na cały ekran, z mostkiem do iPhone'a (MostConnect.swift)
+  Connect:
+    type: application
+    platform: iOS
+    sources:
+      - path: Connect
+      - path: Wspolne
+      - path: ../programy.json
+        buildPhase: resources
+      - path: ../assets/ca/livepl-root-ca-r1.crt
+        buildPhase: resources
+      - path: ../assets/ca/domeny.json
+        buildPhase: resources
+      - path: ../assets/ca/posrednie/livepl-ca-1.crt
+        buildPhase: resources
+    info:
+      path: Wsparcie/Connect-Info.plist
+      properties:
+        CFBundleDisplayName: Connect
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleDevelopmentRegion: pl
+        CFBundleLocalizations: [pl]
+        LSRequiresIPhoneOS: true
+        LSApplicationCategoryType: public.app-category.utilities
+        # WebRTC (DTLS) i HTTPS z WebKit, czyli standardowe szyfrowanie systemu: zwolnione z deklaracji eksportowej
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen:
+          UIColorName: TloStartu
+          UIImageName: LogoConnect
+          UIImageRespectsSafeAreaInsets: true
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        # zdalny ekran najlepiej widać w poziomie
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # WebRTC szuka najkrótszej drogi do komputera, także w tej samej sieci Wi-Fi; iOS może o to zapytać
+        NSLocalNetworkUsageDescription: "Connect łączy się bezpośrednio z komputerem. Gdy jest w tej samej sieci Wi-Fi, obraz idzie szybciej przez sieć lokalną."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: eu.livepl.connect
+        PRODUCT_NAME: Connect
+
 schemes:
   LivePL:
     build:
@@ -148,6 +198,14 @@ schemes:
     build:
       targets:
         Poczta: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+  Connect:
+    build:
+      targets:
+        Connect: all
     run:
       config: Debug
     archive:

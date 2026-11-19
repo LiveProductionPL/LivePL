@@ -1,15 +1,22 @@
-# LivePL i Poczta LivePL na iPhone'a i iPada
+# LivePL, Poczta LivePL i LivePL Connect na iPhone'a i iPada
 
-Dwie aplikacje z jednego projektu ([project.yml](project.yml)), ze wspólnym kodem w [Wspolne](Wspolne):
+Trzy aplikacje z jednego projektu ([project.yml](project.yml)), ze wspólnym kodem w [Wspolne](Wspolne):
 
 - **LivePL** (`eu.livepl.przegladarka`, folder [LivePL](LivePL)) to przeglądarka z ekranem Start, kartami i menu.
 - **Poczta LivePL** (`eu.livepl.poczta`, folder [Poczta](Poczta)) to sama poczta.livepl.eu na cały ekran.
   - Ikona: logo poczty na granacie nagłówka.
   - Liczba nieprzeczytanych na ikonie.
   - Linki do innych stron otwierają się w przeglądarce.
-  - Okna otwierane przez pocztę są w arkuszu z „Gotowe”.
+  - Okna otwierane przez pocztę są w arkuszu z „Gotowe” ([OknoStrony.swift](Wspolne/OknoStrony.swift)).
+- **LivePL Connect** (`eu.livepl.connect`, folder [Connect](Connect)) to zdalny pulpit connect.livepl.eu na cały ekran.
+  - Ikona: ekran i czerwona strzałka myszy, jak na stronie i w programie na Windows.
+  - Bez gestu „wstecz”, odświeżania przeciągnięciem i podglądu linków, bo na zdalnym ekranie palec steruje myszą.
+  - [MostConnect.swift](Connect/MostConnect.swift) podmienia stronie trzy funkcje, których WKWebView na iPhonie nie daje:
+    blokadę wygaszania ekranu w trakcie sesji (`navigator.wakeLock`), wibrację przy przytrzymaniu (`navigator.vibrate`)
+    i pełny ekran (`requestFullscreen`, chowa pasek stanu i kreskę na dole). Strona na serwerze się nie zmienia.
+  - Rejestruje się w urzędzie osobno („iPhone-… Connect”).
 
-Obie dopisują „LivePL/<wersja>” do identyfikatora przeglądarki. Dzięki temu poczta wie, że jest w aplikacji,
+Wszystkie dopisują „LivePL/<wersja>” do identyfikatora przeglądarki. Dzięki temu poczta wie, że jest w aplikacji,
 i nie proponuje „Dodaj do ekranu” w Safari (livepl-settings.js na serwerze poczty).
 
 ## LivePL
@@ -70,12 +77,21 @@ Projekt Xcode powstaje z [project.yml](project.yml) przez XcodeGen. Buduje go
 [.github/workflows/ios.yml](../.github/workflows/ios.yml) na Macach GitHuba, bez opłat dla publicznego
 repozytorium. Każda zmiana w `ios/` wysłana na gałąź `ios` przechodzi przez te kroki:
 
-1. budowa na symulator iPhone'a;
-2. zrzuty ekranu w trybie dzień i noc (Start, Poczta, TVML, Live Production), do pobrania jako artefakt `zrzuty-N`;
-3. **TestFlight**, tylko gdy opis zmiany zawiera `[testflight]`: archiwum Release, podpis i wysyłka do App Store Connect.
+1. budowa trzech aplikacji na symulator iPhone'a;
+2. zrzuty ekranu w trybie dzień i noc (Start, Poczta, TVML, Live Production, Poczta LivePL, Connect),
+   do pobrania jako artefakt `zrzuty-N`;
+3. **zrzuty do App Store**, tylko gdy opis zmiany zawiera `[zrzuty-sklep]`: iPhone 6,9″ i iPad 13″ równolegle,
+   w osobnych zadaniach (pierwszy rozruch symulatora trwa kilkanaście minut), artefakty `sklep-N-iphone-69` i `sklep-N-ipad-13`.
+   Do App Store Connect wgrywa je `node ios/narzedzia/sklep-zrzuty.mjs <AuthKey Admin> <Issuer ID> <folder>`
+   (w folderze podfoldery `iphone-69` i `ipad-13`);
+4. **TestFlight**, tylko gdy opis zmiany zawiera `[testflight]`: archiwum Release, podpis i wysyłka do App Store Connect.
+   Budowy nadają się i do TestFlight, i do wysłania do App Store (bez „tylko testy wewnętrzne”).
 
-Grafiki (ikona jasna i ciemna, Wstęga, ikona Poczty) tworzy `npx electron ios/narzedzia/grafiki.js`
-z wektorowej Wstęgi w [narzedzia/logo.js](narzedzia/logo.js).
+Teksty do App Store (nazwy, opisy, słowa kluczowe, kategorie, ocena wiekowa) są w [sklep/metadane.json](sklep/metadane.json),
+a wpisuje je `node ios/narzedzia/sklep-metadane.mjs <AuthKey Admin> <Issuer ID>`.
+
+Grafiki (ikona jasna i ciemna, Wstęga, ikony Poczty i Connect, ekrany startowe) tworzy
+`npx electron ios/narzedzia/grafiki.js` z wektorowej Wstęgi w [narzedzia/logo.js](narzedzia/logo.js) i znaku Connect.
 
 ## Konfiguracja Apple (jednorazowo)
 
@@ -103,5 +119,10 @@ Konto Apple Developer: Karol Kowalski, Team ID `WHKQ7CW48T`. Identyfikator aplik
 `node ios/narzedzia/apple-konfiguracja.mjs <AuthKey Admin> <Issuer ID> --bundle eu.livepl.poczta --nazwa "Poczta LivePL" --profil "Poczta LivePL App Store"`.
 Wpis aplikacji „Poczta LivePL” (SKU `livepl-poczta-ios`) już jest w App Store Connect. Potem ponownie `ustaw-sekrety.mjs`,
 który dopisze sekret `APPLE_PROFIL_POCZTA`. Bez niego TestFlight wysyła tylko LivePL i ostrzega.
+
+**LivePL Connect** tak samo: `--bundle eu.livepl.connect --nazwa "LivePL Connect" --profil "LivePL Connect App Store"`,
+wpis aplikacji „LivePL Connect” (SKU `livepl-connect-ios`) w App Store Connect i ponownie `ustaw-sekrety.mjs`
+(sekret `APPLE_PROFIL_CONNECT`). Do przeglądu Apple potrzebny jest włączony komputer testowy z programem LivePL Connect:
+jego ID i stałe hasło wpisuje się w App Store Connect w danych do przeglądu.
 
 Certyfikat dystrybucyjny jest ważny rok. Po wygaśnięciu usuń `LivePL-klucze\apple\dystrybucja.*` i powtórz kroki 2 i 4.

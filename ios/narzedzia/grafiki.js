@@ -1,6 +1,7 @@
 'use strict';
-// Grafiki aplikacji LivePL na iPhone'a: ikona (jasna i ciemna), Wstęga do nagłówka i ikony programów.
-// Wszystko powstaje z wektorowej Wstęgi (logo.js) i z plików w assets/programy.
+// Grafiki aplikacji LivePL na iPhone'a: ikona (jasna i ciemna), Wstęga do nagłówka i ikony programów,
+// a także ikony i ekrany startowe Poczty LivePL i LivePL Connect.
+// Wszystko powstaje z wektorowej Wstęgi (logo.js), z plików w assets/programy i ze znaku Connect (niżej).
 // Uruchom z katalogu przegladarka-livepl:  npx electron ios/narzedzia/grafiki.js
 
 const { app, BrowserWindow } = require('electron');
@@ -182,5 +183,54 @@ app.whenReady().then(async () => {
     info: { author: 'xcode', version: 1 }
   });
   console.log('Grafiki Poczty gotowe w', path.relative(KATALOG, POCZTA));
+
+  // ---------- LivePL Connect: ekran i czerwona strzałka myszy, jak ikona connect.livepl.eu (siatka 512) ----------
+  // Obrys ekranu jest przerwany wokół strzałki (maska: strzałka z obwódką 14 px).
+  const CONNECT = path.join(KATALOG, 'ios', 'Connect', 'Assets.xcassets');
+  zapiszJSON(path.join(CONNECT, 'Contents.json'), { info: { author: 'xcode', version: 1 } });
+  const STRZALKA = 'M275 190 L404 319 L346 319 L378 384 L350 398 L318 333 L275 375 Z';
+  const znakConnect = (obrys) => `<defs>
+<linearGradient id="strz" x1="0" y1="190" x2="0" y2="398" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e5473a"/><stop offset="1" stop-color="#b3271f"/></linearGradient>
+<mask id="wyciecie" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512"><rect width="512" height="512" fill="#fff"/>
+<path d="${STRZALKA}" fill="#000" stroke="#000" stroke-width="28" stroke-linejoin="round"/></mask></defs>
+<rect x="106.5" y="112.5" width="283" height="207" rx="27" fill="none" stroke="${obrys}" stroke-width="27" mask="url(#wyciecie)"/>
+<path d="${STRZALKA}" fill="url(#strz)"/>`;
+  const svgIkonyConnect = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="1024" height="1024">
+<linearGradient id="tlo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c2028"/><stop offset="1" stop-color="#0e1013"/></linearGradient>
+<rect width="512" height="512" fill="url(#tlo)"/>${znakConnect('#eef1f4')}</svg>`;
+  const ikonaConnect = path.join(CONNECT, 'AppIcon.appiconset');
+  fs.mkdirSync(ikonaConnect, { recursive: true });
+  fs.writeFileSync(path.join(ikonaConnect, 'ikona-connect.png'), pngRGB(1024, 1024, await rysuj(svgIkonyConnect, 1024, 1024, 'rgba')));
+  zapiszJSON(path.join(ikonaConnect, 'Contents.json'), {
+    images: [{ filename: 'ikona-connect.png', idiom: 'universal', platform: 'ios', size: '1024x1024' }],
+    info: { author: 'xcode', version: 1 }
+  });
+  // znak na ekran startowy: obrys ciemny w dzień, jasny w nocy (tło jak strona: #f4f6f8 i #16191e)
+  const logoConnectDir = path.join(CONNECT, 'LogoConnect.imageset');
+  const logoConnectObrazy = [];
+  for (const [nazwa, obrys, wyglad] of [['logo-connect', '#2a2f37', null], ['logo-connect-ciemne', '#eef1f4', 'dark']]) {
+    for (const s of [1, 2, 3]) {
+      const plik = `${nazwa}@${s}x.png`;
+      await zapiszPng(path.join(logoConnectDir, plik),
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="76.5 76.5 344 344" width="${96 * s}" height="${96 * s}">${znakConnect(obrys)}</svg>`, 96 * s, 96 * s);
+      logoConnectObrazy.push({ filename: plik, idiom: 'universal', scale: `${s}x`, ...(wyglad ? { appearances: [{ appearance: 'luminosity', value: wyglad }] } : {}) });
+    }
+  }
+  zapiszJSON(path.join(logoConnectDir, 'Contents.json'), { images: logoConnectObrazy, info: { author: 'xcode', version: 1 } });
+  zapiszJSON(path.join(CONNECT, 'TloStartu.colorset', 'Contents.json'), {
+    colors: [
+      { idiom: 'universal', color: kolor('0xF4', '0xF6', '0xF8') },
+      { idiom: 'universal', appearances: [{ appearance: 'luminosity', value: 'dark' }], color: kolor('0x16', '0x19', '0x1E') }
+    ],
+    info: { author: 'xcode', version: 1 }
+  });
+  zapiszJSON(path.join(CONNECT, 'AccentColor.colorset', 'Contents.json'), {
+    colors: [
+      { idiom: 'universal', color: kolor('0xB0', '0x26', '0x1F') },
+      { idiom: 'universal', appearances: [{ appearance: 'luminosity', value: 'dark' }], color: kolor('0xE3', '0x46', '0x3A') }
+    ],
+    info: { author: 'xcode', version: 1 }
+  });
+  console.log('Grafiki Connect gotowe w', path.relative(KATALOG, CONNECT));
   app.quit();
 });

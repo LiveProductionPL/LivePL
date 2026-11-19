@@ -1,5 +1,5 @@
 {
-  "_opis": "Teksty i ustawienia App Store dla obu aplikacji (język polski). Wgrywa je ios/narzedzia/sklep-metadane.mjs. Te same opisy są wzorem dla Google Play.",
+  "_opis": "Teksty i ustawienia App Store dla trzech aplikacji (język polski). Wgrywa je ios/narzedzia/sklep-metadane.mjs. Te same opisy są wzorem dla Google Play.",
   "wspolne": {
     "copyright": "2026 Live Production Karol Kowalski",
     "supportUrl": "https://livepl.eu/",
@@ -15,7 +15,10 @@
       "promotionalText": "Programy Live Production, karty i Twoje strony w jednym miejscu. Tłumacz stron działa w telefonie, bez wysyłania tekstu.",
       "keywords": "przeglądarka,livepl,live production,poczta,tvml,tłumacz,karty,firma,leszno,strony",
       "description": "LivePL to przeglądarka firmy Live Production. Programy firmy, otwarte karty i Twoje strony masz w jednym miejscu, tak jak w LivePL na komputerze.\n\nSTART\n• Programy firmy jednym stuknięciem: Poczta, Live Production, TVML i więcej.\n• Pole „Adres albo szukaj”: wpisz adres strony albo to, czego szukasz.\n• Moje strony: dodaj dowolne strony, a pojawią się na ekranie Start.\n\nKARTY I PASEK\n• Każdy program ma własną kartę, która pamięta, gdzie skończyłeś.\n• Dolny pasek z ikonami programów i licznikiem kart.\n• Karty wracają po ponownym uruchomieniu.\n\nTŁUMACZ STRON\n• Strony w obcych językach przetłumaczysz na polski jednym stuknięciem.\n• Tłumaczy telefon (Apple Translation), więc tekst stron nie trafia do nikogo.\n• „Pokaż oryginał” przywraca stronę.\n\nBEZPIECZEŃSTWO\n• Aplikacja zna certyfikaty urzędu LivePL dla stron firmy, niczego nie trzeba instalować.\n• Telefon rejestruje się w urzędzie LivePL kluczem w Secure Enclave, którego nie da się skopiować.\n• Bez reklam i bez śledzenia.\n\nWYGODA\n• Tryb dzień, noc albo automatycznie, jak telefon.\n• Pobieranie plików, udostępnianie, znajdź na stronie, otwórz w Safari.\n• Logowanie do poczty firmowej trzyma 90 dni.\n\nPoczta firmowa jest też w osobnej aplikacji Poczta LivePL.",
-      "ageRating": { "unrestrictedWebAccess": true, "_dlaczego": "przeglądarka otwiera dowolne strony" }
+      "ageRating": {
+        "unrestrictedWebAccess": true,
+        "_dlaczego": "przeglądarka otwiera dowolne strony"
+      }
     },
     "eu.livepl.poczta": {
       "name": "Poczta LivePL",
@@ -25,12 +28,29 @@
       "promotionalText": "Firmowa poczta Live Production w osobnej aplikacji: liczba nieprzeczytanych na ikonie i logowanie, które trzyma 90 dni.",
       "keywords": "poczta,email,e-mail,livepl,live production,skrzynka,firma,konta,leszno,wiadomości",
       "description": "Poczta LivePL to firmowa poczta Live Production (poczta.livepl.eu) w osobnej aplikacji, na cały ekran i z własną ikoną.\n\n• Liczba nieprzeczytanych wiadomości na ikonie aplikacji.\n• Logowanie trzyma 90 dni od ostatniego użycia, bez ciągłego wpisywania hasła.\n• Wiele kont w jednym miejscu i szybkie przełączanie między nimi.\n• Załączniki: podgląd, zapisywanie w Plikach i wysyłanie zdjęć z telefonu.\n• Tryb dzień i noc.\n• Linki z wiadomości otwierają się w przeglądarce, a poczta zostaje na miejscu.\n• Telefon rejestruje się w urzędzie LivePL kluczem w Secure Enclave.\n• Bez reklam i bez śledzenia.\n\nDo logowania potrzebne jest konto pocztowe Live Production lub LivePL.",
-      "ageRating": { "unrestrictedWebAccess": false, "_dlaczego": "linki do innych stron otwierają się w Safari" }
+      "ageRating": {
+        "unrestrictedWebAccess": false,
+        "_dlaczego": "linki do innych stron otwierają się w Safari"
+      }
+    },
+    "eu.livepl.connect": {
+      "name": "LivePL Connect",
+      "subtitle": "Zdalny pulpit Live Production",
+      "primaryCategory": "UTILITIES",
+      "secondaryCategory": "BUSINESS",
+      "promotionalText": "Połącz się z komputerem z telefonu: wpisz ID i hasło z programu LivePL Connect i już widzisz jego ekran. Obraz płynie wprost z komputera.",
+      "keywords": "zdalny pulpit,pomoc zdalna,komputer,windows,sterowanie,livepl,connect,live production,ekran",
+      "description": "LivePL Connect to zdalny pulpit Live Production. Z iPhone'a albo iPada połączysz się z komputerem, na którym działa program LivePL Connect: widzisz jego ekran i sterujesz nim jak na miejscu.\n\nPOŁĄCZENIE\n• Wpisz ID i hasło, które pokazuje program LivePL Connect na tamtym komputerze, albo jego stałe hasło.\n• Ostatnie połączenia masz pod ręką na ekranie startowym.\n• Obraz i sterowanie płyną bezpośrednio między urządzeniami, szyfrowane (WebRTC, DTLS). Serwer LivePL tylko kojarzy urządzenia po ID.\n\nSTEROWANIE\n• Tryb dotyku: stuknięcie to kliknięcie, przytrzymanie to prawy przycisk, przesunięcie jednym palcem przewija, dwa palce powiększają.\n• Tryb myszy: ekran działa jak touchpad laptopa, wygodny przy drobnych elementach.\n• Pisanie klawiaturą telefonu i pasek klawiszy: Ctrl, Alt, Shift, Win, Esc, Tab, strzałki i F1–F12.\n• „Dopasuj” pokazuje cały ekran komputera.\n\nWYGODA\n• Pełny ekran, w pionie i w poziomie.\n• Telefon nie gaśnie w trakcie połączenia.\n• Wibracja potwierdza przytrzymanie palca.\n• Tryb dzień i noc, jak w telefonie.\n\nBEZPIECZEŃSTWO\n• Każde połączenie wymaga hasła z komputera, z którym się łączysz.\n• Telefon rejestruje się w urzędzie LivePL kluczem w Secure Enclave, którego nie da się skopiować.\n• Bez reklam i bez śledzenia.\n\nProgram LivePL Connect na komputer z Windows pobierzesz z app.livepl.eu.",
+      "ageRating": {
+        "unrestrictedWebAccess": false,
+        "_dlaczego": "łączy tylko z komputerem po ID i haśle, sama nie otwiera stron"
+      }
     }
   },
   "przegladApple": {
-    "_opis": "Dane dla zespołu App Review. Imię, telefon i konto demonstracyjne poczty wpisuje Karol sam w App Store Connect.",
+    "_opis": "Dane dla zespołu App Review. Imię, telefon, konto demonstracyjne poczty i komputer testowy Connect (ID i stałe hasło) wpisuje Karol sam w App Store Connect.",
     "notatkaPoczta": "Poczta LivePL to klient poczty firmowej Live Production (poczta.livepl.eu). Do zalogowania podajemy konto demonstracyjne w polach logowania. Aplikacja dodaje liczbę nieprzeczytanych na ikonie, zapamiętuje logowanie, obsługuje załączniki (Pliki, udostępnianie) i rejestruje urządzenie w naszym urzędzie certyfikacji kluczem w Secure Enclave.",
-    "notatkaLivePL": "LivePL to przeglądarka firmy Live Production (WKWebView). Nie wymaga logowania: strony programów są publiczne, a poczta ma własny ekran logowania. Tłumacz stron korzysta z Apple Translation na urządzeniu."
+    "notatkaLivePL": "LivePL to przeglądarka firmy Live Production (WKWebView). Nie wymaga logowania: strony programów są publiczne, a poczta ma własny ekran logowania. Tłumacz stron korzysta z Apple Translation na urządzeniu.",
+    "notatkaConnect": "LivePL Connect to klient zdalnego pulpitu Live Production (connect.livepl.eu). Łączy się z komputerem z programem LivePL Connect (Windows) po ID i haśle; obraz i sterowanie płyną przez WebRTC. Do testu podajemy ID i stałe hasło komputera testowego, który jest włączony w czasie przeglądu. Aplikacja na iPhonie: pełny ekran, blokada wygaszania ekranu w trakcie sesji, wibracja przy przytrzymaniu, rejestracja urządzenia w naszym urzędzie certyfikacji kluczem w Secure Enclave."
   }
 }

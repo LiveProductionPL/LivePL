@@ -46,7 +46,15 @@ final class Karta: NSObject, ObservableObject, Identifiable, WKNavigationDelegat
     init(programID: String?, konfiguracja: WKWebViewConfiguration? = nil, przegladarka: Przegladarka) {
         self.programID = programID
         self.przegladarka = przegladarka
-        webView = WKWebView(frame: .zero, configuration: konfiguracja ?? Karta.nowaKonfiguracja())
+        // okno otwarte przez stronę dostaje konfigurację od WebKit (z tymi samymi skryptami co karta, która je otworzyła)
+        let k: WKWebViewConfiguration
+        if let konfiguracja {
+            k = konfiguracja
+        } else {
+            k = Karta.nowaKonfiguracja()
+            przegladarka.dostosujKonfiguracje?(k)
+        }
+        webView = WKWebView(frame: .zero, configuration: k)
         super.init()
 
         webView.navigationDelegate = self

@@ -254,10 +254,16 @@ final class Urzadzenie: ObservableObject {
         return String(kod.prefix(3)) + "-" + String(kod.suffix(3))
     }
 
-    /// np. „iPhone-K7F2QX”, a w aplikacji Poczta LivePL „iPhone-K7F2QX Poczta” (każda aplikacja ma własny klucz).
+    /// np. „iPhone-K7F2QX”, a w Poczcie LivePL „iPhone-K7F2QX Poczta” i w LivePL Connect „iPhone-K7F2QX Connect”
+    /// (każda aplikacja ma własny klucz).
     private static func nazwa(kod: String) -> String {
-        let poczta = Bundle.main.bundleIdentifier == "eu.livepl.poczta" ? " Poczta" : ""
-        return "\(UIDevice.current.model)-\(kod.replacingOccurrences(of: "-", with: ""))\(poczta)"
+        let aplikacja: String
+        switch Bundle.main.bundleIdentifier {
+        case "eu.livepl.poczta": aplikacja = " Poczta"
+        case "eu.livepl.connect": aplikacja = " Connect"
+        default: aplikacja = ""
+        }
+        return "\(UIDevice.current.model)-\(kod.replacingOccurrences(of: "-", with: ""))\(aplikacja)"
     }
 
     /// Wniosek PKCS#10 podpisany kluczem z Secure Enclave (ecdsa-with-SHA256).

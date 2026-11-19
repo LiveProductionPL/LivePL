@@ -1,4 +1,4 @@
-# LivePL i Poczta LivePL na iPhone'a: budowa na Macach GitHuba, zrzuty z symulatora i (na życzenie) wysyłka do TestFlight.
+# LivePL, Poczta LivePL i LivePL Connect na iPhone'a: budowa na Macach GitHuba, zrzuty z symulatora i (na życzenie) wysyłka do TestFlight.
 # TestFlight rusza tylko wtedy, gdy opis zmiany zawiera [testflight] i są ustawione sekrety Apple (ios/README.md).
 # Zmiana musi dotykać plików z listy niżej (pusta zmiana nie uruchomi budowy). Gdy workflow trafi na main,
 # można go też uruchomić ręcznie: Actions → LivePL iOS → Run workflow (z zaznaczonym „TestFlight”).
@@ -46,11 +46,11 @@ jobs:
           brew install xcodegen
           cd ios && xcodegen generate
 
-      - name: Budowa na symulator (LivePL i Poczta)
+      - name: Budowa na symulator (LivePL, Poczta i Connect)
         run: |
           set -o pipefail
           : > build.log
-          for SCHEMAT in LivePL Poczta; do
+          for SCHEMAT in LivePL Poczta Connect; do
             xcodebuild -project ios/LivePL.xcodeproj -scheme "$SCHEMAT" -configuration Debug \
               -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
               -derivedDataPath build CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "build-$SCHEMAT.log" | grep -E "error:|warning:|BUILD" || true
@@ -64,7 +64,9 @@ jobs:
           grep -E "(error|warning): " build.log | grep "/ios/" | sort -u || echo "brak"
 
       - name: Zrzuty ekranu
-        run: bash ios/narzedzia/zrzuty.sh build/Build/Products/Debug-iphonesimulator/LivePL.app zrzuty build/Build/Products/Debug-iphonesimulator/Poczta.app
+        run: |
+          P=build/Build/Products/Debug-iphonesimulator
+          bash ios/narzedzia/zrzuty.sh $P/LivePL.app zrzuty $P/Poczta.app $P/Connect.app
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -75,16 +77,47 @@ jobs:
             build.log
           retention-days: 14
 
-      - name: Zrzuty do App Store (iPhone 6,9″ i iPad 13″)
-        if: contains(github.event.head_commit.message, '[zrzuty-sklep]')
+  # Zrzuty do App Store osobno i równolegle (iPhone i iPad): pierwszy rozruch nowego symulatora na Macach GitHuba
+  # trwa kilkanaście minut, więc razem z resztą nie mieściły się w limicie. TestFlight na nie nie czeka.
+  sklep:
+    name: Zrzuty do App Store (${{ matrix.urzadzenie }})
+    if: contains(github.event.head_commit.message, '[zrzuty-sklep]')
+    runs-on: macos-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        urzadzenie: [iphone-69, ipad-13]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Najnowszy Xcode
         run: |
-          bash ios/narzedzia/zrzuty-sklep.sh build/Build/Products/Debug-iphonesimulator/LivePL.app \
-            build/Build/Products/Debug-iphonesimulator/Poczta.app sklep
+          XCODE=$(ls -d /Applications/Xcode_*.app | grep -v -i beta | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+
+      - name: Projekt Xcode z project.yml
+        run: |
+          brew install xcodegen
+          cd ios && xcodegen generate
+
+      - name: Budowa na symulator
+        run: |
+          set -o pipefail
+          for SCHEMAT in LivePL Poczta Connect; do
+            xcodebuild -project ios/LivePL.xcodeproj -scheme "$SCHEMAT" -configuration Debug \
+              -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+              -derivedDataPath build CODE_SIGNING_ALLOWED=NO build 2>&1 | grep -E "error:|BUILD" || true
+          done
+
+      - name: Zrzuty (${{ matrix.urzadzenie }})
+        run: |
+          P=build/Build/Products/Debug-iphonesimulator
+          URZADZENIE=${{ matrix.urzadzenie }} bash ios/narzedzia/zrzuty-sklep.sh $P/LivePL.app $P/Poczta.app sklep $P/Connect.app
 
       - uses: actions/upload-artifact@v4
-        if: contains(github.event.head_commit.message, '[zrzuty-sklep]')
         with:
-          name: sklep-${{ github.run_number }}
+          name: sklep-${{ github.run_number }}-${{ matrix.urzadzenie }}
           path: sklep/
           retention-days: 30
 
@@ -99,6 +132,7 @@ jobs:
       APPLE_CERT_HASLO: ${{ secrets.APPLE_CERT_HASLO }}
       APPLE_PROFIL: ${{ secrets.APPLE_PROFIL }}
       APPLE_PROFIL_POCZTA: ${{ secrets.APPLE_PROFIL_POCZTA }}
+      APPLE_PROFIL_CONNECT: ${{ secrets.APPLE_PROFIL_CONNECT }}
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
@@ -112,6 +146,7 @@ jobs:
             if [ -z "${!s}" ]; then echo "::error::Brak sekretu $s (instrukcja w ios/README.md)"; brak=1; fi
           done
           if [ -z "$APPLE_PROFIL_POCZTA" ]; then echo "::warning::Brak sekretu APPLE_PROFIL_POCZTA: Poczta LivePL nie pójdzie do TestFlight"; fi
+          if [ -z "$APPLE_PROFIL_CONNECT" ]; then echo "::warning::Brak sekretu APPLE_PROFIL_CONNECT: LivePL Connect nie pójdzie do TestFlight"; fi
           exit $brak
 
       - name: Najnowszy Xcode
@@ -142,6 +177,7 @@ jobs:
             mkdir -p "$d"
             printf '%s' "$APPLE_PROFIL" | base64 --decode > "$d/livepl-app-store.mobileprovision"
             if [ -n "$APPLE_PROFIL_POCZTA" ]; then printf '%s' "$APPLE_PROFIL_POCZTA" | base64 --decode > "$d/poczta-app-store.mobileprovision"; fi
+            if [ -n "$APPLE_PROFIL_CONNECT" ]; then printf '%s' "$APPLE_PROFIL_CONNECT" | base64 --decode > "$d/connect-app-store.mobileprovision"; fi
           done
 
       - name: Archiwum i wysyłka do App Store Connect
@@ -154,6 +190,8 @@ jobs:
           APLIKACJE="LivePL|LivePL App Store|ios/ExportOptions.plist"
           if [ -n "$APPLE_PROFIL_POCZTA" ]; then APLIKACJE="$APLIKACJE
           Poczta|Poczta LivePL App Store|ios/ExportOptions-poczta.plist"; fi
+          if [ -n "$APPLE_PROFIL_CONNECT" ]; then APLIKACJE="$APLIKACJE
+          Connect|LivePL Connect App Store|ios/ExportOptions-connect.plist"; fi
           echo "$APLIKACJE" | while IFS='|' read -r SCHEMAT PROFIL OPCJE; do
             SCHEMAT=$(echo "$SCHEMAT" | xargs)
             echo "::group::$SCHEMAT"
@@ -168,5 +206,7 @@ jobs:
         if: always()
         run: |
           security delete-keychain "$RUNNER_TEMP/livepl.keychain-db" 2>/dev/null || true
-          rm -rf "$RUNNER_TEMP/asc" "$HOME/Library/MobileDevice/Provisioning Profiles/livepl-app-store.mobileprovision" \
-            "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/livepl-app-store.mobileprovision"
+          rm -rf "$RUNNER_TEMP/asc"
+          for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            rm -f "$d/livepl-app-store.mobileprovision" "$d/poczta-app-store.mobileprovision" "$d/connect-app-store.mobileprovision"
+          done
