@@ -124,6 +124,11 @@ function ekranMenu() {
 
   f.appendChild(poz('drukuj', 'Drukuj', { skrot: 'Ctrl+P', akcja: 'drukuj', wylaczona: !D.adres }));
   f.appendChild(poz('szukaj', 'Znajdź na stronie', { skrot: 'Ctrl+F', akcja: 'szukaj', wylaczona: !D.adres }));
+  const tk = D.tlumacz && D.tlumacz.karta;
+  const przetlumaczona = !!tk && (tk.stan === 'gotowe' || tk.stan === 'trwa');
+  f.appendChild(poz('tlumacz', przetlumaczona ? 'Pokaż oryginał' : 'Przetłumacz stronę na polski', {
+    akcja: przetlumaczona ? 'tlumacz-oryginal' : 'tlumacz-strone', wylaczona: !tk
+  }));
   const w = el('div', 'wiersz');
   w.append(ikonaEl('szukaj'), el('span', 'tekst', 'Powiększenie'));
   const s = el('div', 'sterowanie');
@@ -164,6 +169,7 @@ function ekranUstawienia() {
   f.appendChild(poz('pinezka', 'Moje strony na pasku', { dalej: true, klik: () => { ekran = 'strony'; rysuj(); } }));
   f.appendChild(poz('klucz', 'Hasła', { dalej: true, klik: () => { ekran = 'hasla'; rysuj(); P.akcja('hasla-odswiez'); } }));
   f.appendChild(poz('ai', 'Dostęp dla AI (Claude i inne)', { dalej: true, klik: () => { ekran = 'ai'; rysuj(); } }));
+  f.appendChild(poz('tlumacz', 'Tłumacz stron', { dalej: true, klik: () => { ekran = 'tlumacz-ustawienia'; rysuj(); } }));
   f.appendChild(poz('przywroc', 'Uruchom LivePL ponownie', { akcja: 'restart' }));
   f.appendChild(kreska());
   f.appendChild(poz('kosz', 'Wyczyść pamięć podręczną', { akcja: 'pamiec' }));
@@ -855,6 +861,203 @@ function ekranAI() {
   return f;
 }
 
+// ---------------------------------------------------------------- tłumacz stron
+
+function wybor(tekst, podpis, wlaczony, klik) {
+  const b = el('button', 'poz poz-wysoka');
+  b.type = 'button';
+  b.setAttribute('role', 'menuitemradio');
+  b.setAttribute('aria-checked', String(!!wlaczony));
+  const pole = el('span', 'pole okragle' + (wlaczony ? ' wl' : ''));
+  pole.appendChild(ikonaEl('znacznik'));
+  const t = el('span', 'tekst');
+  t.append(el('span', '', tekst), el('small', 'podpis-pozycji', podpis));
+  b.append(pole, t);
+  b.addEventListener('click', () => { if (!wlaczony) klik(); });
+  return b;
+}
+
+function przyciskPanelu(tekst, klasa, klik) {
+  const b = el('button', 'przycisk ' + klasa, tekst);
+  b.type = 'button';
+  b.addEventListener('click', klik);
+  return b;
+}
+
+// okienko przy przycisku tłumacza (strzałka obok „Przetłumacz”)
+function ekranTlumacz() {
+  const f = document.createDocumentFragment();
+  const t = D.tlumacz || {};
+  const k = t.karta;
+  const n = el('div', 'ssl-naglowek ok');
+  n.append(ikonaEl('tlumacz'), el('span', '', 'Tłumacz stron'));
+  f.appendChild(n);
+  if (!k) {
+    f.appendChild(el('div', 'opis', 'Tłumaczyć można zwykłe strony internetowe.'));
+    return f;
+  }
+  // język strony, z możliwością poprawienia
+  const w = el('div', 'wiersz-jezyk');
+  w.appendChild(el('span', '', 'Język strony:'));
+  const lista = el('select', 'pole-tekstu');
+  lista.setAttribute('aria-label', 'Język strony');
+  if (!k.jezyk || !t.jezyki.some(j => j.kod === k.jezyk)) {
+    const o = el('option', '', k.jezyk === 'pl' ? 'polski' : 'wybierz…');
+    o.value = '';
+    lista.appendChild(o);
+  }
+  for (const j of t.jezyki || []) {
+    const o = el('option', '', j.nazwa);
+    o.value = j.kod;
+    o.selected = j.kod === k.jezyk;
+    lista.appendChild(o);
+  }
+  lista.addEventListener('change', () => { if (lista.value) P.akcja('tlumacz-jezyk', lista.value); });
+  w.appendChild(lista);
+  f.appendChild(w);
+
+  const opisStanu = {
+    pobieranie: `Pobieram słownik${k.pobieranie != null ? ': ' + k.pobieranie + '%' : '…'} To tylko za pierwszym razem dla tego języka.`,
+    trwa: `Tłumaczę na polski${k.procent != null ? ': ' + k.procent + '%' : '…'}`,
+    gotowe: 'Strona jest przetłumaczona na polski.'
+  };
+  if (opisStanu[k.stan]) f.appendChild(el('div', 'opis', opisStanu[k.stan]));
+  if (k.stan === 'blad' && k.blad) f.appendChild(el('div', 'opis zly', k.blad));
+  if (k.chroniona) f.appendChild(el('div', 'opis', 'To chroniony program LivePL: tłumaczy się tylko po kliknięciu i zawsze w tym komputerze.'));
+
+  const p = el('div', 'przyciski');
+  if (k.stan === 'gotowe' || k.stan === 'trwa') {
+    p.appendChild(przyciskPanelu('Pokaż oryginał', 'czerwony', () => P.akcja('tlumacz-oryginal')));
+  } else if (k.stan !== 'pobieranie') {
+    const tak = przyciskPanelu(k.stan === 'blad' ? 'Spróbuj jeszcze raz' : 'Przetłumacz na polski', 'czerwony', () => P.akcja('tlumacz-strone', lista.value || undefined));
+    tak.disabled = !lista.value || lista.value === 'pl';
+    p.appendChild(tak);
+    setTimeout(() => tak.focus(), 50);
+  }
+  f.appendChild(p);
+
+  if (!k.chroniona && k.jezyk && k.jezyk !== 'pl') {
+    f.appendChild(zaznaczenie(`Zawsze tłumacz z języka: ${k.nazwa}`, k.zawsze, 'tlumacz-zawsze', () => { k.zawsze = !k.zawsze; }));
+  }
+  if (k.host) {
+    f.appendChild(zaznaczenie(`Nigdy nie proponuj na ${k.host}`, k.nigdy, 'tlumacz-nigdy', () => { k.nigdy = !k.nigdy; }));
+  }
+  f.appendChild(kreska());
+  const s = el('div', 'linia-bezp ' + (k.silnik === 'deepl' ? 'slaby' : 'ok'));
+  s.append(ikonaEl(k.silnik === 'deepl' ? 'info' : 'klodka'), el('span', '', k.silnik === 'deepl'
+    ? 'Tłumaczy DeepL: tekst tej strony idzie do DeepL (UE).'
+    : 'Tłumaczy ten komputer. Tekst strony nigdzie nie wychodzi.'));
+  f.appendChild(s);
+  f.appendChild(poz('ustawienia', 'Ustawienia tłumacza', { dalej: true, klik: () => { ekran = 'tlumacz-ustawienia'; rysuj(); } }));
+  return f;
+}
+
+// ustawienia → Tłumacz stron
+function ekranTlumaczUstawienia() {
+  const f = document.createDocumentFragment();
+  const t = D.tlumacz || { zawsze: [], nigdy: [], modele: [] };
+  f.appendChild(naglowek('Tłumacz stron', 'ustawienia'));
+  f.appendChild(el('div', 'opis', 'LivePL tłumaczy strony w innych językach na polski. Przycisk „Przetłumacz” pojawia się obok adresu. Działa też prawy przycisk myszy: „Przetłumacz stronę” i „Przetłumacz zaznaczenie”.'));
+  f.appendChild(zaznaczenie('Proponuj tłumaczenie obcych stron', t.proponuj, 'tlumacz-proponuj', () => { t.proponuj = !t.proponuj; }));
+
+  f.appendChild(el('div', 'sekcja-tytul', 'Kto tłumaczy'));
+  f.appendChild(wybor('Ten komputer (zalecane)', 'modele Mozilli (jak w Firefoksie); tekst nigdzie nie wychodzi; słownik pobiera się raz na język, ok. 25 MB',
+    t.silnik === 'lokalny', () => { t.silnik = 'lokalny'; P.akcja('tlumacz-silnik', 'lokalny'); rysuj(); }));
+  f.appendChild(wybor('DeepL', 'najlepsza jakość po polsku; tekst stron idzie do DeepL SE (Niemcy, UE); potrzebny klucz API',
+    t.silnik === 'deepl', () => { t.silnik = 'deepl'; P.akcja('tlumacz-silnik', 'deepl'); rysuj(); }));
+
+  if (t.silnik === 'deepl' || t.klucz) {
+    f.appendChild(el('div', 'opis', 'Z DeepL wysyłany jest tekst stron, które tłumaczysz (bez pól formularzy i haseł). Programy LivePL (poczta, panele, urząd) i tak tłumaczy ten komputer. Darmowy klucz API (500 tys. znaków miesięcznie) założysz na deepl.com/pro-api.'));
+    if (t.klucz) {
+      const l = el('div', 'linia');
+      l.append(el('span', '', 'Klucz DeepL: '), el('b', '', t.klucz));
+      f.appendChild(l);
+      const p = el('div', 'przyciski');
+      p.append(przyciskPanelu('Sprawdź klucz', '', () => P.akcja('tlumacz-klucz-sprawdz')),
+        przyciskPanelu('Usuń klucz', 'tekstowy', () => P.akcja('tlumacz-klucz-usun')));
+      f.appendChild(p);
+    } else if (!t.szyfrowanie) {
+      f.appendChild(el('div', 'opis zly', 'Windows nie pozwala teraz szyfrować danych, więc LivePL nie zapisze klucza.'));
+    } else {
+      const forma = el('form', 'dodaj-strone');
+      const pole = el('input', 'pole-tekstu');
+      pole.type = 'password';
+      pole.placeholder = 'Klucz API DeepL';
+      pole.autocomplete = 'off';
+      pole.spellcheck = false;
+      const zapisz = el('button', 'przycisk czerwony', 'Zapisz klucz');
+      zapisz.type = 'submit';
+      forma.append(pole, zapisz);
+      forma.addEventListener('submit', (e) => {
+        e.preventDefault();
+        P.akcja('tlumacz-klucz', pole.value);
+        pole.value = '';
+      });
+      f.appendChild(forma);
+      f.appendChild(el('div', 'opis', 'Klucz zostanie zaszyfrowany przez Windows, jak zapisane hasła.'));
+    }
+    if (t.stanKlucza) f.appendChild(el('div', 'opis' + (t.stanKlucza.zly ? ' zly' : ''), t.stanKlucza.tekst));
+    if (t.silnik === 'deepl' && !t.klucz) f.appendChild(el('div', 'opis', 'Bez klucza dalej tłumaczy ten komputer.'));
+  }
+
+  if (t.zawsze.length) {
+    f.appendChild(el('div', 'sekcja-tytul', 'Zawsze tłumacz z języka'));
+    for (const j of t.zawsze) f.appendChild(wierszUsun(j.nazwa, 'Nie tłumacz już automatycznie', () => P.akcja('tlumacz-zawsze-usun', j.kod)));
+  }
+  if (t.nigdy.length) {
+    f.appendChild(el('div', 'sekcja-tytul', 'Nigdy nie proponuj na'));
+    for (const h of t.nigdy) f.appendChild(wierszUsun(h, 'Usuń z wyjątków', () => P.akcja('tlumacz-nigdy-usun', h)));
+  }
+  f.appendChild(el('div', 'sekcja-tytul', 'Pobrane słowniki'));
+  if (!t.modele.length) f.appendChild(el('div', 'opis', 'Jeszcze żadnych. Słownik pobiera się przy pierwszym tłumaczeniu z danego języka.'));
+  for (const m of t.modele) {
+    const l = el('div', 'linia');
+    l.append(el('span', '', m.nazwa + ': '), el('b', '', m.mb + ' MB'));
+    f.appendChild(l);
+  }
+  if (t.modele.length) f.appendChild(poz('kosz', 'Usuń pobrane słowniki', { akcja: 'tlumacz-modele-usun' }));
+  return f;
+}
+
+function wierszUsun(tekst, podpowiedz, klik) {
+  const r = el('div', 'wiersz strona-wiersz');
+  const opis = el('div', 'strona-opis');
+  opis.appendChild(el('span', '', tekst));
+  const usun = el('button', 'maly usun-strone');
+  usun.type = 'button';
+  usun.title = podpowiedz;
+  usun.appendChild(ikonaEl('zamknij'));
+  usun.addEventListener('click', klik);
+  r.append(opis, usun);
+  return r;
+}
+
+// prawy przycisk → „Przetłumacz zaznaczenie”: wynik w okienku obok, strona bez zmian
+function ekranTlumaczenie() {
+  const f = document.createDocumentFragment();
+  const t = D.tlumaczenie;
+  if (!t) return f;
+  const n = el('div', 'ssl-naglowek ok');
+  n.append(ikonaEl('tlumacz'), el('span', '', t.zrodlo && t.zrodlo !== 'pl' ? `Tłumaczenie z języka: ${t.nazwa}` : 'Tłumaczenie'));
+  f.appendChild(n);
+  if (t.trwa) f.appendChild(el('div', 'opis', t.pobieranie != null ? `Pobieram słownik: ${t.pobieranie}% (tylko za pierwszym razem)` : 'Tłumaczę…'));
+  if (t.blad) f.appendChild(el('div', 'opis zly', t.blad));
+  if (t.wynik) {
+    const w = el('div', 'tlumaczenie-tekst', t.wynik);
+    f.appendChild(w);
+  }
+  const p = el('div', 'przyciski');
+  if (t.wynik) {
+    const kopiuj = przyciskPanelu('Kopiuj', 'czerwony', () => P.akcja('tlumacz-kopiuj'));
+    p.appendChild(kopiuj);
+    setTimeout(() => kopiuj.focus(), 50);
+  }
+  p.appendChild(przyciskPanelu('Zamknij', 'tekstowy', () => P.akcja('tlumacz-zamknij')));
+  f.appendChild(p);
+  f.appendChild(el('div', 'opis slaby-maly', t.silnik === 'deepl' ? 'Przetłumaczył DeepL.' : 'Przetłumaczył ten komputer.'));
+  return f;
+}
+
 // prawy klik na programie albo przypiętej stronie na pasku bocznym
 function ekranProgram() {
   const f = document.createDocumentFragment();
@@ -948,7 +1151,10 @@ function rysuj() {
     hasla: ekranHasla,
     podpis: ekranPodpis,
     karta: ekranKarta,
-    ai: ekranAI
+    ai: ekranAI,
+    tlumacz: ekranTlumacz,
+    'tlumacz-ustawienia': ekranTlumaczUstawienia,
+    tlumaczenie: ekranTlumaczenie
   };
   panelEl.replaceChildren((ekrany[ekran] || ekranMenu)());
 }

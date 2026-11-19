@@ -19,6 +19,7 @@ const hasla = require('./hasla');
 const certWin = require('./certyfikaty-windows');
 const urzadzenie = require('./urzadzenie');
 const dostepAI = require('./dostep-ai');
+const tlumacz = require('./tlumacz');
 const fs = require('fs');
 
 const ID_APLIKACJI = 'pl.livepl.przegladarka';
@@ -713,7 +714,8 @@ function stan() {
       bezpieczna: adres.startsWith('https:') && !a.blad,
       ssl: sslKarty(a),
       blad: !!a.blad,
-      przypinalna: !a.program && !a.nowa && !a.blad && /^https?:/i.test(a.adres || '')
+      przypinalna: !a.program && !a.nowa && !a.blad && /^https?:/i.test(a.adres || ''),
+      tlumacz: tlumacz.stanDlaPaska(a)
     };
   }
   const trwa = pobrane.filter(p => p.stan === 'trwa');
@@ -777,7 +779,10 @@ function podepnij(k) {
     }
     wyslijStan();
   };
-  wc.on('did-navigate', (e, url) => poNawigacji(url));
+  wc.on('did-navigate', (e, url) => {
+    tlumacz.poNawigacji(k); // nowa strona: tłumacz zaczyna od rozpoznania języka
+    poNawigacji(url);
+  });
   wc.on('did-navigate-in-page', (e, url, glowna) => { if (glowna) poNawigacji(url); });
 
   wc.on('did-fail-load', (e, kod, opis, url, glowna) => {
@@ -1039,6 +1044,8 @@ function menuKontekstowe(wc, p, k, okno) {
       label: `Szukaj w Google: „${skroc(tekst, 28)}”`,
       click: () => nowaKarta('https://www.google.com/search?q=' + encodeURIComponent(tekst), { po })
     });
+    // tłumaczenie zaznaczenia w okienku obok, bez zmiany strony
+    if (k) t.push({ label: 'Przetłumacz zaznaczenie', click: () => tlumacz.przetlumaczZaznaczenie(k, tekst, kotwicaWStronie(k, p)) });
   } else if (!p.linkURL && p.mediaType === 'none') {
     const h = wc.navigationHistory;
     t.push({ label: 'Wstecz', enabled: h.canGoBack(), click: () => h.goBack() });
@@ -1046,12 +1053,24 @@ function menuKontekstowe(wc, p, k, okno) {
     t.push({ label: 'Odśwież', click: () => (k ? odswiez(k, false) : wc.reload()) });
     sep();
     t.push({ label: 'Drukuj…', click: () => drukuj(wc) });
+    if (k && tlumacz.stronaWWW(k)) {
+      const s = k.tl && k.tl.stan;
+      t.push(s === 'gotowe' || s === 'trwa'
+        ? { label: 'Pokaż oryginał', click: () => tlumacz.pokazOryginal(k) }
+        : { label: 'Przetłumacz stronę na polski', click: () => tlumacz.przetlumaczStrone(k) });
+    }
   }
 
   sep();
   t.push({ label: 'Zbadaj element', click: () => wc.inspectElement(p.x, p.y) });
 
   Menu.buildFromTemplate(t).popup({ window: okno || win });
+}
+
+// miejsce kliknięcia w stronie przeliczone na współrzędne okna (dla okienek LivePL obok kursora)
+function kotwicaWStronie(k, p) {
+  const b = k.widok.getBounds();
+  return { lewo: Math.round(b.x + Number(p.x || 0)), gora: Math.round(b.y + Number(p.y || 0) + 12) };
 }
 
 // ---------------------------------------------------------------- pobieranie plików
@@ -1303,6 +1322,8 @@ function danePanelu() {
     folderDanych: app.getPath('userData'),
     pobrane: pobrane.slice(0, 12).map(p => ({ id: p.id, nazwa: p.nazwa, stan: p.stan, procent: p.procent || 0 })),
     ai: dostepAI.danePanelu(),
+    tlumacz: ['menu', 'tlumacz', 'tlumaczenie'].includes(panelStan.rodzaj) ? tlumacz.danePanelu(k) : null,
+    tlumaczenie: panelStan.tlumaczenie || null,
     karta: kp ? { id: kp.id, adres: kp.blad ? kp.blad.url : kp.adres, nowa: !!kp.nowa, inne: dodatkowe.length > 1, przypinalna: !kp.nowa && /^https?:/i.test(kp.adres || '') } : null
   };
 }
@@ -1429,6 +1450,18 @@ function akcjaPanelu(nazwa, arg) {
   }
   const k = karty.get(aktywnaId);
   const kp = typeof arg === 'string' ? karty.get(arg) : null;
+  // tłumacz stron: okienko tłumacza, ustawienia i tłumaczenie zaznaczenia
+  if (nazwa === 'tlumacz-kopiuj') {
+    const w = panelStan && panelStan.tlumaczenie && panelStan.tlumaczenie.wynik;
+    schowajPanel(true);
+    if (w) { clipboard.writeText(w); dodajWiadomosc('Skopiowano tłumaczenie'); }
+    return;
+  }
+  if (nazwa.startsWith('tlumacz-')) {
+    if (tlumacz.akcja(nazwa, arg, k)) setTimeout(wyslijDoPanelu, 50);
+    else schowajPanel(true);
+    return;
+  }
   if (!ZOSTAW_OTWARTY.includes(nazwa)) schowajPanel(!['szukaj', 'nowa'].includes(nazwa));
   switch (nazwa) {
     case 'nowa': nowaKarta(null); break;
@@ -1867,6 +1900,9 @@ ipcMain.on('powloka', (e, akcja, ...a) => {
     case 'ssl': pokazPanel('ssl', { lewo: a[0], dol: a[1] }); break;
     case 'ai': pokazPanel('ai', { prawo: a[0], dol: a[1] }); break;
     case 'ai-zatrzymaj': dostepAI.ustawPoziom('wylaczony'); break;
+    // przycisk tłumacza przy adresie: kliknięcie tłumaczy albo pokazuje oryginał, strzałka otwiera opcje
+    case 'tlumacz': tlumacz.przelacz(k); break;
+    case 'tlumacz-opcje': pokazPanel('tlumacz', { prawo: a[0], gora: a[1] + 6 }); break;
     case 'pobrane-otworz': {
       const p = pobrane.find(x => x.id === a[0]);
       if (p) shell.openPath(p.sciezka);
@@ -2219,6 +2255,8 @@ app.whenReady().then(() => {
 
   const ses = session.fromPartition(PARTYCJA);
   try { ses.setSpellCheckerLanguages(['pl', 'en-US']); } catch { /* słowniki dociągną się później */ }
+  // tłumacz stron: osobny skrypt w odizolowanym świecie każdej strony (obok preload-strona.js)
+  ses.registerPreloadScript({ type: 'frame', id: 'livepl-tlumacz', filePath: path.join(__dirname, 'preload-tlumacz.js') });
   uprawnienia(ses);
   obslugaPobierania(ses);
   naszeCA.wlacz(ses);
@@ -2299,4 +2337,20 @@ app.whenReady().then(() => {
     wszystkieProgramy: () => [...programy, ...programyUkryte],
     aktywuj, przejdzDo, nowaKarta, zamknij, laduj, dodajWiadomosc, wyslijStan
   });
+
+  // tłumacz stron: w komputerze (Mozilla) domyślnie, DeepL tylko po włączeniu w ustawieniach
+  tlumacz.uruchom({
+    ustawienia: () => ustawienia,
+    zapiszUstawienia,
+    wszystkieProgramy: () => [...programy, ...programyUkryte],
+    nasza,
+    kartaDla,
+    dodajWiadomosc,
+    usunWiadomosc,
+    wyslijStan,
+    wyslijDoPanelu,
+    pokazPanel,
+    pokazPanelTlumacza: () => pokazPanel('tlumacz', { srodek: true }),
+    panelTlumacza: () => !!(panelStan && panelStan.rodzaj === 'tlumacz')
+  }, ipcMain);
 });

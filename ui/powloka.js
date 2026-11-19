@@ -15,6 +15,10 @@ $('#odswiez').innerHTML = ikona('odswiez');
 $('#pobrane').innerHTML = ikona('pobrane');
 $('#przypnij').innerHTML = ikona('plus') + '<span>Dodaj</span>';
 $('#przypnij').addEventListener('click', () => api.wyslij('przypnij'));
+$('#tlumacz-glowny').insertAdjacentHTML('afterbegin', ikona('tlumacz'));
+$('#tlumacz-opcje').innerHTML = ikona('dol');
+$('#tlumacz-glowny').addEventListener('click', () => api.wyslij('tlumacz'));
+$('#tlumacz-opcje').addEventListener('click', (e) => api.wyslij('tlumacz-opcje', ...podPrzyciskiem(e.currentTarget)));
 $('#menu').innerHTML = ikona('menu');
 $('#adres-ikona').innerHTML = ikona('szukaj');
 $('#szukaj-ikona').innerHTML = ikona('szukaj');
@@ -321,6 +325,7 @@ function rysujDol() {
   $('#miejsce').title = a && a.adres ? a.adres : '';
   rysujSsl(a ? a.ssl : null);
   rysujAI();
+  rysujTlumacza(a ? a.tlumacz : null);
 
   rysujWiadomosci();
 
@@ -341,6 +346,29 @@ function rysujDol() {
   }
 
   document.title = a && a.tytul ? `${a.tytul} – LivePL` : 'LivePL';
+}
+
+// tłumacz przy adresie: widać go tylko na stronach w innym języku (albo już przetłumaczonych).
+// Kliknięcie tłumaczy całą stronę albo wraca do oryginału; strzałka obok otwiera opcje.
+function rysujTlumacza(t) {
+  const box = $('#tlumacz');
+  box.hidden = !t;
+  if (!t) return;
+  const opisy = {
+    propozycja: ['Przetłumacz', `Język strony: ${t.nazwa}. Przetłumaczyć na polski?`],
+    pobieranie: [t.pobieranie != null ? `Pobieram ${t.pobieranie}%` : 'Przygotowuję…', 'Pobieram słownik do tłumaczenia (tylko za pierwszym razem dla tego języka)'],
+    trwa: [t.procent != null && t.procent < 100 ? `Tłumaczę ${t.procent}%` : 'Tłumaczę…', `Tłumaczę z języka: ${t.nazwa}. Kliknij, żeby pokazać oryginał`],
+    gotowe: ['Pokaż oryginał', `Przetłumaczono z języka: ${t.nazwa}. Kliknij, żeby wrócić do oryginału`],
+    blad: ['Nie przetłumaczono', (t.blad || 'Tłumacz napotkał błąd') + '. Kliknij, żeby spróbować jeszcze raz']
+  };
+  const [tekst, tytul] = opisy[t.stan] || opisy.propozycja;
+  const glowny = $('#tlumacz-glowny');
+  box.dataset.stan = t.stan;
+  glowny.querySelector('.napis').textContent = tekst;
+  glowny.title = tytul;
+  glowny.setAttribute('aria-label', tytul);
+  const postep = t.stan === 'pobieranie' ? t.pobieranie : t.stan === 'trwa' ? t.procent : null;
+  box.style.setProperty('--postep', String(postep == null ? 0 : postep));
 }
 
 // wyraźna informacja, czy strona ma aktywny certyfikat SSL
