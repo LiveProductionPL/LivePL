@@ -48,7 +48,7 @@ struct ArtykulWidok: View {
                 VStack(alignment: .leading, spacing: 14) {
                     EtykietaKategorii(artykul: a)
                     Text(a.tytul)
-                        .font(.system(size: wielkosc + 10, weight: .heavy, design: .serif))
+                        .font(Czcionka.naglowek(wielkosc + 10))
                         .foregroundStyle(Barwy.tekst)
                     HStack(spacing: 10) {
                         Text(inicjaly(a.autor))
@@ -101,7 +101,7 @@ struct ArtykulWidok: View {
                                     .foregroundStyle(Barwy.tekst)
                                     .textSelection(.enabled)
                             case .srodtytul(let t):
-                                Text(t).font(.system(size: wielkosc + 4, weight: .heavy, design: .serif)).foregroundStyle(Barwy.tekst)
+                                Text(t).font(Czcionka.naglowek(wielkosc + 4)).foregroundStyle(Barwy.tekst)
                             case .obraz(let u):
                                 Obraz(url: Siec.obraz(u.absoluteString, szerokosc: 1200))
                                     .frame(height: 220).frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: 14))

@@ -118,7 +118,7 @@ struct BlokWidok: View {
                     ForEach(Array(lista.enumerated()), id: \.element.id) { i, a in
                         NavigationLink(value: a) {
                             HStack(alignment: .top, spacing: 12) {
-                                Text("\(i + 1)").font(.system(size: 22, weight: .heavy, design: .serif)).foregroundStyle(m.motyw.akcent).frame(width: 30)
+                                Text("\(i + 1)").font(Czcionka.naglowek(22)).foregroundStyle(m.motyw.akcent).frame(width: 30)
                                 Text(a.tytul).font(.system(size: 15, weight: .semibold)).foregroundStyle(Barwy.tekst).frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .padding(.vertical, 10)
@@ -235,7 +235,7 @@ struct ListaGminy: View {
                 }
                 HStack(spacing: 10) {
                     AsyncImage(url: gmina.herb) { $0.resizable().scaledToFit() } placeholder: { Color.clear }.frame(width: 30, height: 36)
-                    Text(gmina.nazwa).font(.system(size: 26, weight: .heavy, design: .serif)).foregroundStyle(Barwy.tekst)
+                    Text(gmina.nazwa).font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst)
                 }
                 if laduje { ProgressView().frame(maxWidth: .infinity, minHeight: 200) }
                 else if lista.isEmpty { Text("Brak wiadomości z tej gminy.").foregroundStyle(Barwy.slaby) }
@@ -263,7 +263,7 @@ struct ListaKategorii: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
-                Text(tytul).font(.system(size: 26, weight: .heavy, design: .serif)).foregroundStyle(Barwy.tekst)
+                Text(tytul).font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst)
                 let lista = m.wKategorii[slug] ?? []
                 if lista.isEmpty { ProgressView().frame(maxWidth: .infinity, minHeight: 200) }
                 if let pierwszy = lista.first {
@@ -285,7 +285,7 @@ struct Naglowek: View {
     let tytul: String
     var body: some View {
         Text(tytul)
-            .font(.system(size: 21, weight: .heavy, design: .serif))
+            .font(Czcionka.naglowek(21))
             .foregroundStyle(Barwy.tekst)
             .padding(.top, 4)
             .accessibilityAddTraits(.isHeader)
@@ -333,7 +333,7 @@ struct KartaArtykulu: View {
             VStack(alignment: .leading, spacing: 8) {
                 EtykietaKategorii(artykul: artykul)
                 Text(artykul.tytul)
-                    .font(.system(size: 24, weight: .heavy, design: .serif))
+                    .font(Czcionka.naglowek(24))
                     .foregroundStyle(.white)
                     .lineLimit(4)
                 Text([artykul.autor, artykul.kiedy].filter { !$0.isEmpty }.joined(separator: " · "))
@@ -460,7 +460,7 @@ struct OgloszenieWidok: View {
                     if !ogloszenie.kategoria.isEmpty {
                         Text(ogloszenie.kategoria.uppercased()).font(.system(size: 11, weight: .heavy)).kerning(1).foregroundStyle(Barwy.slaby)
                     }
-                    Text(ogloszenie.tytul).font(.system(size: 22, weight: .bold, design: .serif)).foregroundStyle(Barwy.tekst)
+                    Text(ogloszenie.tytul).font(Czcionka.naglowek(22, 700)).foregroundStyle(Barwy.tekst)
                     if !ogloszenie.cena.isEmpty { Text(ogloszenie.cena).font(.system(size: 18, weight: .bold)).foregroundStyle(Barwy.tekst) }
                     if !ogloszenie.tekst.isEmpty { Text(ogloszenie.tekst).font(.system(size: 16)).foregroundStyle(Barwy.tekst) }
                     if !ogloszenie.kontakt.isEmpty {

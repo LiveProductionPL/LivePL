@@ -94,7 +94,7 @@ struct ZapisaneWidok: View {
                     HStack(spacing: 2) { Image(systemName: "chevron.left"); Text("Wróć") }
                         .font(.system(size: 15, weight: .bold)).foregroundStyle(Barwy.tekst).frame(height: 44)
                 }
-                Text("Zapisane").font(.system(size: 26, weight: .heavy, design: .serif)).foregroundStyle(Barwy.tekst)
+                Text("Zapisane").font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst)
                 if laduje { ProgressView().padding(40) }
                 else if lista.isEmpty {
                     Text("Nie masz zapisanych artykułów. Zapiszesz je ikoną zakładki w artykule.")

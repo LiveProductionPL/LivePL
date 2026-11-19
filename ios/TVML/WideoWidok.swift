@@ -9,7 +9,7 @@ struct WideoWidok: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    Text("Wideo").font(.system(size: 26, weight: .heavy, design: .serif))
+                    Text("Wideo").font(Czcionka.naglowek(26))
                     Spacer()
                     Label("YouTube @TVMLlive", systemImage: "play.rectangle").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color(hex: "#a8b3c8"))
                 }

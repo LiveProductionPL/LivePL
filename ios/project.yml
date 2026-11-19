@@ -225,6 +225,8 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         # „Odsłuchaj” czyta artykuł także przy zablokowanym ekranie
         UIBackgroundModes: [audio]
+        # nagłówki jak na tvml.pl: Open Sans (zmienna, SIL OFL, licencja w TVML/Czcionki/OFL.txt)
+        UIAppFonts: [OpenSans.ttf]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.LiveProduction.TVML

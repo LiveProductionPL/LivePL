@@ -1,4 +1,6 @@
 import SwiftUI
+import UIKit
+import CoreText
 
 /// Dane z tvml.pl. Do czasu nowego API (/api/v1, robi je TVML Connect) aplikacja czyta te same akcje co strona:
 /// tvml-db.php (artykuły) i tvml-portal.php (konfiguracja portalu, pogoda, wideo).
@@ -98,6 +100,17 @@ extension Color {
             UIColor(red: CGFloat((v >> 16) & 0xff) / 255, green: CGFloat((v >> 8) & 0xff) / 255, blue: CGFloat(v & 0xff) / 255, alpha: 1)
         }
         return Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? ui(noc) : ui(dzien) })
+    }
+}
+
+/// Czcionka nagłówków jak na tvml.pl: Open Sans (plik w aplikacji, oś grubości 300–800), skalowana z rozmiarem tekstu w telefonie.
+enum Czcionka {
+    static func naglowek(_ rozmiar: CGFloat, _ grubosc: CGFloat = 800) -> Font {
+        let opis = UIFontDescriptor(fontAttributes: [
+            .family: "Open Sans",
+            UIFontDescriptor.AttributeName(rawValue: kCTFontVariationAttribute as String): [0x77676874: grubosc]
+        ])
+        return Font(UIFontMetrics.default.scaledFont(for: UIFont(descriptor: opis, size: rozmiar)))
     }
 }
 
