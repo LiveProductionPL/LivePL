@@ -93,6 +93,7 @@ class Karta(val programId: String?, private val p: Przegladarka) {
         get() = _kontener ?: SwipeRefreshLayout(p.kontekst).also { k ->
             k.addView(webView, pelnyRozmiar())
             k.setOnRefreshListener { przeladuj() }
+            k.isEnabled = p.odswiezaniePrzeciagnieciem
             k.setOnChildScrollUpCallback { _, _ ->
                 val w = widok
                 w == null || w.scrollY > 0 || wewnetrznePrzewiniecie
@@ -231,6 +232,12 @@ class Karta(val programId: String?, private val p: Przegladarka) {
         w.webChromeClient = Chrome()
         w.setDownloadListener { url, agent, opis, typ, _ -> pobierz(url, agent, opis, typ) }
         w.setFindListener { ktory, ile, _ -> znalezione = (if (ile == 0) 0 else ktory + 1) to ile }
+        if (!p.dlugieDotkniecie) {
+            // przytrzymanie obsługuje sama strona (np. prawy klik w Connect), bez zaznaczania tekstu
+            w.setOnLongClickListener { true }
+            w.isLongClickable = false
+            w.isHapticFeedbackEnabled = false
+        }
 
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             WebViewCompat.addWebMessageListener(w, MOST, setOf("*")) { _, wiadomosc, _, glowna, _ ->
@@ -239,12 +246,18 @@ class Karta(val programId: String?, private val p: Przegladarka) {
                     dane == "1" -> wewnetrznePrzewiniecie = true
                     dane == "0" -> wewnetrznePrzewiniecie = false
                     glowna && dane == "tlumacz" -> tlumaczenie.nowaTresc()
+                    glowna && p.mostEkranu && dane.startsWith("ekran:") -> p.trzymajEkran(dane == "ekran:1")
                     glowna && dane.startsWith("{") -> odbierzPlik(dane)
                 }
             }
             if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
                 WebViewCompat.addDocumentStartJavaScript(w, SKRYPT, setOf("*"))
                 skryptNaStarcie = true
+                // navigator.wakeLock w WebView zależy od wersji, więc ekran trzyma aplikacja (tylko nasze strony)
+                val hosty = p.dozwoloneHosty
+                if (p.mostEkranu && hosty != null) {
+                    WebViewCompat.addDocumentStartJavaScript(w, SKRYPT_EKRANU, hosty.map { "https://$it" }.toSet())
+                }
             }
         }
         return w
@@ -377,6 +390,7 @@ class Karta(val programId: String?, private val p: Przegladarka) {
 
         override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
             tlumaczenie.nowaStrona()
+            if (p.mostEkranu) p.trzymajEkran(false)
             laduje = true
             if (blad?.adres != url) blad = null
             wewnetrznePrzewiniecie = false
@@ -514,6 +528,36 @@ class Karta(val programId: String?, private val p: Przegladarka) {
     companion object {
         private var licznik = 0L
         private const val MOST = "LivePLMost"
+
+        /** navigator.wakeLock.request('screen') → LivePL trzyma ekran włączony, dopóki strona nie zwolni blokady. */
+        private val SKRYPT_EKRANU = """
+            (function () {
+              if (window.top !== window) return;
+              var ile = 0;
+              function powiedz() { try { $MOST.postMessage('ekran:' + (ile > 0 ? 1 : 0)); } catch (_) {} }
+              var blokada = {
+                request: function () {
+                  ile++;
+                  powiedz();
+                  var s = {
+                    type: 'screen', released: false, onrelease: null,
+                    addEventListener: function () {}, removeEventListener: function () {},
+                    release: function () {
+                      if (!s.released) {
+                        s.released = true;
+                        ile = Math.max(0, ile - 1);
+                        powiedz();
+                        if (typeof s.onrelease === 'function') { try { s.onrelease(); } catch (_) {} }
+                      }
+                      return Promise.resolve();
+                    }
+                  };
+                  return Promise.resolve(s);
+                }
+              };
+              try { Object.defineProperty(navigator, 'wakeLock', { value: blokada, configurable: true }); } catch (_) {}
+            })();
+        """.trimIndent()
 
         /** Mówi LivePL, czy dotknięty fragment strony jest przewinięty w dół (lista w poczcie, czat…). */
         private val SKRYPT = """

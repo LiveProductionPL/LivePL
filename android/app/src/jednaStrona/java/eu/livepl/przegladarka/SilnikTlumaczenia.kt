@@ -1,8 +1,8 @@
 package eu.livepl.przegladarka
 
 /**
- * Poczta LivePL nie tłumaczy stron (poczta jest po polsku), więc nie ma bibliotek ML Kit:
- * aplikacja jest przez to ok. 14 MB mniejsza. Tłumaczenie jest w przeglądarce LivePL.
+ * Poczta LivePL i LivePL Connect nie tłumaczą stron, więc nie mają bibliotek ML Kit:
+ * każda jest przez to ok. 14 MB mniejsza. Tłumaczenie jest w przeglądarce LivePL.
  */
 object SilnikTlumaczenia : Tlumacz {
     override fun obslugiwany(tag: String?): String? = null

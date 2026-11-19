@@ -1,12 +1,13 @@
 #!/bin/bash
 # Zrzuty ekranu LivePL z emulatora Androida (na GitHubie albo lokalnie, gdy emulator już działa).
-#   android/narzedzia/zrzuty.sh <APK przeglądarki> <folder na zrzuty> [APK Poczty LivePL]
+#   android/narzedzia/zrzuty.sh <APK przeglądarki> <folder na zrzuty> [APK Poczty LivePL] [APK LivePL Connect]
 # CZEKAJ=<sekundy> zmienia czas na załadowanie strony (domyślnie 15).
 set -euo pipefail
 
 APK="$1"
 WYJSCIE="$2"
 APK_POCZTY="${3:-}"
+APK_CONNECT="${4:-}"
 CZEKAJ="${CZEKAJ:-15}"
 mkdir -p "$WYJSCIE"
 
@@ -61,6 +62,15 @@ if [ -n "$APK_POCZTY" ]; then
   echo "aplikacja: $ID_POCZTY"
   zrzutAplikacji "$ID_POCZTY" PocztaActivity 7-poczta-livepl-dzien no
   zrzutAplikacji "$ID_POCZTY" PocztaActivity 8-poczta-livepl-noc yes
+fi
+
+# LivePL Connect: zdalny pulpit na cały ekran
+if [ -n "$APK_CONNECT" ]; then
+  adb install -r "$APK_CONNECT"
+  ID_CONNECT=$(adb shell pm list packages eu.livepl.connect | sed 's/^package://' | tr -d '\r' | head -1)
+  echo "aplikacja: $ID_CONNECT"
+  zrzutAplikacji "$ID_CONNECT" ConnectActivity 9-connect-dzien no
+  zrzutAplikacji "$ID_CONNECT" ConnectActivity 10-connect-noc yes
 fi
 
 adb shell cmd uimode night no > /dev/null

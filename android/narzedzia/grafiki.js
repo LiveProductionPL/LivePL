@@ -14,6 +14,19 @@ const logo = require('../../ios/narzedzia/logo.js');
 const KATALOG = path.resolve(__dirname, '..', '..');
 const RES = path.join(KATALOG, 'android', 'app', 'src', 'main', 'res');
 const SKLEP = path.join(KATALOG, 'android', 'sklep');
+// grafiki do Google Play w układzie katalogów fastlane: sklep/<pakiet>/pl-PL/images
+const OBRAZY_LIVEPL = path.join(SKLEP, 'eu.livepl.przegladarka', 'pl-PL', 'images');
+const OBRAZY_POCZTY = path.join(SKLEP, 'eu.livepl.poczta', 'pl-PL', 'images');
+const OBRAZY_CONNECT = path.join(SKLEP, 'eu.livepl.connect', 'pl-PL', 'images');
+
+// LivePL Connect: ekran z czerwoną strzałką kursora, przerysowany z connect/server/web/ikona-512.png (siatka 512).
+// Treść zajmuje ok. x 93–405, y 98–398; ekran ma przerwę tam, gdzie wchodzi strzałka.
+function ikonaConnect(ekran = '#eef0f2', strzalka = 'url(#strzalka)') {
+  return `<defs><linearGradient id="strzalka" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" stop-color="#e94b3c"/><stop offset="1" stop-color="#b0261f"/></linearGradient></defs>
+<path d="M262 321 H135 Q107 321 107 293 V140 Q107 112 135 112 H365 Q393 112 393 140 V298" fill="none" stroke="${ekran}" stroke-width="28" stroke-linejoin="round"/>
+<polygon points="275,192 405,321 346,321 378,385 350,398 318,333 275,375" fill="${strzalka}"/>`;
+}
 const PODGLAD = process.argv.slice(2).find((a) => !a.startsWith('-') && !a.endsWith('grafiki.js'));
 
 const JASNA = { trzon: '#861a15', wstega: '#b0261f', sygnal: '#b0261f' };
@@ -26,6 +39,32 @@ const SRODEK = [237, 256];
 const SKALA_IKONY = 0.14;
 
 const liczba = (v) => Number(v.toFixed(2)).toString();
+
+/** PNG bez kanału alfa (Google Play wymaga tego dla grafiki funkcji). */
+function pngRGB(szer, wys, rgba) {
+  const zlib = require('zlib');
+  const wiersz = szer * 3 + 1;
+  const surowe = Buffer.alloc(wiersz * wys);
+  for (let y = 0; y < wys; y++) {
+    surowe[y * wiersz] = 0;
+    for (let x = 0; x < szer; x++) {
+      const i = (y * szer + x) * 4, o = y * wiersz + 1 + x * 3;
+      surowe[o] = rgba[i]; surowe[o + 1] = rgba[i + 1]; surowe[o + 2] = rgba[i + 2];
+    }
+  }
+  const crcTab = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+  const crc = (b) => { let c = 0xffffffff; for (const v of b) c = crcTab[(c ^ v) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+  const kawalek = (typ, dane) => {
+    const d = Buffer.alloc(4); d.writeUInt32BE(dane.length);
+    const t = Buffer.concat([Buffer.from(typ), dane]);
+    const c = Buffer.alloc(4); c.writeUInt32BE(crc(t));
+    return Buffer.concat([d, t, c]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(szer, 0); ihdr.writeUInt32BE(wys, 4); ihdr[8] = 8; ihdr[9] = 2;
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), kawalek('IHDR', ihdr),
+    kawalek('IDAT', zlib.deflateSync(surowe, { level: 9 })), kawalek('IEND', Buffer.alloc(0))]);
+}
 const punkt = ([x, y]) => `${liczba(x)},${liczba(y)}`;
 
 /** Łuk okręgu (kąty w radianach) jako krzywe Béziera, po przekształceniu T. */
@@ -139,12 +178,12 @@ app.whenReady().then(async () => {
 
   const okno = new BrowserWindow({ show: false, webPreferences: { offscreen: true } });
   await okno.loadURL('data:text/html,<body></body>');
-  const rysuj = (svg, szer, wys) => okno.webContents.executeJavaScript(`(async () => {
+  const rysuj = (svg, szer, wys, jak) => okno.webContents.executeJavaScript(`(async () => {
     const i = new Image(); i.src = 'data:image/svg+xml;base64,' + ${JSON.stringify(Buffer.from(svg).toString('base64'))};
     await i.decode();
     const c = document.createElement('canvas'); c.width = ${szer}; c.height = ${wys};
     const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(i, 0, 0, ${szer}, ${wys});
-    return c.toDataURL('image/png');
+    return ${jak === 'rgba' ? `Array.from(x.getImageData(0, 0, ${szer}, ${wys}).data)` : `c.toDataURL('image/png')`};
   })()`);
   const zapiszPng = async (plik, svg, szer, wys) => {
     const url = await rysuj(svg, szer, wys);
@@ -169,7 +208,7 @@ app.whenReady().then(async () => {
   }
 
   // ikona 512×512 do Google Play: pełny kwadrat, Sklep sam zaokrągla rogi
-  await zapiszPng(path.join(SKLEP, 'ikona-512.png'), `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  await zapiszPng(path.join(OBRAZY_LIVEPL, 'icon.png'), `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
 <rect width="512" height="512" fill="#ffffff"/>
 <g transform="translate(256 259) scale(0.965) translate(-237 -256)">${logo(JASNA)}</g></svg>`, 512, 512);
 
@@ -195,7 +234,73 @@ app.whenReady().then(async () => {
 `);
   const ikonaPoczty512 = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="512" height="512">
 <rect width="64" height="64" fill="#071c2d"/><g transform="translate(35.2 30.6) scale(0.7) translate(-32 -32.5)">${logoPoczty}</g></svg>`;
-  await zapiszPng(path.join(SKLEP, 'poczta-512.png'), ikonaPoczty512, 512, 512);
+  await zapiszPng(path.join(OBRAZY_POCZTY, 'icon.png'), ikonaPoczty512, 512, 512);
+
+  // ---------- LivePL Connect: ikona adaptacyjna (tło z gradientu w connect/res/drawable) i do Sklepu ----------
+  const CONNECT_RES = path.join(KATALOG, 'android', 'app', 'src', 'connect', 'res');
+  const warstwaConnect = (tresc, px) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="${px}" height="${px}">
+<g transform="translate(54 54) scale(0.145) translate(-249 -248)">${tresc}</g></svg>`;
+  for (const [folder, px] of [['mipmap-mdpi', 108], ['mipmap-hdpi', 162], ['mipmap-xhdpi', 216], ['mipmap-xxhdpi', 324], ['mipmap-xxxhdpi', 432]]) {
+    await zapiszPng(path.join(CONNECT_RES, folder, 'connect_pierwszy_plan.png'), warstwaConnect(ikonaConnect(), px), px, px);
+    await zapiszPng(path.join(CONNECT_RES, folder, 'connect_jednobarwna.png'), warstwaConnect(ikonaConnect('#ffffff', '#ffffff'), px), px, px);
+  }
+  zapisz(path.join(CONNECT_RES, 'mipmap-anydpi', 'ic_launcher.xml'), `<?xml version="1.0" encoding="utf-8"?>
+<!-- ikona adaptacyjna LivePL Connect; warstwy tworzy android/narzedzia/grafiki.js -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@drawable/connect_tlo" />
+    <foreground android:drawable="@mipmap/connect_pierwszy_plan" />
+    <monochrome android:drawable="@mipmap/connect_jednobarwna" />
+</adaptive-icon>
+`);
+  const tloConnect = `<defs><linearGradient id="tc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#252a31"/><stop offset="1" stop-color="#0d0f12"/></linearGradient></defs>`;
+  await zapiszPng(path.join(OBRAZY_CONNECT, 'icon.png'), `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+${tloConnect}<rect width="512" height="512" fill="url(#tc)"/>
+<g transform="translate(256 256) scale(0.96) translate(-249 -248)">${ikonaConnect()}</g></svg>`, 512, 512);
+
+  // ---------- grafika funkcji do Google Play: 1024×500, bez kanału alfa ----------
+  const zapiszRGB = async (plik, svg, szer, wys) => {
+    const px = await rysuj(svg, szer, wys, 'rgba');
+    fs.mkdirSync(path.dirname(plik), { recursive: true });
+    fs.writeFileSync(plik, pngRGB(szer, wys, px));
+    console.log(path.relative(KATALOG, plik));
+  };
+  const czcionka = `font-family="'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif"`;
+  const znaczki = (lista, x, y, tlo, kolor) => lista.map((t, i) =>
+    `<g transform="translate(${x + i * 0} ${y + i * 52})"><rect width="${Math.round(t.length * 11.4 + 42)}" height="40" rx="20" fill="${tlo}"/>` +
+    `<text x="20" y="27" ${czcionka} font-size="21" font-weight="600" fill="${kolor}">${t}</text></g>`).join('');
+
+  await zapiszRGB(path.join(OBRAZY_LIVEPL, 'featureGraphic.png'), `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+<defs><linearGradient id="t" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f4f6f8"/><stop offset="1" stop-color="#dfe4e9"/></linearGradient></defs>
+<rect width="1024" height="500" fill="url(#t)"/>
+<g transform="translate(70 92) scale(0.86) translate(-56 -122)">${logo(JASNA)}</g>
+<text x="420" y="205" ${czcionka} font-size="104" font-weight="700" fill="#1d2733">Live<tspan fill="#b0261f">PL</tspan></text>
+<text x="424" y="258" ${czcionka} font-size="34" fill="#6b7886">Przeglądarka Live Production</text>
+${znaczki(['Programy firmy w jednym miejscu', 'Tłumacz stron w telefonie', 'Dzień, noc i automatycznie'], 424, 300, '#ffffff', '#1d2733')}
+</svg>`, 1024, 500);
+
+  await zapiszRGB(path.join(OBRAZY_POCZTY, 'featureGraphic.png'), `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b2740"/><stop offset="1" stop-color="#071c2d"/></linearGradient></defs>
+<rect width="1024" height="500" fill="url(#g)"/>
+<g transform="translate(205 250) scale(4.6) translate(-32 -32.5)">${logoPoczty}</g>
+<text x="420" y="205" ${czcionka} font-size="88" font-weight="700" fill="#ffffff">Poczta <tspan fill="#35d0b5">LivePL</tspan></text>
+<text x="424" y="258" ${czcionka} font-size="34" fill="#a9bccb">Firmowa poczta Live Production</text>
+${znaczki(['Cała poczta na ekranie', 'Logowanie na 90 dni', 'Dzień i noc'], 424, 300, '#12324d', '#e6eef5')}
+</svg>`, 1024, 500);
+
+  await zapiszRGB(path.join(OBRAZY_CONNECT, 'featureGraphic.png'), `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500">
+<defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1d2128"/><stop offset="1" stop-color="#0d0f12"/></linearGradient></defs>
+<rect width="1024" height="500" fill="url(#tg)"/>
+<g transform="translate(205 250) scale(0.86) translate(-249 -248)">${ikonaConnect()}</g>
+<text x="420" y="200" ${czcionka} font-size="72" font-weight="700" fill="#ffffff">Live<tspan fill="#e3463a">PL</tspan> Connect</text>
+<text x="424" y="258" ${czcionka} font-size="34" fill="#8b95a1">Zdalny pulpit Live Production</text>
+${znaczki(['Połączenie po ID i haśle', 'Dotyk, mysz i klawiatura', 'Obraz prosto z komputera'], 424, 300, '#1f242b', '#e6e9ee')}
+</svg>`, 1024, 500);
+
+  if (PODGLAD) {
+    await zapiszPng(path.join(PODGLAD, 'connect-porownanie.png'), `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="512" viewBox="0 0 1024 512">
+<image href="data:image/png;base64,${fs.readFileSync(path.join(KATALOG, '..', 'LivePL-RMM', 'connect', 'server', 'web', 'ikona-512.png')).toString('base64')}" width="512" height="512"/>
+<g transform="translate(512 0)">${tloConnect}<rect width="512" height="512" fill="url(#tc)"/>${ikonaConnect()}</g></svg>`, 1024, 512);
+  }
 
   if (PODGLAD) {
     const R2 = 216;

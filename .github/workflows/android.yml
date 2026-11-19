@@ -1,7 +1,7 @@
 # LivePL na Androida: budowa APK, zrzuty z emulatora i (gdy są sekrety) podpisane wydanie.
-# Dwie aplikacje z tego samego kodu: przeglądarka LivePL i Poczta LivePL. Podpisane APK i AAB powstają tylko
-# wtedy, gdy w GitHubie są sekrety klucza; z [play] albo [play-poczta] w opisie zmiany AAB trafia też
-# do Google Play jako szkic testu wewnętrznego (android/README.md).
+# Trzy aplikacje z tego samego kodu: przeglądarka LivePL, Poczta LivePL i LivePL Connect. Podpisane APK i AAB
+# powstają tylko wtedy, gdy w GitHubie są sekrety klucza; z [play], [play-poczta] albo [play-connect] w opisie
+# zmiany AAB trafia też do Google Play jako szkic testu wewnętrznego (android/README.md).
 name: LivePL Android
 
 on:
@@ -38,9 +38,9 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      - name: Debug APK (przeglądarka i Poczta) i lint
+      - name: Debug APK (przeglądarka, Poczta, Connect) i lint
         working-directory: android
-        run: bash ./gradlew assembleDebug lintPrzegladarkaDebug lintPocztaDebug --console=plain
+        run: bash ./gradlew assembleDebug lintPrzegladarkaDebug lintPocztaDebug lintConnectDebug --console=plain
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -66,7 +66,7 @@ jobs:
           profile: pixel_7
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none
-          script: CZEKAJ=20 bash android/narzedzia/zrzuty.sh android/app/build/outputs/apk/przegladarka/debug/app-przegladarka-debug.apk zrzuty android/app/build/outputs/apk/poczta/debug/app-poczta-debug.apk
+          script: CZEKAJ=20 bash android/narzedzia/zrzuty.sh android/app/build/outputs/apk/przegladarka/debug/app-przegladarka-debug.apk zrzuty android/app/build/outputs/apk/poczta/debug/app-poczta-debug.apk android/app/build/outputs/apk/connect/debug/app-connect-debug.apk
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -115,7 +115,7 @@ jobs:
           export LIVEPL_KLUCZ_HASLO="$ANDROID_KLUCZ_HASLO"
           export LIVEPL_KLUCZ_ALIAS="${ANDROID_KLUCZ_ALIAS:-livepl}"
           printf '%s' "$ANDROID_KLUCZ" | base64 --decode > "$LIVEPL_KLUCZ_PLIK"
-          bash ./gradlew assemblePrzegladarkaRelease assemblePocztaRelease -Plivepl.tylkoTelefony --console=plain
+          bash ./gradlew assemblePrzegladarkaRelease assemblePocztaRelease assembleConnectRelease -Plivepl.tylkoTelefony --console=plain
           rm -f "$LIVEPL_KLUCZ_PLIK"
 
       # AAB do Google Play: klucz przesyłania (Google podpisuje potem kluczem aplikacji); bez niego klucz aplikacji
@@ -131,7 +131,7 @@ jobs:
             printf '%s' "$ANDROID_KLUCZ" | base64 --decode > "$LIVEPL_KLUCZ_PLIK"
             export LIVEPL_KLUCZ_HASLO="$ANDROID_KLUCZ_HASLO" LIVEPL_KLUCZ_ALIAS="${ANDROID_KLUCZ_ALIAS:-livepl}"
           fi
-          bash ./gradlew bundlePrzegladarkaRelease bundlePocztaRelease --console=plain
+          bash ./gradlew bundlePrzegladarkaRelease bundlePocztaRelease bundleConnectRelease --console=plain
           rm -f "$LIVEPL_KLUCZ_PLIK"
 
       - name: Sprawdzenie podpisu
@@ -141,7 +141,7 @@ jobs:
           WYJSCIE=android/app/build/outputs
           N=${{ github.run_number }}
           mkdir -p wydanie
-          for a in przegladarka:LivePL poczta:Poczta-LivePL; do
+          for a in przegladarka:LivePL poczta:Poczta-LivePL connect:LivePL-Connect; do
             WARIANT=${a%%:*}
             NAZWA=${a#*:}
             "$APKSIGNER" verify --verbose --print-certs "$WYJSCIE/apk/$WARIANT/release/app-$WARIANT-release.apk" | grep -E "Verified|SHA-256 digest|DN"
@@ -166,8 +166,9 @@ jobs:
   play:
     name: Wysyłka do Google Play (test wewnętrzny)
     needs: wydanie
-    # [play] wysyła LivePL, [play-poczta] Pocztę LivePL (każda aplikacja musi już istnieć w Play Console)
-    if: contains(github.event.head_commit.message, '[play]') || contains(github.event.head_commit.message, '[play-poczta]')
+    # [play] wysyła LivePL, [play-poczta] Pocztę LivePL, [play-connect] LivePL Connect
+    # (każda aplikacja musi już istnieć w Play Console)
+    if: contains(github.event.head_commit.message, '[play]') || contains(github.event.head_commit.message, '[play-poczta]') || contains(github.event.head_commit.message, '[play-connect]')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -201,5 +202,14 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_KONTO_USLUGI }}
           packageName: eu.livepl.poczta
           releaseFiles: wydanie/Poczta-LivePL-${{ github.run_number }}.aab
+          track: internal
+          status: draft
+
+      - uses: r0adkll/upload-google-play@v1
+        if: contains(github.event.head_commit.message, '[play-connect]')
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_KONTO_USLUGI }}
+          packageName: eu.livepl.connect
+          releaseFiles: wydanie/LivePL-Connect-${{ github.run_number }}.aab
           track: internal
           status: draft

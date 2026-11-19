@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- barwy marki z góry strony Connect: tło okna, ekranu startowego i ikony -->
+    <color name="tlo">#0D0F12</color>
+    <color name="ikona_tlo">#15181D</color>
+</resources>

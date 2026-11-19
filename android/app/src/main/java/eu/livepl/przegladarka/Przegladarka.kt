@@ -78,8 +78,24 @@ class Przegladarka private constructor(kontekstAplikacji: Context) {
     private var uruchomiona = false
     /** Zgody na aparat, mikrofon i lokalizację, dane w tym uruchomieniu (host|zasoby). */
     private val zgody = mutableSetOf<String>()
-    /** Poczta LivePL: jedyne strony, które otwierają się w aplikacji; null = przeglądarka (wszystkie). */
+    /** Poczta LivePL i Connect: jedyne strony, które otwierają się w aplikacji; null = przeglądarka (wszystkie). */
     var dozwoloneHosty: Set<String>? = null
+    /** Odświeżanie przeciągnięciem w dół (Connect go nie ma: przeciąganie steruje zdalnym pulpitem). */
+    var odswiezaniePrzeciagnieciem = true
+    /** Przytrzymanie strony: zaznaczanie tekstu (Connect: przytrzymanie to prawy klik, więc bez zaznaczania). */
+    var dlugieDotkniecie = true
+    /** Most „ekran nie gaśnie” dla navigator.wakeLock (Connect w trakcie sesji). */
+    var mostEkranu = false
+
+    /** Ekran nie gaśnie, dopóki strona trzyma blokadę (navigator.wakeLock). */
+    fun trzymajEkran(wlaczone: Boolean) {
+        val okno = aktywnosc?.window ?: return
+        if (wlaczone) {
+            okno.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            okno.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
 
     /** Czy kliknięty adres może się otworzyć tutaj (w Poczcie LivePL tylko poczta.livepl.eu). */
     fun dozwolony(uri: Uri): Boolean {

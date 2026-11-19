@@ -1,0 +1,1 @@
+Pierwsza wersja LivePL Connect na Androida: zdalny pulpit na cały ekran, ekran nie gaśnie w trakcie sesji, wibracja przy prawym kliku.

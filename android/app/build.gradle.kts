@@ -27,24 +27,30 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = numerBudowy
-        versionName = "0.1.0"
+        versionName = "1.0"
         if (tylkoTelefony) ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
         buildConfigField("String", "ADRES_URZEDU", "\"https://cert.livepl.eu\"")
         buildConfigField("boolean", "URZAD_TESTOWY", "false")
     }
 
-    // Dwie aplikacje z tego samego kodu: przeglądarka LivePL i Poczta LivePL (poczta.livepl.eu na cały ekran).
+    // Trzy aplikacje z tego samego kodu: przeglądarka LivePL, Poczta LivePL (poczta.livepl.eu na cały ekran)
+    // i LivePL Connect (zdalny pulpit connect.livepl.eu na cały ekran).
     flavorDimensions += "aplikacja"
     productFlavors {
         create("przegladarka") {
             dimension = "aplikacja"
             applicationId = "eu.livepl.przegladarka"
-            buildConfigField("boolean", "POCZTA", "false")
+            buildConfigField("String", "APLIKACJA", "\"przegladarka\"")
         }
         create("poczta") {
             dimension = "aplikacja"
             applicationId = "eu.livepl.poczta"
-            buildConfigField("boolean", "POCZTA", "true")
+            buildConfigField("String", "APLIKACJA", "\"poczta\"")
+        }
+        create("connect") {
+            dimension = "aplikacja"
+            applicationId = "eu.livepl.connect"
+            buildConfigField("String", "APLIKACJA", "\"connect\"")
         }
     }
 
@@ -209,6 +215,11 @@ abstract class ZaufanieLivePL : DefaultTask() {
 androidComponents {
     onVariants { wariant ->
         val nazwa = wariant.name.replaceFirstChar { it.uppercase() }
+        // Poczta LivePL i LivePL Connect: wspólny szablon „jednej strony” (bez tłumacza ML Kit)
+        if (wariant.flavorName != "przegladarka") {
+            wariant.sources.java?.addStaticSourceDirectory("src/jednaStrona/java")
+            wariant.sources.kotlin?.addStaticSourceDirectory("src/jednaStrona/java")
+        }
         val testy = wariant.buildType == "debug"
         val testowyRoot = if (testy) providers.gradleProperty("livepl.testowyRoot").orNull else null
 

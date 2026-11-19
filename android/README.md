@@ -1,11 +1,13 @@
 # LivePL na Androida
 
-Dwie aplikacje w Kotlinie i Jetpack Compose (Material 3) z Android System WebView, czyli silnikiem Chrome,
-z jednego kodu (warianty `przegladarka` i `poczta`):
+Trzy aplikacje w Kotlinie i Jetpack Compose (Material 3) z Android System WebView, czyli silnikiem Chrome,
+z jednego kodu (warianty `przegladarka`, `poczta` i `connect`):
 
 - **LivePL** (`eu.livepl.przegladarka`): przeglądarka, która wygląda jak „Reżyserka” z LivePL na Windows
   i działa jak [LivePL na iPhone'a](../ios/README.md);
-- **Poczta LivePL** (`eu.livepl.poczta`): firmowa poczta na cały ekran (opis niżej).
+- **Poczta LivePL** (`eu.livepl.poczta`): firmowa poczta na cały ekran (opis niżej);
+- **LivePL Connect** (`eu.livepl.connect`, pod ikoną „Connect”): zdalny pulpit Live Production na cały ekran
+  (opis niżej).
 
 Przeglądarka LivePL:
 
@@ -62,7 +64,8 @@ Przeglądarka LivePL:
   `tpm` = klucz sprzętowy), urząd od razu wystawia certyfikat, a aplikacja sprawdza, że pasuje do klucza
   i prowadzi do roota urzędu. Potem `/urzadzenia/stan/<id>` i raport `/urzadzenia/raport/<id>` co 6 godzin.
   Certyfikat razem z kluczem pokazuje się stronom z naszych domen, gdy proszą o certyfikat klienta.
-  Każda aplikacja ma własny klucz, więc Poczta LivePL zgłasza się jako „Android-KOD Poczta”, a wersje testowe
+  Każda aplikacja ma własny klucz, więc Poczta LivePL zgłasza się jako „Android-KOD Poczta”, LivePL Connect jako
+  „Android-KOD Connect”, a wersje testowe
   z dopiskiem „test”. Emulator (zrzuty na GitHubie) do prawdziwego urzędu się nie zgłasza.
 - **Propozycja Poczty LivePL:** gdy w przeglądarce otwarta jest Poczta, a aplikacji Poczta LivePL nie ma na
   telefonie, pod adresem pojawia się „Poczta ma własną aplikację” z przyciskiem „Zainstaluj” (Sklep Google Play,
@@ -76,7 +79,7 @@ są pod „Więcej programów”. Tam też jest panel urzędu (`tylkoZYubiKey`),
 otwiera stronę publiczną cert.livepl.eu, bo logowanie YubiKey działa tylko w LivePL na Windows.
 
 Wymagania: Android 8.0 lub nowszy. Wersje testowe z GitHuba mają identyfikatory z `.debug` na końcu i nazwy
-„LivePL test” oraz „Poczta test”, więc mogą stać obok wydań.
+„LivePL test”, „Poczta test” i „Connect test”, więc mogą stać obok wydań.
 
 ## Poczta LivePL
 
@@ -93,7 +96,7 @@ Osobna aplikacja z tym samym silnikiem: poczta.livepl.eu na cały ekran, bez pas
 - Załączniki pobierają się do Pobranych, a do wiadomości można dołączyć plik albo zdjęcie z aparatu.
 - **Bez tłumacza:** poczta jest po polsku, więc Poczta LivePL nie ma bibliotek ML Kit i waży ok. 1 MB zamiast
   ok. 15 MB. Silnik tłumaczenia jest osobno w każdym wariancie (`SilnikTlumaczenia.kt` w `app/src/przegladarka`
-  i pusty w `app/src/poczta`).
+  i pusty w `app/src/jednaStrona`).
   Poczta nie prosi o lokalizację ani mikrofon.
 - **Logowanie trzyma 90 dni:** serwer poczty przedłuża je, gdy w identyfikatorze przeglądarki widzi „LivePL/”
   i „Android”, a aplikacja zapisuje ciasteczka na stałe przy każdym wyjściu do tła.
@@ -101,21 +104,45 @@ Osobna aplikacja z tym samym silnikiem: poczta.livepl.eu na cały ekran, bez pas
   na liście ostatnich aplikacji. Android nie ma liczby na ikonie bez powiadomień, więc na ikonie jej nie ma.
 - Systemowy Wstecz zamyka okno poczty, cofa stronę, a na początku historii chowa aplikację.
 
+Ekran aplikacji jednej strony jest wspólny dla Poczty LivePL i LivePL Connect
+(`app/src/jednaStrona/java/.../JednaStronaActivity.kt`); każda z nich ustawia tylko kolor, adres i zachowania.
+
+## LivePL Connect
+
+Zdalny pulpit Live Production (connect.livepl.eu) jako osobna aplikacja, jak LivePL Connect na iPhonie. Łączy
+się z komputerem z programem LivePL Connect po ID i haśle; obraz i sterowanie płyną przez WebRTC wprost między
+urządzeniami. Całe sterowanie robi strona, aplikacja dokłada to, czego strona sama nie umie:
+
+- **Ikona:** ekran z czerwoną strzałką kursora, przerysowana wektorowo z ikony programu na Windows
+  (`LivePL-RMM/connect/server/web/ikona-512.png`), na grafitowym tle #15181d, z warstwą jednobarwną.
+- **Cały ekran** na ciemnym tle #0d0f12, jak góra strony, w dzień i w nocy.
+- **Ekran nie gaśnie w trakcie sesji:** WebView nie ma `navigator.wakeLock`, więc aplikacja podkłada go stronie
+  (tylko na connect.livepl.eu). Gdy strona prosi o blokadę wygaszania, aplikacja włącza `FLAG_KEEP_SCREEN_ON`,
+  a zdejmuje ją, gdy strona ją zwalnia, przechodzi na inny adres albo aplikacja idzie do tła.
+- **Przytrzymanie palca to prawy przycisk** komputera: aplikacja nie zaznacza wtedy tekstu i nie pokazuje
+  podglądu linku, a strona sama rozpoznaje przytrzymanie, wysyła prawy klik i wibruje (`navigator.vibrate`,
+  uprawnienie VIBRATE; jak w Chrome, wibracja działa po pierwszym dotknięciu strony).
+- **Bez odświeżania przeciągnięciem**, bo przeciąganie jednym palcem przewija ekran komputera.
+- **Systemowy Wstecz kończy sesję:** strona zapisuje sesję w historii (`history.pushState`), więc cofnięcie
+  wraca do ekranu połączeń; na nim Wstecz chowa aplikację.
+- Bez aparatu, mikrofonu i lokalizacji. Bez tłumacza (jak Poczta LivePL), ok. 1 MB.
+
 ## Budowanie bez Android Studio
 
 Buduje [.github/workflows/android.yml](../.github/workflows/android.yml) na Linuksie GitHuba, bez opłat dla
 publicznego repozytorium. Każda zmiana w `android/` wysłana na gałąź `android` przechodzi przez te kroki:
 
-1. **Debug APK** obu aplikacji i sprawdzenie kodu (lint). Wynik to artefakt `livepl-debug-N`.
-2. **Zrzuty ekranu z emulatora** Androida 16 (Pixel 7): Start, Poczta i TVML w przeglądarce oraz Poczta LivePL,
-   każde w dzień i w nocy. Wynik to artefakt `zrzuty-N` z dziennikiem emulatora.
+1. **Debug APK** wszystkich trzech aplikacji i sprawdzenie kodu (lint). Wynik to artefakt `livepl-debug-N`.
+2. **Zrzuty ekranu z emulatora** Androida 16 (Pixel 7): Start, Poczta i TVML w przeglądarce, Poczta LivePL
+   i LivePL Connect, każde w dzień i w nocy. Wynik to artefakt `zrzuty-N` z dziennikiem emulatora.
 3. **Podpisane APK i AAB**, tylko gdy są ustawione sekrety kluczy (niżej). Wynik to artefakt `livepl-wydanie-N`:
-   - `LivePL-N.apk` (ok. 15 MB) i `Poczta-LivePL-N.apk` (ok. 1 MB) na app.livepl.eu: klucz aplikacji,
-     tylko procesory telefonów (ARM);
-   - `LivePL-N.aab` i `Poczta-LivePL-N.aab` do Google Play: klucz przesyłania, wszystkie procesory;
+   - `LivePL-N.apk` (ok. 15 MB), `Poczta-LivePL-N.apk` i `LivePL-Connect-N.apk` (po ok. 1 MB)
+     na app.livepl.eu: klucz aplikacji, tylko procesory telefonów (ARM);
+   - `LivePL-N.aab`, `Poczta-LivePL-N.aab` i `LivePL-Connect-N.aab` do Google Play: klucz przesyłania,
+     wszystkie procesory;
    - `SHA256SUMS.txt`.
-4. **Wysyłka do Google Play**, tylko gdy opis zmiany zawiera `[play]` (LivePL) albo `[play-poczta]`
-   (Poczta LivePL) i jest ustawiony klucz konta usługi. AAB trafia do testu wewnętrznego jako szkic, a publikuje
+4. **Wysyłka do Google Play**, tylko gdy opis zmiany zawiera `[play]` (LivePL), `[play-poczta]`
+   (Poczta LivePL) albo `[play-connect]` (LivePL Connect) i jest ustawiony klucz konta usługi. AAB trafia do testu wewnętrznego jako szkic, a publikuje
    go człowiek w Play Console.
 
 Numer budowy (`versionCode`) to numer przebiegu workflow, a wersja (`versionName`) jest w
@@ -128,7 +155,11 @@ gh run download <numer przebiegu> --repo LiveProductionPL/LivePL -n livepl-wydan
 
 Lokalnie wystarczą JDK 17+ i [narzędzia wiersza poleceń Androida](https://developer.android.com/studio#command-tools)
 (bez Android Studio). Ustaw `JAVA_HOME` i `ANDROID_HOME`, a potem w folderze `android`: `.\gradlew.bat assembleDebug`
-(obie aplikacje; jedna to np. `assemblePrzegladarkaDebug` albo `assemblePocztaDebug`).
+(wszystkie trzy aplikacje; jedna to np. `assemblePrzegladarkaDebug`, `assemblePocztaDebug`
+albo `assembleConnectDebug`).
+Wydania skraca R8 w trybie pełnym; biblioteki, które tworzą obiekty przez refleksję (ML Kit), mają reguły
+w [app/proguard-rules.pro](app/proguard-rules.pro). Przed wydaniem warto sprawdzić tłumacza na podpisanym APK,
+bo wersja testowa (debug) nie przechodzi przez R8.
 Skrypt [narzedzia/zrzuty.sh](narzedzia/zrzuty.sh) robi zrzuty z działającego emulatora tak samo jak GitHub.
 Zaufanie do urzędu LivePL sprawdzisz w budowie testowej z próbnym rootem i domeną, np.
 `.\gradlew.bat assembleDebug "-Plivepl.testowyRoot=C:\test\testowy-root.crt" "-Plivepl.testoweDomeny=localhost"`
@@ -139,14 +170,16 @@ Grafiki tworzą dwa skrypty, uruchamiane z katalogu `przegladarka-livepl`:
 
 - `npx electron android/narzedzia/grafiki.js` tworzy Wstęgę (dzień i noc), ikonę adaptacyjną z warstwą
   jednobarwną do ikon motywowych, ikony programów z [assets/programy](../assets/programy) i ikonę 512 px
-  do Google Play ([sklep/ikona-512.png](sklep/ikona-512.png)). Wstęga pochodzi z tej samej wektorowej Wstęgi co
+  i grafikę funkcji 1024×500 do Google Play ([sklep/eu.livepl.przegladarka/pl-PL/images/icon.png](sklep/eu.livepl.przegladarka/pl-PL/images/icon.png)). Wstęga pochodzi z tej samej wektorowej Wstęgi co
   na iPhonie ([ios/narzedzia/logo.js](../ios/narzedzia/logo.js)). Robi też ikonę Poczty LivePL
-  (`app/src/poczta/res`) i jej wersję do Sklepu ([sklep/poczta-512.png](sklep/poczta-512.png)).
+  (`app/src/poczta/res`) i jej grafiki do Sklepu ([sklep/eu.livepl.poczta/pl-PL/images/icon.png](sklep/eu.livepl.poczta/pl-PL/images/icon.png)),
+  a także ikonę LivePL Connect (`app/src/connect/res`) i jej grafiki
+  ([sklep/eu.livepl.connect/pl-PL/images/icon.png](sklep/eu.livepl.connect/pl-PL/images/icon.png)).
 - `node android/narzedzia/ikony.mjs` pobiera ikony interfejsu z Material Symbols (Google, licencja Apache 2.0).
 
 ## Klucze podpisu
 
-Są dwa klucze, wspólne dla LivePL i Poczty LivePL. Oba leżą w `%USERPROFILE%\LivePL-klucze\android\`, każdy z losowym hasłem w pliku obok.
+Są dwa klucze, wspólne dla LivePL, Poczty LivePL i LivePL Connect. Oba leżą w `%USERPROFILE%\LivePL-klucze\android\`, każdy z losowym hasłem w pliku obok.
 Tworzy je `node android/narzedzia/zrob-klucz.mjs` (z argumentem `przesylanie` drugi). Skrypt nie nadpisuje
 istniejących kluczy. Oba powstały 19.11.2026.
 
@@ -167,10 +200,13 @@ Lokalnie podpisany APK zbudujesz tak (w folderze `android`; do AAB podstaw klucz
 ```powershell
 $env:LIVEPL_KLUCZ_PLIK = "$env:USERPROFILE\LivePL-klucze\android\livepl.keystore"
 $env:LIVEPL_KLUCZ_HASLO = (Get-Content "$env:USERPROFILE\LivePL-klucze\android\livepl-haslo.txt").Trim()
-.\gradlew.bat assemblePrzegladarkaRelease assemblePocztaRelease "-Plivepl.tylkoTelefony"
+.\gradlew.bat assemblePrzegladarkaRelease assemblePocztaRelease assembleConnectRelease "-Plivepl.tylkoTelefony"
 ```
 
 ## Dystrybucja
+
+Teksty, grafiki, zrzuty i odpowiedzi do formularzy Google Play (dla wszystkich trzech aplikacji) są
+w [sklep/README.md](sklep/README.md).
 
 Główna droga to **Google Play**. APK z **app.livepl.eu** to uzupełnienie dla telefonów bez Sklepu
 i dla osób, które wolą pobrać plik. Obie wersje mają ten sam podpis (klucz aplikacji), więc można przejść
@@ -197,7 +233,7 @@ Aplikacji jeszcze nie ma. Kroki robi Karol w Play Console; AI niczego tam nie tw
    `livepl-przesylanie-certyfikat.pem`. Dzięki temu wersje ze Sklepu mają ten sam podpis co APK ze strony.
 3. **Pierwszy AAB** wysyłasz ręcznie: `LivePL-N.aab` z artefaktu `livepl-wydanie-N`, do testu wewnętrznego.
 4. **Wpis w Sklepie:** opis, zrzuty ekranu (z artefaktu `zrzuty-N`), ikona 512 px
-   ([sklep/ikona-512.png](sklep/ikona-512.png)), adres polityki prywatności, ocena treści, kategoria
+   i grafika funkcji, wszystko gotowe w [sklep](sklep/README.md), adres polityki prywatności, ocena treści, kategoria
    i formularz „Bezpieczeństwo danych”. LivePL sam nie zbiera danych, a strony, które otwierasz, mają własne zasady.
    Biblioteka ML Kit (tłumacz) wysyła jednak do Google dane diagnostyczne: model i system telefonu, wersję
    aplikacji, pary języków, czasy i kody błędów, bez treści stron. Trzeba je zaznaczyć w formularzu jako
@@ -211,12 +247,17 @@ Aplikacji jeszcze nie ma. Kroki robi Karol w Play Console; AI niczego tam nie tw
    wewnętrznego jako szkic.
 6. **Poczta LivePL** to w Sklepie druga aplikacja (`eu.livepl.poczta`, nazwa „Poczta LivePL”). Kroki 1–4 są
    takie same: ten sam klucz aplikacji przez PEPK (z jednego konta wolno nim podpisywać kilka aplikacji),
-   ten sam klucz przesyłania, ikona [sklep/poczta-512.png](sklep/poczta-512.png), plik `Poczta-LivePL-N.aab`.
+   ten sam klucz przesyłania, ikona [sklep/eu.livepl.poczta/pl-PL/images/icon.png](sklep/eu.livepl.poczta/pl-PL/images/icon.png), plik `Poczta-LivePL-N.aab`.
    Wysyłkę z GitHuba włącza `[play-poczta]` w opisie zmiany.
+7. **LivePL Connect** to trzecia aplikacja (`eu.livepl.connect`, nazwa „LivePL Connect”), tak samo jak Poczta:
+   ten sam klucz aplikacji przez PEPK i klucz przesyłania, plik `LivePL-Connect-N.aab`, wysyłkę z GitHuba
+   włącza `[play-connect]`. Recenzenci Google potrzebują ID i stałego hasła komputera testowego, włączonego
+   w czasie przeglądu; wpisuje je Karol w Play Console (Dostęp do aplikacji).
 
 ### app.livepl.eu (uzupełnienie)
 
-Podpisane `LivePL-N.apk` i `Poczta-LivePL-N.apk` z artefaktu `livepl-wydanie-N` trafiają na app.livepl.eu, obok instalatorów na Windows.
+Podpisane `LivePL-N.apk`, `Poczta-LivePL-N.apk` i `LivePL-Connect-N.apk` z artefaktu `livepl-wydanie-N`
+trafiają na app.livepl.eu, obok instalatorów na Windows.
 Wgrywa go sesja „Connect LP”, dopiero po zgodzie Karola. Przy pierwszej instalacji Android poprosi, żeby
 pozwolić przeglądarce instalować aplikacje. Kolejne wersje instalują się na poprzedniej, bo mają ten sam
 klucz i wyższy numer budowy. LivePL na Androida nie sprawdza jeszcze sam aktualizacji (jak wersja na Windows),
@@ -234,8 +275,8 @@ spoza Sklepu:
   dla doświadczonych (opcje programisty, doba czekania) i instalacja przez ADB.
 - **Co to znaczy dla LivePL:** aplikacje z podpisywaniem przez Google Play Google rejestruje automatycznie,
   a kto ma konto w Play Console, zarządza weryfikacją tam (także dla wersji spoza Sklepu). Po kroku 2
-  (Play App Signing z kluczem aplikacji) pakiet `eu.livepl.przegladarka` z tym kluczem obejmie więc też APK
-  z app.livepl.eu. Przed globalnym startem w 2027 warto sprawdzić w Play Console, w sekcji weryfikacji
+  (Play App Signing z kluczem aplikacji) pakiety `eu.livepl.przegladarka`, `eu.livepl.poczta`
+  i `eu.livepl.connect` z tym kluczem obejmą więc też APK z app.livepl.eu. Przed globalnym startem w 2027 warto sprawdzić w Play Console, w sekcji weryfikacji
   twórców, że pakiet ma status „zarejestrowany”.
 
 Źródła: [harmonogram](https://developer.android.com/developer-verification),

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- tło ikony LivePL Connect: grafit jak na stronie connect.livepl.eu -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient
+        android:angle="315"
+        android:endColor="#0D0F12"
+        android:startColor="#252A31"
+        android:type="linear" />
+</shape>

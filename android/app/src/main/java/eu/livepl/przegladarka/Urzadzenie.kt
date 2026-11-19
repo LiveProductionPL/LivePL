@@ -293,10 +293,13 @@ class Urzadzenie private constructor(kontekst: Context) {
         }
     }
 
-    /** np. „Android-K7F2QX”, w Poczcie LivePL „Android-K7F2QX Poczta” (każda aplikacja ma własny klucz). */
+    /** np. „Android-K7F2QX”, w Poczcie LivePL „Android-K7F2QX Poczta”, w Connect „… Connect” (każda aplikacja ma własny klucz). */
     private fun nazwa(kod: String): String {
         val dopisek = buildString {
-            if (BuildConfig.POCZTA) append(" Poczta")
+            when (BuildConfig.APLIKACJA) {
+                "poczta" -> append(" Poczta")
+                "connect" -> append(" Connect")
+            }
             if (BuildConfig.DEBUG) append(" test")
         }
         return "Android-${kod.replace("-", "")}$dopisek"

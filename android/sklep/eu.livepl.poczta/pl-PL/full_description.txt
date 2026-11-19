@@ -1,0 +1,14 @@
+Poczta LivePL to firmowa poczta Live Production (poczta.livepl.eu) w osobnej aplikacji, na cały ekran i z własną ikoną.
+
+• Logowanie trzyma 90 dni od ostatniego użycia, bez ciągłego wpisywania hasła.
+• Wiele kont w jednym miejscu i szybkie przełączanie między nimi.
+• Załączniki: podgląd, zapisywanie w folderze Pobrane i wysyłanie zdjęć z telefonu.
+• Liczba nieprzeczytanych wiadomości w nazwie okna na liście ostatnich aplikacji.
+• Tryb dzień i noc.
+• Linki z wiadomości otwierają się w przeglądarce, a poczta zostaje na miejscu.
+• Telefon rejestruje się w urzędzie LivePL kluczem w sprzętowym magazynie kluczy Androida.
+• Bez reklam i bez śledzenia.
+
+Do logowania potrzebne jest konto pocztowe Live Production lub LivePL.
+
+Kod źródłowy (licencja MIT): https://github.com/LiveProductionPL/LivePL

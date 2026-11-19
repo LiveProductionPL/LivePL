@@ -1,0 +1,33 @@
+LivePL to przeglądarka firmy Live Production. Programy firmy, otwarte karty i Twoje strony masz w jednym miejscu, tak jak w LivePL na komputerze.
+
+START
+• Programy firmy jednym stuknięciem: Poczta, Live Production, TVML i więcej.
+• Pole „Adres albo szukaj”: wpisz adres strony albo to, czego szukasz.
+• Moje strony: dodaj dowolne strony, a pojawią się na ekranie Start.
+
+KARTY I PASEK
+• Każdy program ma własną kartę, która pamięta, gdzie skończyłeś.
+• Dolny pasek z ikonami programów i licznikiem kart.
+• Karty wracają po ponownym uruchomieniu.
+
+TŁUMACZ STRON
+• Strony w obcych językach przetłumaczysz na polski jednym stuknięciem.
+• Tłumaczy telefon (Tłumacz Google, ML Kit), więc tekst stron nie trafia do nikogo.
+• „Oryginał” przywraca stronę.
+
+BEZPIECZEŃSTWO
+• Aplikacja zna certyfikaty urzędu LivePL dla stron firmy, niczego nie trzeba instalować.
+• Telefon rejestruje się w urzędzie LivePL kluczem w sprzętowym magazynie kluczy Androida, którego nie da się skopiować.
+• Zgodę na aparat, mikrofon i lokalizację dajesz każdej stronie osobno.
+• „Wyczyść dane przeglądania” usuwa logowania i dane stron jednym przyciskiem.
+• Bez reklam.
+
+WYGODA
+• Tryb dzień, noc albo automatycznie, jak telefon.
+• Pobieranie plików do folderu Pobrane, udostępnianie, znajdź na stronie, otwórz w innej przeglądarce.
+• Logowanie do poczty firmowej trzyma 90 dni.
+
+Poczta firmowa jest też w osobnej aplikacji Poczta LivePL.
+
+Tłumaczenie stron zapewnia Tłumacz Google: https://cloud.google.com/translate
+Kod źródłowy (licencja MIT): https://github.com/LiveProductionPL/LivePL

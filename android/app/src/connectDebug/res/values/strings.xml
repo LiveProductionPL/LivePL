@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- wersja testowa z GitHuba stoi obok wydania i ma inną nazwę -->
+    <string name="app_name">Connect test</string>
+</resources>

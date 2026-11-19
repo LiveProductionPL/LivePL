@@ -1,0 +1,1 @@
+Pierwsza wersja Poczty LivePL na Androida: firmowa poczta na cały ekran, logowanie na 90 dni, załączniki i tryb dzień i noc.

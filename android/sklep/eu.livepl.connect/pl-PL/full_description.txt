@@ -1,0 +1,28 @@
+LivePL Connect to zdalny pulpit Live Production. Z telefonu albo tabletu połączysz się z komputerem, na którym działa program LivePL Connect: widzisz jego ekran i sterujesz nim jak na miejscu.
+
+POŁĄCZENIE
+• Wpisz ID i hasło, które pokazuje program LivePL Connect na tamtym komputerze, albo jego stałe hasło.
+• Ostatnie połączenia masz pod ręką na ekranie startowym.
+• Obraz i sterowanie płyną bezpośrednio między urządzeniami, szyfrowane (WebRTC, DTLS). Serwer LivePL tylko kojarzy urządzenia po ID.
+
+STEROWANIE
+• Tryb dotyku: stuknięcie to kliknięcie, przytrzymanie to prawy przycisk, przesunięcie jednym palcem przewija, dwa palce powiększają.
+• Tryb myszy: ekran działa jak touchpad laptopa, wygodny przy drobnych elementach.
+• Pisanie klawiaturą telefonu i pasek klawiszy: Ctrl, Alt, Shift, Win, Esc, Tab, strzałki i F1–F12.
+• „Dopasuj” pokazuje cały ekran komputera.
+
+WYGODA
+• Pełny ekran, w pionie i w poziomie.
+• Telefon nie gaśnie w trakcie połączenia.
+• Wibracja potwierdza przytrzymanie palca.
+• Przycisk Wstecz kończy połączenie.
+• Tryb dzień i noc, jak w telefonie.
+
+BEZPIECZEŃSTWO
+• Każde połączenie wymaga hasła z komputera, z którym się łączysz.
+• Telefon rejestruje się w urzędzie LivePL kluczem w sprzętowym magazynie kluczy Androida, którego nie da się skopiować.
+• Bez reklam i bez śledzenia.
+
+Program LivePL Connect na komputer z Windows pobierzesz z app.livepl.eu.
+
+Kod źródłowy aplikacji (licencja MIT): https://github.com/LiveProductionPL/LivePL
