@@ -44,6 +44,8 @@ targets:
       path: Wsparcie/Info.plist
       properties:
         CFBundleDisplayName: LivePL
+        # sprawdzenie, czy Poczta LivePL jest zainstalowana (propozycja instalacji przy Poczcie)
+        LSApplicationQueriesSchemes: [livepl-poczta]
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDevelopmentRegion: pl
@@ -96,6 +98,10 @@ targets:
       path: Wsparcie/Poczta-Info.plist
       properties:
         CFBundleDisplayName: Poczta
+        # livepl-poczta:// otwiera Pocztę LivePL (np. z przeglądarki LivePL)
+        CFBundleURLTypes:
+          - CFBundleURLName: eu.livepl.poczta
+            CFBundleURLSchemes: [livepl-poczta]
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDevelopmentRegion: pl

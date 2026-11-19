@@ -13,6 +13,7 @@ struct WidokKarty: View {
         VStack(spacing: 0) {
             gornyPasek
             PasekTlumaczenia(karta: karta)
+            PropozycjaPoczty(karta: karta)
             ZStack(alignment: .top) {
                 WebWidok(webView: karta.webView)
                 if let blad = karta.blad {
@@ -177,6 +178,17 @@ struct WidokKarty: View {
                 if let url = karta.adres { UIApplication.shared.open(url) }
             } label: {
                 Label("Otwórz w Safari", systemImage: "safari")
+            }
+            if karta.programID == "poczta" {
+                if AplikacjaPoczty.zainstalowana {
+                    Button { UIApplication.shared.open(AplikacjaPoczty.otworz) } label: {
+                        Label("Otwórz w aplikacji Poczta", systemImage: "envelope")
+                    }
+                } else {
+                    Button { UIApplication.shared.open(AplikacjaPoczty.instaluj) } label: {
+                        Label("Zainstaluj aplikację Poczta LivePL", systemImage: "arrow.down.app")
+                    }
+                }
             }
             Divider()
             Menu {
