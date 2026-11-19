@@ -1,5 +1,7 @@
 # LivePL na iPhone'a: budowa na Macach GitHuba, zrzuty z symulatora i (na życzenie) wysyłka do TestFlight.
 # TestFlight rusza tylko wtedy, gdy opis zmiany zawiera [testflight] i są ustawione sekrety Apple (ios/README.md).
+# Zmiana musi dotykać plików z listy niżej (pusta zmiana nie uruchomi budowy). Gdy workflow trafi na main,
+# można go też uruchomić ręcznie: Actions → LivePL iOS → Run workflow (z zaznaczonym „TestFlight”).
 name: LivePL iOS
 
 on:
@@ -10,6 +12,12 @@ on:
       - "programy.json"
       - "assets/programy/**"
       - ".github/workflows/ios.yml"
+  workflow_dispatch:
+    inputs:
+      testflight:
+        description: "Wyślij do TestFlight"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -66,7 +74,7 @@ jobs:
   testflight:
     name: Wysyłka do TestFlight
     needs: symulator
-    if: contains(github.event.head_commit.message, '[testflight]')
+    if: contains(github.event.head_commit.message, '[testflight]') || (github.event_name == 'workflow_dispatch' && inputs.testflight)
     runs-on: macos-latest
     timeout-minutes: 45
     env:
