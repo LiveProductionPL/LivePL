@@ -31,8 +31,9 @@ struct Glowny: View {
                 ForEach(m.zakladki) { z in
                     NavigationStack(path: m.sciezka(z.id)) {
                         tresc(z)
+                            .kolumna()
                             .toolbar(.hidden, for: .navigationBar)
-                            .navigationDestination(for: Artykul.self) { ArtykulWidok(poczatkowy: $0) }
+                            .navigationDestination(for: Artykul.self) { ArtykulWidok(poczatkowy: $0).kolumna() }
                     }
                     .tabItem { Label(z.tytul, systemImage: z.ikona) }
                     .tag(z.id)
@@ -339,4 +340,12 @@ func ikonaPogody(_ ikona: String) -> String {
     if i.contains("cloud-sun") || i.contains("partly") { return "cloud.sun.fill" }
     if i.contains("sun") || i.contains("clear") { return "sun.max.fill" }
     return "cloud.fill"
+}
+
+extension View {
+    /// Na iPadzie treść w kolumnie do 760 pt, jak gazeta, zamiast rozciągniętego widoku z telefonu.
+    /// Na iPhonie (węższym) nic się nie zmienia.
+    func kolumna() -> some View {
+        frame(maxWidth: 760).frame(maxWidth: .infinity).background(Barwy.tlo)
+    }
 }
