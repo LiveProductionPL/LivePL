@@ -57,6 +57,10 @@ final class Przegladarka: ObservableObject {
     }
     @Published var pokazListeKart = false
     @Published var dodawanaStrona: MojaStrona?
+    // okna z menu przeglądarki (MenuPrzegladarki.swift)
+    @Published var pokazCertyfikat = false
+    @Published var pokazInformacje = false
+    @Published var pokazCzyszczenie = false
     /// „Nowa karta” prosi Reżyserkę o kursor w polu adresu.
     @Published private(set) var prosbaOAdres = 0
     var obsluzonaProsbaOAdres = 0
@@ -180,6 +184,14 @@ final class Przegladarka: ObservableObject {
 
     func pokazRezyserke() {
         aktywnaID = nil
+    }
+
+    /// Zamyka karty i usuwa ciasteczka, pamięć stron i dane witryn (wylogowanie ze wszystkich stron).
+    /// Moje strony i wybrany wygląd zostają.
+    func wyczyscDane() {
+        zamknijWszystkie()
+        let magazyn = WKWebsiteDataStore.default()
+        magazyn.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast) {}
     }
 
     func nowaKarta() {

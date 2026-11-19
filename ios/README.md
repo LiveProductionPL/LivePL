@@ -3,9 +3,12 @@
 Aplikacja w SwiftUI z WKWebView (silnik Safari, jedyny dozwolony na iPhonie). Wygląda jak „Reżyserka”
 z LivePL na Windows:
 
-- **Start** to ekran startowy. Ma pole „Adres albo szukaj”, kafelki programów, otwarte karty, Moje strony
-  i przełącznik dzień/noc przy zegarze.
-- **Dolny pasek** działa jak pasek po lewej na Windows. Jest tam Start, programy (kropka oznacza, że program
+- **Start** to ekran startowy. Ma u góry logo, „LivePL” i „Przeglądarka” oraz przycisk menu przeglądarki.
+  Niżej są pole „Adres albo szukaj”, kafelki programów, otwarte karty, Moje strony i przełącznik dzień/noc przy zegarze.
+- **Menu przeglądarki** ([MenuPrzegladarki.swift](LivePL/Widoki/MenuPrzegladarki.swift)) jest na ekranie Start
+  i na otwartej stronie, w menu ⋯ → „Przeglądarka”. Ma pozycje: nowa karta, otwarte karty, dodaj stronę,
+  wygląd (auto/dzień/noc), certyfikat LivePL dla iPhone'a, o programie i wyczyść dane przeglądania.
+- **Dolny pasek** działa jak pasek po lewej na Windows. Są tam same ikony: Start, programy (kropka oznacza, że program
   jest otwarty) i licznik kart. Każdy program ma jedną własną kartę, która pamięta stronę.
 - **Karta strony** ma u góry wstecz, adres z kłódką, odśwież i menu. W menu są: dalej, udostępnij,
   znajdź na stronie, dodaj do Moich stron, kopiuj adres, otwórz w Safari i zamknij.
@@ -18,7 +21,7 @@ z LivePL na Windows:
   tylko dla naszych domen z [assets/ca/domeny.json](../assets/ca/domeny.json), tak jak LivePL na Windows.
   - Sprawdza cały łańcuch zasadami SSL systemu, a publiczne certyfikaty (Let's Encrypt) działają jak zawsze.
   - Niczego nie trzeba instalować w iPhonie.
-  - Na dole ekranu Start jest pozycja „Certyfikat LivePL dla innych aplikacji iPhone'a” dla tych, którzy chcą root
+  - W menu przeglądarki jest „Certyfikat LivePL dla iPhone'a” dla tych, którzy chcą root
     w całym systemie (np. Poczta Apple przy podpisanych mailach). iOS pozwala go dodać tylko przez Ustawienia
     z pliku pobranego w Safari.
 - **Tłumacz stron** ([Tlumacz.swift](LivePL/Tlumacz.swift)) korzysta z Apple Translation, które tłumaczy
@@ -33,8 +36,8 @@ z LivePL na Windows:
 Wymagany iOS 18 (Apple Translation).
 
 Lista programów to ten sam [programy.json](../programy.json) co na Windows. Programy z `"ukryty": true` są
-pod „Więcej programów”. Panel urzędu (`tylkoZYubiKey`) otwiera na telefonie stronę publiczną
-cert.livepl.eu, bo logowanie YubiKey działa tylko w LivePL na Windows.
+pod „Więcej programów”, a nie na dolnym pasku. Tak samo panel urzędu (`tylkoZYubiKey`): na telefonie otwiera
+tylko stronę publiczną cert.livepl.eu, bo logowanie YubiKey działa tylko w LivePL na Windows.
 
 ## Budowanie bez Maca
 

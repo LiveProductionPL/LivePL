@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Główny ekran: Reżyserka albo otwarta karta, a na dole pasek programów jak pasek po lewej w LivePL na Windows.
+/// Główny ekran: Start albo otwarta karta, a na dole pasek programów jak pasek po lewej w LivePL na Windows.
 struct Glowny: View {
     @EnvironmentObject private var p: Przegladarka
     @Environment(\.scenePhase) private var faza
@@ -26,6 +26,7 @@ struct Glowny: View {
         .sheet(item: $p.dodawanaStrona) { strona in
             DodajStrone(strona: strona).environmentObject(p)
         }
+        .oknaMenuPrzegladarki()
         .onAppear { p.uruchom() }
         .onChange(of: faza) { _, nowa in
             if nowa == .active { p.zastosujMotyw() } else { p.zapiszSesje() }
@@ -33,7 +34,7 @@ struct Glowny: View {
     }
 }
 
-/// Dolny pasek: Reżyserka, programy (z kropką, gdy są otwarte) i licznik kart.
+/// Dolny pasek: Start, programy (z kropką, gdy są otwarte) i licznik kart. Same ikony, bez podpisów.
 struct PasekProgramow: View {
     @EnvironmentObject private var p: Przegladarka
 
@@ -44,10 +45,10 @@ struct PasekProgramow: View {
                 PrzyciskPaska(podpis: "Start", aktywny: p.aktywnaID == nil, otwarty: false) {
                     p.pokazRezyserke()
                 } tresc: {
-                    Image("Wstega").resizable().scaledToFit().frame(width: 32, height: 24)
+                    Image("Wstega").resizable().scaledToFit().frame(width: 36, height: 26)
                 }
 
-                Rectangle().fill(Kolor.ramka).frame(width: 0.5, height: 34)
+                Rectangle().fill(Kolor.ramka).frame(width: 0.5, height: 30)
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 2) {
@@ -58,7 +59,7 @@ struct PasekProgramow: View {
                                           otwarty: karta != nil) {
                                 p.otworz(program)
                             } tresc: {
-                                IkonaProgramu(program: program, rozmiar: 24)
+                                IkonaProgramu(program: program, rozmiar: 26)
                             }
                             .contextMenu {
                                 if let karta {
@@ -72,7 +73,7 @@ struct PasekProgramow: View {
                     .padding(.horizontal, 2)
                 }
 
-                Rectangle().fill(Kolor.ramka).frame(width: 0.5, height: 34)
+                Rectangle().fill(Kolor.ramka).frame(width: 0.5, height: 30)
 
                 PrzyciskPaska(podpis: "Karty", aktywny: false, otwarty: false) {
                     p.pokazListeKart = true
@@ -95,28 +96,23 @@ struct PrzyciskPaska<Tresc: View>: View {
     let akcja: () -> Void
     @ViewBuilder let tresc: () -> Tresc
 
+    // Same ikony, bez podpisów pod spodem; nazwa zostaje dla VoiceOver i jako podpowiedź przy wskaźniku na iPadzie.
     var body: some View {
         Button(action: akcja) {
-            VStack(spacing: 3) {
-                tresc()
-                    .frame(height: 26)
-                Text(podpis)
-                    .font(.system(size: 10, weight: aktywny ? .semibold : .regular))
-                    .foregroundStyle(aktywny ? Kolor.tekst : Kolor.slaby)
-                    .lineLimit(1)
-            }
-            .frame(minWidth: 48)
-            .padding(.horizontal, 3)
-            .padding(.vertical, 4)
-            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(aktywny ? Kolor.wcisniety : Color.clear))
-            .overlay(alignment: .topTrailing) {
-                if otwarty && !aktywny {
-                    Circle().fill(Kolor.czerwony).frame(width: 6, height: 6).offset(x: -8, y: 4)
+            tresc()
+                .frame(height: 28)
+                .frame(minWidth: 50, minHeight: 44)
+                .padding(.horizontal, 3)
+                .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(aktywny ? Kolor.wcisniety : Color.clear))
+                .overlay(alignment: .topTrailing) {
+                    if otwarty && !aktywny {
+                        Circle().fill(Kolor.czerwony).frame(width: 6, height: 6).offset(x: -6, y: 4)
+                    }
                 }
-            }
-            .contentShape(Rectangle())
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help(podpis)
         .accessibilityLabel(podpis)
         .accessibilityAddTraits(aktywny ? .isSelected : [])
     }

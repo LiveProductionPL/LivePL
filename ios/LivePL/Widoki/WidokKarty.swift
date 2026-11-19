@@ -179,6 +179,12 @@ struct WidokKarty: View {
                 Label("Otwórz w Safari", systemImage: "safari")
             }
             Divider()
+            Menu {
+                MenuPrzegladarki()
+            } label: {
+                Label("Przeglądarka", systemImage: "gearshape")
+            }
+            Divider()
             Button(role: .destructive) { p.zamknij(karta) } label: {
                 Label(karta.programID == nil ? "Zamknij kartę" : "Zamknij program", systemImage: "xmark")
             }

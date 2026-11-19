@@ -13,7 +13,9 @@ struct Program: Identifiable, Decodable, Hashable {
     let tylkoZYubiKey: Bool?
 
     var krotkaNazwa: String { skrot ?? nazwa }
-    var schowany: Bool { ukryty ?? false }
+    /// Schowane: „ukryty” z programy.json oraz programy tylko z kluczem YubiKey (Urząd), bo na telefonie
+    /// otwierają tylko stronę publiczną. Nie ma ich na dolnym pasku, są pod „Więcej programów”.
+    var schowany: Bool { (ukryty ?? false) || (tylkoZYubiKey ?? false) }
 
     /// Panel urzędu loguje się kluczem YubiKey przez Windows, więc na telefonie otwieramy stronę publiczną.
     var adresNaTelefonie: URL {
