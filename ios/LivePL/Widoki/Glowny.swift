@@ -28,8 +28,14 @@ struct Glowny: View {
         }
         .oknaMenuPrzegladarki()
         .onAppear { p.uruchom() }
-        .onChange(of: faza) { _, nowa in
-            if nowa == .active { p.zastosujMotyw() } else { p.zapiszSesje() }
+        .onChange(of: faza, initial: true) { _, nowa in
+            if nowa == .active {
+                p.zastosujMotyw()
+                // rejestracja w urzędzie: odbiór certyfikatu i raport co kilka godzin
+                Task { await Urzadzenie.wspolny.przyStarcie() }
+            } else {
+                p.zapiszSesje()
+            }
         }
     }
 }

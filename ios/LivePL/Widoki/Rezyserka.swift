@@ -13,6 +13,7 @@ struct Rezyserka: View {
             VStack(alignment: .leading, spacing: 26) {
                 naglowek
                 poleAdresu
+                PropozycjaRejestracji()
                 programy
                 if !p.zwykleKarty.isEmpty { otwarteKarty }
                 mojeStrony

@@ -59,6 +59,7 @@ final class Przegladarka: ObservableObject {
     @Published var dodawanaStrona: MojaStrona?
     // okna z menu przeglądarki (MenuPrzegladarki.swift)
     @Published var pokazCertyfikat = false
+    @Published var pokazUrzadzenie = false
     @Published var pokazInformacje = false
     @Published var pokazCzyszczenie = false
     /// „Nowa karta” prosi Reżyserkę o kursor w polu adresu.

@@ -24,6 +24,9 @@ struct MenuPrzegladarki: View {
         }
         .pickerStyle(.menu)
         Divider()
+        Button { p.pokazUrzadzenie = true } label: {
+            Label("Urządzenie LivePL", systemImage: "iphone")
+        }
         Button { p.pokazCertyfikat = true } label: {
             Label("Certyfikat LivePL dla iPhone'a", systemImage: "checkmark.shield")
         }
@@ -62,6 +65,9 @@ struct OknaMenuPrzegladarki: ViewModifier {
             }
             .sheet(isPresented: $p.pokazInformacje) {
                 OProgramie()
+            }
+            .sheet(isPresented: $p.pokazUrzadzenie) {
+                WidokUrzadzenia()
             }
     }
 }

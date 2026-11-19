@@ -7,7 +7,8 @@ z LivePL na Windows:
   Niżej są pole „Adres albo szukaj”, kafelki programów, otwarte karty, Moje strony i przełącznik dzień/noc przy zegarze.
 - **Menu przeglądarki** ([MenuPrzegladarki.swift](LivePL/Widoki/MenuPrzegladarki.swift)) jest na ekranie Start
   i na otwartej stronie, w menu ⋯ → „Przeglądarka”. Ma pozycje: nowa karta, otwarte karty, dodaj stronę,
-  wygląd (auto/dzień/noc), certyfikat LivePL dla iPhone'a, o programie i wyczyść dane przeglądania.
+  wygląd (auto/dzień/noc), Urządzenie LivePL, certyfikat LivePL dla iPhone'a, o programie
+  i wyczyść dane przeglądania.
 - **Dolny pasek** działa jak pasek po lewej na Windows. Są tam same ikony: Start, programy (kropka oznacza, że program
   jest otwarty) i licznik kart. Każdy program ma jedną własną kartę, która pamięta stronę.
 - **Karta strony** ma u góry wstecz, adres z kłódką, odśwież i menu. W menu są: dalej, udostępnij,
@@ -24,6 +25,15 @@ z LivePL na Windows:
   - W menu przeglądarki jest „Certyfikat LivePL dla iPhone'a” dla tych, którzy chcą root
     w całym systemie (np. Poczta Apple przy podpisanych mailach). iOS pozwala go dodać tylko przez Ustawienia
     z pliku pobranego w Safari.
+- **Urządzenie LivePL** ([Urzadzenie.swift](LivePL/Urzadzenie.swift)) to rejestracja iPhone'a w urzędzie, jak na Windows.
+  - Klucz EC P-256 powstaje w Secure Enclave, odpowiedniku TPM, i nie da się go skopiować.
+  - Wniosek PKCS#10 idzie do cert.livepl.eu (`/urzadzenia/wniosek`). Urząd wystawia certyfikat od razu,
+    a LivePL sprawdza, że pasuje do klucza i pochodzi z LivePL CA 1.
+  - Co 6 h idzie raport (`/urzadzenia/raport`), z którego LivePL dowiaduje się m.in. o unieważnieniu.
+  - Stan rejestracji jest w pęku kluczy, więc po przeinstalowaniu nie powstaje drugi wpis.
+  - Na ekranie Start jest propozycja „Zarejestruj ten iPhone” („Nie teraz” chowa ją do następnego uruchomienia).
+    Szczegóły są w menu przeglądarki → „Urządzenie LivePL”.
+  - Panel urzędu pokazuje na razie „klucz w TPM” (to Secure Enclave) i „dysk: nie wiadomo”, bo zna tylko BitLocker.
 - **Tłumacz stron** ([Tlumacz.swift](LivePL/Tlumacz.swift)) korzysta z Apple Translation, które tłumaczy
   w telefonie, bez wysyłania tekstu do nikogo.
   - Gdy strona jest w innym języku, pod adresem pojawia się propozycja „Przetłumacz”. Z niej wybierzesz

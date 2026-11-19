@@ -30,6 +30,9 @@ targets:
         buildPhase: resources
       - path: ../assets/ca/domeny.json
         buildPhase: resources
+      # LivePL CA 1: sprawdzenie certyfikatu „Urządzenie LivePL” z urzędu (Urzadzenie.swift)
+      - path: ../assets/ca/posrednie/livepl-ca-1.crt
+        buildPhase: resources
     info:
       path: Wsparcie/Info.plist
       properties:
