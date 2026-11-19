@@ -567,10 +567,11 @@ zegar();
 setInterval(zegar, 10000);
 
 // ---------------------------------------------------------------- tryb dzień i noc (przy zegarze)
-// klik: auto → dzień → noc → auto; LivePL zapamiętuje wybór
+// klik: auto → dzień → noc → auto; LivePL zapamiętuje wybór.
+// Automatycznie: noc od zachodu do wschodu słońca (Leszno), w dzień jak Windows.
 
 const MOTYWY = {
-  auto: { ikona: 'automat', nazwa: 'automatycznie, jak Windows', dalej: 'dzien' },
+  auto: { ikona: 'automat', nazwa: 'automatycznie', dalej: 'dzien' },
   dzien: { ikona: 'slonce', nazwa: 'dzień', dalej: 'noc' },
   noc: { ikona: 'ksiezyc', nazwa: 'noc', dalej: 'auto' }
 };
@@ -579,10 +580,17 @@ let narysowanyMotyw = '';
 
 function rysujMotyw() {
   const m = MOTYWY[S && S.motyw] ? S.motyw : 'auto';
-  if (m === narysowanyMotyw) return;
-  narysowanyMotyw = m;
+  const noc = S && S.motywNoc;
+  let opis = MOTYWY[m].nazwa;
+  if (m === 'auto') {
+    opis += noc ? `, noc od zachodu do wschodu słońca (${noc.od}–${noc.do}), w dzień jak Windows`
+      : ', noc od zachodu do wschodu słońca, w dzień jak Windows';
+  }
+  const tytul = 'Tryb: ' + opis + '. Kliknij: ' + MOTYWY[MOTYWY[m].dalej].nazwa;
+  if (m + tytul === narysowanyMotyw) return;
+  narysowanyMotyw = m + tytul;
   przyciskMotywu.innerHTML = ikona(MOTYWY[m].ikona);
-  przyciskMotywu.title = 'Tryb: ' + MOTYWY[m].nazwa + '. Kliknij: ' + MOTYWY[MOTYWY[m].dalej].nazwa;
+  przyciskMotywu.title = tytul;
   przyciskMotywu.dataset.motyw = m;
 }
 

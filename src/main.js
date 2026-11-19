@@ -60,7 +60,7 @@ const ustawienia = {
   autoAktualizacje: true,
   dymekZasobnika: false,
   ostatnia: null,
-  motyw: 'auto', // auto (jak Windows), dzien, noc
+  motyw: 'auto', // auto (od zachodu do wschodu słońca noc, w dzień jak Windows), dzien, noc
   ai: 'wylaczony' // dostęp dla AI (Claude i inne przez MCP): wylaczony, czytanie, pelny
 };
 const plikUstawien = () => path.join(app.getPath('userData'), 'ustawienia.json');
@@ -84,12 +84,47 @@ function zapiszUstawienia() {
   zapisUstawien = setTimeout(zapiszUstawieniaTeraz, 500);
 }
 
-// tryb dzień i noc: przełącznik przy zegarze; obejmuje pasek, panele i strony (prefers-color-scheme)
+// tryb dzień i noc: przełącznik przy zegarze; obejmuje pasek, panele i strony (prefers-color-scheme).
+// „Automatycznie”: od zachodu do wschodu słońca w Lesznie noc, w dzień jak Windows
+// (ciemny Windows daje więc ciemny LivePL także w dzień). Przełącza się samo, bez ponownego uruchamiania.
+const slonce = require('./slonce');
 const TRYBY_MOTYWU = { auto: 'system', dzien: 'light', noc: 'dark' };
+const LESZNO = { szerokosc: 51.8406, dlugosc: 16.5751 };
+// LIVEPL_CZAS_MOTYWU (do testów): udawany czas tylko dla trybu dzień i noc, np. 15:57 albo 2026-11-19T15:57
+const przesuniecieCzasuMotywu = slonce.przesuniecie(process.env.LIVEPL_CZAS_MOTYWU);
+let nocMotywu = null; // noc trwająca albo najbliższa: { od: zachód, do: wschód }
+let zegarMotywu = null;
 
 function zastosujMotyw() {
   if (!TRYBY_MOTYWU[ustawienia.motyw]) ustawienia.motyw = 'auto';
-  nativeTheme.themeSource = TRYBY_MOTYWU[ustawienia.motyw];
+  clearTimeout(zegarMotywu);
+  const teraz = new Date(Date.now() + przesuniecieCzasuMotywu);
+  nocMotywu = slonce.noc(teraz, LESZNO.szerokosc, LESZNO.dlugosc);
+  let zrodlo = TRYBY_MOTYWU[ustawienia.motyw];
+  if (ustawienia.motyw === 'auto') {
+    const trwaNoc = teraz >= nocMotywu.od;
+    if (trwaNoc) zrodlo = 'dark';
+    // następne sprawdzenie o najbliższym wschodzie albo zachodzie, a najpóźniej za 10 minut
+    // (po uśpieniu komputera albo przestawieniu zegara)
+    const doZmiany = (trwaNoc ? nocMotywu.do : nocMotywu.od) - teraz;
+    zegarMotywu = setTimeout(odswiezMotyw, Math.min(doZmiany + 1000, 10 * 60 * 1000));
+  }
+  if (nativeTheme.themeSource !== zrodlo) nativeTheme.themeSource = zrodlo;
+}
+
+function odswiezMotyw() {
+  zastosujMotyw();
+  wyslijStan(); // godziny w podpowiedzi przycisku
+}
+
+// godziny zachodu i wschodu do podpowiedzi przycisku przy zegarze, np. { od: '15:58', do: '7:21' }
+function nocMotywuTekst() {
+  if (!nocMotywu) return null;
+  const g = (chwila) => {
+    const d = new Date(chwila.getTime() + 30 * 1000); // do pełnej minuty, jak na tvml.pl
+    return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0');
+  };
+  return { od: g(nocMotywu.od), do: g(nocMotywu.do) };
 }
 
 // ---------------------------------------------------------------- programy
@@ -734,6 +769,7 @@ function stan() {
     zamkniete: zamkniete.length,
     aktualizacjaGotowa: ['gotowa', 'dostepna'].includes(aktualizacje.stan().stan),
     motyw: ustawienia.motyw,
+    motywNoc: nocMotywuTekst(),
     wiadomosci: wiadomosci.slice(0, 8).map(w => ({
       id: w.id,
       czas: w.czas,
@@ -2201,6 +2237,8 @@ app.on('web-contents-created', (e, wc) => {
 app.whenReady().then(() => {
   wczytajUstawienia();
   zastosujMotyw();
+  // po uśpieniu komputera od razu sprawdzamy, czy nie minął wschód albo zachód słońca
+  require('electron').powerMonitor.on('resume', odswiezMotyw);
   const wszystkieProgramy = wczytajProgramy();
   programyPodstawowe = wszystkieProgramy.filter(p => !p.ukryty);
   programyUkryte = wszystkieProgramy.filter(p => p.ukryty);
