@@ -252,7 +252,9 @@ struct Pogoda {
             Dzien(nazwa: d.s("label"), ikona: d.s("state").isEmpty ? d.s("icon") : d.s("state"), opis: d.s("desc"), max: d.d("temp"), min: d.d("tempMin"), opad: d.i("pop"))
         }
         let godzinowa: [Slownik] = (j["hourly"] as? [[Slownik]])?.flatMap { $0 } ?? j.lista("hourly")
-        godziny = godzinowa.map { Godzina(czas: $0.s("time"), ikona: $0.s("icon"), temp: $0.d("temp"), opad: $0.i("pop")) }
+        godziny = godzinowa.map { g in
+            Godzina(czas: g.s("time"), ikona: g.s("state").isEmpty ? g.s("icon") : g.s("state"), temp: g.d("temp"), opad: g.i("pop"))
+        }
     }
 
     static func stopnie(_ v: Double?) -> String {
