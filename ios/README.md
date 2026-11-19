@@ -1,4 +1,18 @@
-# LivePL na iPhone'a i iPada
+# LivePL i Poczta LivePL na iPhone'a i iPada
+
+Dwie aplikacje z jednego projektu ([project.yml](project.yml)), ze wspólnym kodem w [Wspolne](Wspolne):
+
+- **LivePL** (`eu.livepl.przegladarka`, folder [LivePL](LivePL)) to przeglądarka z ekranem Start, kartami i menu.
+- **Poczta LivePL** (`eu.livepl.poczta`, folder [Poczta](Poczta)) to sama poczta.livepl.eu na cały ekran.
+  - Ikona: logo poczty na granacie nagłówka.
+  - Liczba nieprzeczytanych na ikonie.
+  - Linki do innych stron otwierają się w przeglądarce.
+  - Okna otwierane przez pocztę są w arkuszu z „Gotowe”.
+
+Obie dopisują „LivePL/<wersja>” do identyfikatora przeglądarki. Dzięki temu poczta wie, że jest w aplikacji,
+i nie proponuje „Dodaj do ekranu” w Safari (livepl-settings.js na serwerze poczty).
+
+## LivePL
 
 Aplikacja w SwiftUI z WKWebView (silnik Safari, jedyny dozwolony na iPhonie). Wygląda jak „Reżyserka”
 z LivePL na Windows:
@@ -31,8 +45,9 @@ z LivePL na Windows:
     a LivePL sprawdza, że pasuje do klucza i pochodzi z LivePL CA 1.
   - Co 6 h idzie raport (`/urzadzenia/raport`), z którego LivePL dowiaduje się m.in. o unieważnieniu.
   - Stan rejestracji jest w pęku kluczy, więc po przeinstalowaniu nie powstaje drugi wpis.
-  - Na ekranie Start jest propozycja „Zarejestruj ten iPhone” („Nie teraz” chowa ją do następnego uruchomienia).
-    Szczegóły są w menu przeglądarki → „Urządzenie LivePL”.
+  - Rejestracja idzie sama przy pierwszym uruchomieniu, bez pytania; po błędzie (np. bez sieci) ponawia się przy kolejnym
+    otwarciu (najczęściej co 10 min). W symulatorze jest wyłączona, żeby budowy na GitHubie nie zakładały urządzeń.
+    Stan i kod: menu przeglądarki → „Urządzenie LivePL”. Poczta LivePL rejestruje się osobno („iPhone-… Poczta”).
   - Panel urzędu pokazuje na razie „klucz w TPM” (to Secure Enclave) i „dysk: nie wiadomo”, bo zna tylko BitLocker.
 - **Tłumacz stron** ([Tlumacz.swift](LivePL/Tlumacz.swift)) korzysta z Apple Translation, które tłumaczy
   w telefonie, bez wysyłania tekstu do nikogo.
@@ -83,5 +98,10 @@ Konto Apple Developer: Karol Kowalski, Team ID `WHKQ7CW48T`. Identyfikator aplik
    Wartości idą prosto z plików do `gh secret set` i nigdzie się nie wyświetlają.
 5. **TestFlight:** w App Store Connect wejdź w zakładkę TestFlight, dodaj grupę testów wewnętrznych i siebie do niej.
    Potem zainstaluj na iPhonie aplikację TestFlight z App Store.
+
+**Poczta LivePL** korzysta z tego samego certyfikatu. Potrzebuje tylko własnego identyfikatora i profilu:
+`node ios/narzedzia/apple-konfiguracja.mjs <AuthKey Admin> <Issuer ID> --bundle eu.livepl.poczta --nazwa "Poczta LivePL" --profil "Poczta LivePL App Store"`.
+Wpis aplikacji „Poczta LivePL” (SKU `livepl-poczta-ios`) już jest w App Store Connect. Potem ponownie `ustaw-sekrety.mjs`,
+który dopisze sekret `APPLE_PROFIL_POCZTA`. Bez niego TestFlight wysyła tylko LivePL i ostrzega.
 
 Certyfikat dystrybucyjny jest ważny rok. Po wygaśnięciu usuń `LivePL-klucze\apple\dystrybucja.*` i powtórz kroki 2 i 4.

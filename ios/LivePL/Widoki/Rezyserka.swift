@@ -13,7 +13,6 @@ struct Rezyserka: View {
             VStack(alignment: .leading, spacing: 26) {
                 naglowek
                 poleAdresu
-                PropozycjaRejestracji()
                 programy
                 if !p.zwykleKarty.isEmpty { otwarteKarty }
                 mojeStrony
@@ -47,16 +46,18 @@ struct Rezyserka: View {
         HStack(spacing: 12) {
             HStack(spacing: 12) {
                 Image("Wstega").resizable().scaledToFit().frame(width: 46, height: 34)
-                VStack(alignment: .leading, spacing: 1) {
+                // napis razem z „Przeglądarka” nie jest wyższy niż logo (34 pt)
+                VStack(alignment: .leading, spacing: 0) {
                     HStack(spacing: 0) {
                         Text("Live").foregroundStyle(Kolor.tekst)
                         Text("PL").foregroundStyle(Kolor.czerwony)
                     }
-                    .font(.system(size: 25, weight: .bold))
+                    .font(.system(size: 18, weight: .bold))
                     Text("Przeglądarka")
-                        .font(.footnote)
+                        .font(.system(size: 11))
                         .foregroundStyle(Kolor.slaby)
                 }
+                .frame(height: 34)
             }
             .accessibilityElement(children: .combine)
             Spacer()

@@ -27,6 +27,9 @@ const sekrety = {
   ASC_ISSUER_ID: issuerId.trim(),
   ASC_KEY_P8: fs.readFileSync(plikKlucza, 'utf8')
 };
+// profil Poczty LivePL, jeśli jest (apple-konfiguracja.mjs --bundle eu.livepl.poczta …)
+const profilPoczty = path.join(FOLDER, 'Poczta_LivePL_App_Store.mobileprovision');
+if (fs.existsSync(profilPoczty)) sekrety.APPLE_PROFIL_POCZTA = fs.readFileSync(profilPoczty).toString('base64');
 
 for (const [nazwa, wartosc] of Object.entries(sekrety)) {
   const w = spawnSync('gh', ['secret', 'set', nazwa, '--repo', REPO], { input: wartosc, encoding: 'utf8' });

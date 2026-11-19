@@ -147,5 +147,40 @@ app.whenReady().then(async () => {
   });
 
   console.log('Grafiki gotowe w', path.relative(KATALOG, ZASOBY));
+
+  // ---------- Poczta LivePL: logo poczty (L + koperta) na granacie nagłówka poczty (#071c2d) ----------
+  const POCZTA = path.join(KATALOG, 'ios', 'Poczta', 'Assets.xcassets');
+  zapiszJSON(path.join(POCZTA, 'Contents.json'), { info: { author: 'xcode', version: 1 } });
+  const logoPoczty = poczta.replace(/<svg[^>]*>/, '').replace('</svg>', '');
+  // treść poczta.svg zajmuje ok. x 4–60, y 8–57 w siatce 64; w ikonie ok. 64% szerokości, lekko w lewo (pochylenie)
+  const svgIkonyPoczty = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="1024" height="1024">
+<rect width="64" height="64" fill="#071c2d"/><g transform="translate(35.2 30.6) scale(0.7) translate(-32 -32.5)">${logoPoczty}</g></svg>`;
+  const ikonaPoczty = path.join(POCZTA, 'AppIcon.appiconset');
+  fs.mkdirSync(ikonaPoczty, { recursive: true });
+  fs.writeFileSync(path.join(ikonaPoczty, 'ikona-poczta.png'), pngRGB(1024, 1024, await rysuj(svgIkonyPoczty, 1024, 1024, 'rgba')));
+  zapiszJSON(path.join(ikonaPoczty, 'Contents.json'), {
+    images: [{ filename: 'ikona-poczta.png', idiom: 'universal', platform: 'ios', size: '1024x1024' }],
+    info: { author: 'xcode', version: 1 }
+  });
+  const logoDir = path.join(POCZTA, 'LogoPoczty.imageset');
+  const logoObrazy = [];
+  for (const s of [1, 2, 3]) {
+    const plik = `logo-poczty@${s}x.png`;
+    await zapiszPng(path.join(logoDir, plik), poczta.replace('<svg ', `<svg width="${72 * s}" height="${72 * s}" `), 72 * s, 72 * s);
+    logoObrazy.push({ filename: plik, idiom: 'universal', scale: `${s}x` });
+  }
+  zapiszJSON(path.join(logoDir, 'Contents.json'), { images: logoObrazy, info: { author: 'xcode', version: 1 } });
+  zapiszJSON(path.join(POCZTA, 'TloStartu.colorset', 'Contents.json'), {
+    colors: [{ idiom: 'universal', color: kolor('0x07', '0x1C', '0x2D') }],
+    info: { author: 'xcode', version: 1 }
+  });
+  zapiszJSON(path.join(POCZTA, 'AccentColor.colorset', 'Contents.json'), {
+    colors: [
+      { idiom: 'universal', color: kolor('0xB0', '0x26', '0x1F') },
+      { idiom: 'universal', appearances: [{ appearance: 'luminosity', value: 'dark' }], color: kolor('0xE3', '0x46', '0x3A') }
+    ],
+    info: { author: 'xcode', version: 1 }
+  });
+  console.log('Grafiki Poczty gotowe w', path.relative(KATALOG, POCZTA));
   app.quit();
 });

@@ -67,7 +67,7 @@ struct WidokUrzadzenia: View {
                     }
                 } footer: {
                     if u.zapis.stan == "brak" {
-                        Text("Klucz powstaje w Secure Enclave tego iPhone'a i nigdy go nie opuszcza. Urząd dostaje nazwę urządzenia, wersję iOS i wersję LivePL.")
+                        Text("LivePL rejestruje ten iPhone sam przy uruchomieniu. Klucz powstaje w Secure Enclave i nigdy go nie opuszcza. Urząd dostaje nazwę urządzenia, wersję iOS i wersję LivePL.")
                     }
                 }
             }
@@ -124,56 +124,6 @@ struct WidokUrzadzenia: View {
         case "gotowe": return Kolor.ok
         case "odrzucony", "uniewazniony": return Kolor.czerwony
         default: return Kolor.slaby
-        }
-    }
-}
-
-/// Propozycja na ekranie Start, dopóki iPhone nie jest zarejestrowany (jak okienko przy starcie LivePL na Windows).
-struct PropozycjaRejestracji: View {
-    @ObservedObject private var u = Urzadzenie.wspolny
-
-    var body: some View {
-        if u.pokazPropozycje || u.trwa {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "checkmark.shield")
-                    .font(.title2)
-                    .foregroundStyle(Kolor.czerwony)
-                    .frame(width: 34)
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Zarejestruj ten iPhone w urzędzie LivePL")
-                        .font(.headline)
-                        .foregroundStyle(Kolor.tekst)
-                    Text("Jedno stuknięcie. Klucz powstaje w Secure Enclave telefonu i nigdy go nie opuszcza.")
-                        .font(.subheadline)
-                        .foregroundStyle(Kolor.slaby)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if let blad = u.blad {
-                        Text(blad).font(.footnote).foregroundStyle(Kolor.czerwony)
-                    }
-                    HStack(spacing: 10) {
-                        Button {
-                            Task { await u.zarejestruj() }
-                        } label: {
-                            if u.trwa {
-                                ProgressView().controlSize(.small)
-                            } else {
-                                Text("Zarejestruj")
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                        .disabled(u.trwa)
-                        Button("Nie teraz") { u.propozycjaOdlozona = true }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                            .disabled(u.trwa)
-                    }
-                    .padding(.top, 2)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding(14)
-            .kartaLivePL()
         }
     }
 }

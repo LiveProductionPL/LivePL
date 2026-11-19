@@ -2,7 +2,10 @@
 // Robi: identyfikator aplikacji eu.livepl.przegladarka, certyfikat Apple Distribution
 // (klucz prywatny powstaje i zostaje w tym komputerze) oraz profil „LivePL App Store”.
 //
-//   node ios/narzedzia/apple-konfiguracja.mjs <AuthKey_XXXX.p8> <Issuer ID>
+//   node ios/narzedzia/apple-konfiguracja.mjs <AuthKey_XXXX.p8> <Issuer ID> [--bundle eu.livepl.poczta --nazwa "Poczta LivePL" --profil "Poczta LivePL App Store"]
+//
+// Bez opcji: przeglądarka LivePL (eu.livepl.przegladarka, profil „LivePL App Store”). Certyfikat dystrybucyjny
+// jest wspólny dla wszystkich aplikacji; drugi przebieg tylko zakłada identyfikator i profil.
 //
 // Klucz API musi mieć rolę Admin (tylko Admin może tworzyć certyfikaty). Ten klucz zostaje na komputerze.
 // Wynik trafia do %USERPROFILE%\LivePL-klucze\apple. Skrypt nie wypisuje żadnych sekretów.
@@ -13,8 +16,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-const BUNDLE_ID = 'eu.livepl.przegladarka';
-const NAZWA_PROFILU = 'LivePL App Store';
+const opcja = (nazwa, domyslnie) => { const i = process.argv.indexOf('--' + nazwa); return i > 0 && process.argv[i + 1] ? process.argv[i + 1] : domyslnie; };
+const BUNDLE_ID = opcja('bundle', 'eu.livepl.przegladarka');
+const NAZWA_APLIKACJI = opcja('nazwa', 'LivePL');
+const NAZWA_PROFILU = opcja('profil', 'LivePL App Store');
 const API = 'https://api.appstoreconnect.apple.com';
 const FOLDER = path.join(os.homedir(), 'LivePL-klucze', 'apple');
 
@@ -68,7 +73,7 @@ function openssl(argumenty, env = {}) {
 let bundle = (await api('GET', `/v1/bundleIds?filter[identifier]=${BUNDLE_ID}`)).data.find((b) => b.attributes.identifier === BUNDLE_ID);
 if (!bundle) {
   bundle = (await api('POST', '/v1/bundleIds', {
-    data: { type: 'bundleIds', attributes: { identifier: BUNDLE_ID, name: 'LivePL', platform: 'IOS' } }
+    data: { type: 'bundleIds', attributes: { identifier: BUNDLE_ID, name: NAZWA_APLIKACJI, platform: 'IOS' } }
   })).data;
   console.log(`Identyfikator ${BUNDLE_ID}: założony`);
 } else {
@@ -132,7 +137,7 @@ const profil = (await api('POST', '/v1/profiles', {
     }
   }
 })).data;
-const plikProfilu = path.join(FOLDER, 'LivePL_App_Store.mobileprovision');
+const plikProfilu = path.join(FOLDER, NAZWA_PROFILU.replace(/\s+/g, '_') + '.mobileprovision');
 fs.writeFileSync(plikProfilu, Buffer.from(profil.attributes.profileContent, 'base64'));
 console.log(`Profil „${NAZWA_PROFILU}”: ${stare.length ? 'odnowiony' : 'założony'}, ważny do ${profil.attributes.expirationDate.slice(0, 10)}`);
 

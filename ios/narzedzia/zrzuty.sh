@@ -56,6 +56,15 @@ zrzut 4-tvml-noc dark -otworz tvml
 zrzut 5-liveproduction-dzien light -otworz liveproduction
 zrzut 6-tlumacz-dzien light -otworz https://en.wikipedia.org/wiki/Poland
 
+# Poczta LivePL (trzeci argument: ścieżka do Poczta.app)
+if [ -n "${3:-}" ] && [ -d "$3" ]; then
+  xcrun simctl terminate "$UDID" "$ID" 2>/dev/null || true
+  ID="eu.livepl.poczta"
+  xcrun simctl install "$UDID" "$3"
+  zrzut 7-poczta-aplikacja-dzien light
+  zrzut 8-poczta-aplikacja-noc dark
+fi
+
 # dziennik aplikacji z ostatnich minut (błędy WebKit, SwiftUI)
-xcrun simctl spawn "$UDID" log show --last 3m --style compact \
-  --predicate 'process == "LivePL"' > "$WYJSCIE/dziennik.txt" 2>/dev/null || true
+xcrun simctl spawn "$UDID" log show --last 4m --style compact \
+  --predicate 'process == "LivePL" OR process == "Poczta"' > "$WYJSCIE/dziennik.txt" 2>/dev/null || true

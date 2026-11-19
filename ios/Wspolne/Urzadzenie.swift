@@ -15,8 +15,6 @@ final class Urzadzenie: ObservableObject {
     @Published private(set) var zapis = Zapis()
     @Published private(set) var trwa = false
     @Published var blad: String?
-    /// „Nie teraz” na ekranie Start: do następnego uruchomienia LivePL.
-    @Published var propozycjaOdlozona = false
 
     struct Zapis: Codable {
         var stan = "brak"            // brak, wyslany, gotowe, odrzucony, uniewazniony
@@ -40,7 +38,6 @@ final class Urzadzenie: ObservableObject {
     }
 
     var zarejestrowany: Bool { zapis.stan == "gotowe" }
-    var pokazPropozycje: Bool { zapis.stan == "brak" && !propozycjaOdlozona }
 
     // MARK: - Rejestracja
 
@@ -134,10 +131,24 @@ final class Urzadzenie: ObservableObject {
     }
 
     /// Przy każdym powrocie LivePL na ekran.
+    /// Przy każdym powrocie aplikacji na ekran. Rejestracja idzie sama, bez pytania (jak certyfikaty w LivePL na Windows);
+    /// po błędzie (np. brak sieci) kolejna próba najwcześniej po 10 minutach.
     func przyStarcie() async {
+        #if targetEnvironment(simulator)
+        // symulator (zrzuty na Macach GitHuba) nie zakłada „urządzeń” w prawdziwym urzędzie
+        return
+        #else
+        if zapis.stan == "brak", !trwa, Date().timeIntervalSince(ostatniaProba) > 600 {
+            ostatniaProba = Date()
+            await zarejestruj()
+            return
+        }
         if zapis.stan == "wyslany" { try? await sprawdz() }
         await raport()
+        #endif
     }
+
+    private var ostatniaProba = Date.distantPast
 
     private func ustaw(_ z: Zapis) {
         zapis = z
@@ -243,8 +254,10 @@ final class Urzadzenie: ObservableObject {
         return String(kod.prefix(3)) + "-" + String(kod.suffix(3))
     }
 
+    /// np. „iPhone-K7F2QX”, a w aplikacji Poczta LivePL „iPhone-K7F2QX Poczta” (każda aplikacja ma własny klucz).
     private static func nazwa(kod: String) -> String {
-        "\(UIDevice.current.model)-\(kod.replacingOccurrences(of: "-", with: ""))"
+        let poczta = Bundle.main.bundleIdentifier == "eu.livepl.poczta" ? " Poczta" : ""
+        return "\(UIDevice.current.model)-\(kod.replacingOccurrences(of: "-", with: ""))\(poczta)"
     }
 
     /// Wniosek PKCS#10 podpisany kluczem z Secure Enclave (ecdsa-with-SHA256).

@@ -42,6 +42,9 @@ enum Motyw: String, CaseIterable {
 @MainActor
 final class Przegladarka: ObservableObject {
     let programy: [Program] = Program.wczytaj()
+    /// Poczta LivePL: tylko te strony otwierają się w aplikacji, kliknięte linki do innych idą do przeglądarki.
+    /// nil (przeglądarka LivePL): wszystkie strony w aplikacji.
+    var dozwoloneHosty: Set<String>?
 
     @Published private(set) var karty: [Karta] = []
     /// nil = Reżyserka (ekran startowy)

@@ -80,7 +80,9 @@ final class Karta: NSObject, ObservableObject, Identifiable, WKNavigationDelegat
         k.allowsPictureInPictureMediaPlayback = true
         // jak Safari na tym iPhonie, żeby strony nie dawały okrojonej wersji
         let ios = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
-        k.applicationNameForUserAgent = "Version/\(ios).0 Mobile/15E148 Safari/604.1"
+        // „LivePL/…” na końcu: nasze strony wiedzą, że są w aplikacji LivePL (np. poczta nie proponuje dodania do ekranu)
+        let wersja = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
+        k.applicationNameForUserAgent = "Version/\(ios).0 Mobile/15E148 Safari/604.1 LivePL/\(wersja)"
         return k
     }
 
@@ -256,6 +258,14 @@ final class Karta: NSObject, ObservableObject, Identifiable, WKNavigationDelegat
         guard let url = navigationAction.request.url else { return .allow }
         // mailto:, tel:, mapy, App Store… otwiera iOS
         if Przegladarka.obcyAdres(url) {
+            _ = await UIApplication.shared.open(url)
+            return .cancel
+        }
+        // Poczta LivePL: kliknięty link do innej strony otwiera się w przeglądarce, a nie w aplikacji poczty
+        if let dozwolone = przegladarka?.dozwoloneHosty,
+           navigationAction.navigationType == .linkActivated,
+           navigationAction.targetFrame?.isMainFrame ?? true,
+           let host = url.host?.lowercased(), !dozwolone.contains(host) {
             _ = await UIApplication.shared.open(url)
             return .cancel
         }

@@ -1,4 +1,4 @@
-# LivePL na iPhone'a: budowa na Macach GitHuba, zrzuty z symulatora i (na życzenie) wysyłka do TestFlight.
+# LivePL i Poczta LivePL na iPhone'a: budowa na Macach GitHuba, zrzuty z symulatora i (na życzenie) wysyłka do TestFlight.
 # TestFlight rusza tylko wtedy, gdy opis zmiany zawiera [testflight] i są ustawione sekrety Apple (ios/README.md).
 # Zmiana musi dotykać plików z listy niżej (pusta zmiana nie uruchomi budowy). Gdy workflow trafi na main,
 # można go też uruchomić ręcznie: Actions → LivePL iOS → Run workflow (z zaznaczonym „TestFlight”).
@@ -60,7 +60,7 @@ jobs:
           grep -E "(error|warning): " build.log | grep "/ios/" | sort -u || echo "brak"
 
       - name: Zrzuty ekranu
-        run: bash ios/narzedzia/zrzuty.sh build/Build/Products/Debug-iphonesimulator/LivePL.app zrzuty
+        run: bash ios/narzedzia/zrzuty.sh build/Build/Products/Debug-iphonesimulator/LivePL.app zrzuty build/Build/Products/Debug-iphonesimulator/Poczta.app
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -81,6 +81,7 @@ jobs:
       APPLE_CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
       APPLE_CERT_HASLO: ${{ secrets.APPLE_CERT_HASLO }}
       APPLE_PROFIL: ${{ secrets.APPLE_PROFIL }}
+      APPLE_PROFIL_POCZTA: ${{ secrets.APPLE_PROFIL_POCZTA }}
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
@@ -93,6 +94,7 @@ jobs:
           for s in APPLE_CERT_P12 APPLE_CERT_HASLO APPLE_PROFIL ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
             if [ -z "${!s}" ]; then echo "::error::Brak sekretu $s (instrukcja w ios/README.md)"; brak=1; fi
           done
+          if [ -z "$APPLE_PROFIL_POCZTA" ]; then echo "::warning::Brak sekretu APPLE_PROFIL_POCZTA: Poczta LivePL nie pójdzie do TestFlight"; fi
           exit $brak
 
       - name: Najnowszy Xcode
@@ -122,29 +124,28 @@ jobs:
           for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
             mkdir -p "$d"
             printf '%s' "$APPLE_PROFIL" | base64 --decode > "$d/livepl-app-store.mobileprovision"
+            if [ -n "$APPLE_PROFIL_POCZTA" ]; then printf '%s' "$APPLE_PROFIL_POCZTA" | base64 --decode > "$d/poczta-app-store.mobileprovision"; fi
           done
 
-      - name: Archiwum (Release)
+      - name: Archiwum i wysyłka do App Store Connect
         run: |
           set -o pipefail
-          xcodebuild -project ios/LivePL.xcodeproj -scheme LivePL -configuration Release \
-            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/LivePL.xcarchive" \
-            CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=WHKQ7CW48T \
-            CODE_SIGN_IDENTITY="Apple Distribution" PROVISIONING_PROFILE_SPECIFIER="LivePL App Store" \
-            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
-            archive 2>&1 | tee archive.log | grep -E "error:|ARCHIVE" || true
-          grep -q "ARCHIVE SUCCEEDED" archive.log
-
-      - name: Wysyłka do App Store Connect
-        run: |
           mkdir -p "$RUNNER_TEMP/asc"
           KLUCZ="$RUNNER_TEMP/asc/AuthKey_$ASC_KEY_ID.p8"
           printf '%s' "$ASC_KEY_P8" > "$KLUCZ"
-          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/LivePL.xcarchive" \
-            -exportOptionsPlist ios/ExportOptions.plist -exportPath "$RUNNER_TEMP/eksport" \
-            -authenticationKeyPath "$KLUCZ" -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
-          echo "Wysłano budowę ${{ github.run_number }}. Po przetworzeniu przez Apple (zwykle 5–20 minut) pojawi się w TestFlight."
+          # schemat | profil | opcje eksportu
+          APLIKACJE="LivePL|LivePL App Store|ios/ExportOptions.plist"
+          if [ -n "$APPLE_PROFIL_POCZTA" ]; then APLIKACJE="$APLIKACJE
+          Poczta|Poczta LivePL App Store|ios/ExportOptions-poczta.plist"; fi
+          echo "$APLIKACJE" | while IFS='|' read -r SCHEMAT PROFIL OPCJE; do
+            SCHEMAT=$(echo "$SCHEMAT" | xargs)
+            echo "::group::$SCHEMAT"
+            xcodebuild -project ios/LivePL.xcodeproj -scheme "$SCHEMAT" -configuration Release               -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/$SCHEMAT.xcarchive"               CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=WHKQ7CW48T               CODE_SIGN_IDENTITY="Apple Distribution" PROVISIONING_PROFILE_SPECIFIER="$PROFIL"               CURRENT_PROJECT_VERSION=${{ github.run_number }}               archive 2>&1 | tee "archive-$SCHEMAT.log" | grep -E "error:|ARCHIVE" || true
+            grep -q "ARCHIVE SUCCEEDED" "archive-$SCHEMAT.log"
+            xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/$SCHEMAT.xcarchive"               -exportOptionsPlist "$OPCJE" -exportPath "$RUNNER_TEMP/eksport-$SCHEMAT"               -authenticationKeyPath "$KLUCZ" -authenticationKeyID "$ASC_KEY_ID"               -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+            echo "Wysłano $SCHEMAT, budowa ${{ github.run_number }}. Po przetworzeniu przez Apple (zwykle 5–20 minut) pojawi się w TestFlight."
+            echo "::endgroup::"
+          done
 
       - name: Sprzątanie
         if: always()
