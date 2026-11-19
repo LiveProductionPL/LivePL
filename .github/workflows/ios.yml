@@ -75,6 +75,19 @@ jobs:
             build.log
           retention-days: 14
 
+      - name: Zrzuty do App Store (iPhone 6,9″ i iPad 13″)
+        if: contains(github.event.head_commit.message, '[zrzuty-sklep]')
+        run: |
+          bash ios/narzedzia/zrzuty-sklep.sh build/Build/Products/Debug-iphonesimulator/LivePL.app \
+            build/Build/Products/Debug-iphonesimulator/Poczta.app sklep
+
+      - uses: actions/upload-artifact@v4
+        if: contains(github.event.head_commit.message, '[zrzuty-sklep]')
+        with:
+          name: sklep-${{ github.run_number }}
+          path: sklep/
+          retention-days: 30
+
   testflight:
     name: Wysyłka do TestFlight
     needs: symulator
