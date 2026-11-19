@@ -144,7 +144,11 @@ struct Baner: View {
                 .ignoresSafeArea(edges: motyw.pasek == nil ? .top : [])
             }
             .overlay(alignment: .bottom) {
-                if let linia = motyw.linia { linia.frame(height: 2) }
+                if motyw.paskiLinii.count >= 2 {
+                    VStack(spacing: 0) { ForEach(Array(motyw.paskiLinii.enumerated()), id: \.offset) { $0.element.frame(height: 2) } }
+                } else if let linia = motyw.linia {
+                    linia.frame(height: 2)
+                }
             }
             NaZywo()
         }

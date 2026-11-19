@@ -324,7 +324,7 @@ final class Magazyn: ObservableObject {
         async let e = Siec.v1("weather")
         guard let lista = (try? await a) as? Slownik, let konf = (try? await k) as? Slownik else { return false }
         najnowsze = lista.lista("items").map(Artykul.init)
-        if let m = Motyw.zV1(konf.slownik("theme")) { motyw = m }
+        if let m = Motyw.zV1(konf.slownik("theme"), wersjaApi: konf.s("apiVersion")) { motyw = m }
         let z = konf.lista("tabs").compactMap(ZakladkaApp.init)
         if !z.isEmpty {
             var gotowe = Array(z.prefix(5))

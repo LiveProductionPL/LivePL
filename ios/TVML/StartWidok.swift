@@ -355,6 +355,19 @@ enum Kontrast {
         let l = 0.2126 * kanal((v >> 16) & 0xff) + 0.7152 * kanal((v >> 8) & 0xff) + 0.0722 * kanal(v & 0xff)
         return (1.05 / (l + 0.05)) >= 4.5 ? .white : Color(hex: "#1d1400")
     }
+
+    /// To samo jako liczba (do kolorów zmieniających się z trybem dzień/noc).
+    static func napisHex(na hex: String) -> UInt32 {
+        var t = hex
+        if t.hasPrefix("#") { t.removeFirst() }
+        guard t.count == 6, let v = UInt32(t, radix: 16) else { return 0x1d1400 }
+        func kanal(_ c: UInt32) -> Double {
+            let x = Double(c) / 255
+            return x <= 0.03928 ? x / 12.92 : pow((x + 0.055) / 1.055, 2.4)
+        }
+        let l = 0.2126 * kanal((v >> 16) & 0xff) + 0.7152 * kanal((v >> 8) & 0xff) + 0.0722 * kanal(v & 0xff)
+        return (1.05 / (l + 0.05)) >= 4.5 ? 0xffffff : 0x1d1400
+    }
 }
 
 struct WierszArtykulu: View {

@@ -13,15 +13,66 @@ struct Motyw: Equatable {
     }
     enum Scena { case wiosna, lato, jesien, zima, swieta, sylwester, listopad }
 
+    /// Kolory wersji z panelu (API 1.1: theme.colors.light i .dark). nil = kolory z projektu.
+    struct Paleta: Equatable {
+        var jasna: [String: String]
+        var ciemna: [String: String]
+        var gradientJasny: [String]
+        var gradientCiemny: [String]
+        var paski: [String]
+
+        init?(_ c: Slownik) {
+            let j = c.slownik("light"), d = c.slownik("dark")
+            guard !j.isEmpty else { return nil }
+            func pola(_ s: Slownik) -> [String: String] {
+                var w: [String: String] = [:]
+                for k in ["accent", "live", "tabActive", "headerLine", "gold"] where !s.s(k).isEmpty { w[k] = s.s(k) }
+                return w
+            }
+            jasna = pola(j); ciemna = pola(d.isEmpty ? j : d)
+            gradientJasny = (j["headerGradient"] as? [String]) ?? []
+            gradientCiemny = (d["headerGradient"] as? [String]) ?? gradientJasny
+            paski = (j["headerLineStripes"] as? [String]) ?? []
+        }
+
+        func kolor(_ k: String) -> Color? {
+            guard let a = jasna[k] else { return nil }
+            return Color.tryb(Paleta.liczba(a), Paleta.liczba(ciemna[k] ?? a))
+        }
+        func napis(_ k: String) -> Color? {
+            guard let a = jasna[k] else { return nil }
+            return Color.tryb(Kontrast.napisHex(na: a), Kontrast.napisHex(na: ciemna[k] ?? a))
+        }
+        var naglowek: [Color]? {
+            guard gradientJasny.count >= 2 else { return nil }
+            return gradientJasny.enumerated().map { i, h in
+                Color.tryb(Paleta.liczba(h), Paleta.liczba(i < gradientCiemny.count ? gradientCiemny[i] : h))
+            }
+        }
+        static func liczba(_ hex: String) -> UInt32 {
+            var t = hex
+            if t.hasPrefix("#") { t.removeFirst() }
+            return UInt32(t, radix: 16) ?? 0x0a1f44
+        }
+    }
+
     var rodzaj: Rodzaj
     var wariant: String = ""
     var pasek: Pasek?
+    var paleta: Paleta?
 
     static let zwykly = Motyw(rodzaj: .zwykly)
 
     // MARK: wygląd
 
     var naglowek: [Color] {
+        if let n = paleta?.naglowek { return n }
+        return naglowekProjektu
+    }
+    /// Dwukolorowa linia pod banerem (11 Listopada: biało-czerwona).
+    var paskiLinii: [Color] { (paleta?.paski ?? []).map { Color(hex: $0) } }
+
+    private var naglowekProjektu: [Color] {
         switch rodzaj {
         case .zima: return [Color(hex: "#040d1a"), Color(hex: "#0a1e38"), Color(hex: "#0f3156")]
         case .wigilia, .swieta: return [Color(hex: "#14070c"), Color(hex: "#24101a")]
@@ -31,6 +82,7 @@ struct Motyw: Equatable {
         }
     }
     var linia: Color? {
+        if let k = paleta?.kolor("headerLine") { return k }
         switch rodzaj {
         case .zima: return Color(hex: "#38bdf8")
         case .listopad: return Color(hex: "#dc143c")
@@ -42,6 +94,7 @@ struct Motyw: Equatable {
         }
     }
     var naZywo: Color {
+        if let k = paleta?.kolor("live") { return k }
         switch rodzaj {
         case .zima: return Color(hex: "#0369a1")
         case .mikolajki, .czapeczka: return Color(hex: "#b91c1c")
@@ -53,6 +106,7 @@ struct Motyw: Equatable {
     }
     /// Kolor zaznaczonej zakładki i kategorii.
     var akcent: Color {
+        if let k = paleta?.kolor("tabActive") ?? paleta?.kolor("accent") { return k }
         switch rodzaj {
         case .zwykly: return Color.tryb(0x0a1f44, 0xf0b03a)
         case .listopad: return Color(hex: "#a50e26")
@@ -62,6 +116,7 @@ struct Motyw: Equatable {
     }
     /// Napis na kolorze akcentu: w nocy akcent zwykły jest złoty, a żałobny jasnoszary, więc wtedy ciemny napis.
     var napisNaAkcencie: Color {
+        if let k = paleta?.napis("tabActive") ?? paleta?.napis("accent") { return k }
         switch rodzaj {
         case .zwykly: return Color.tryb(0xffffff, 0x1d1400)
         case .zaloba: return Color.tryb(0xffffff, 0x111827)
@@ -213,7 +268,7 @@ struct Motyw: Equatable {
     }
 
     /// Wersja wyliczona przez serwer (API v1, pole theme). nil, gdy odpowiedź jej nie ma.
-    static func zV1(_ t: Slownik, teraz: Date = .now) -> Motyw? {
+    static func zV1(_ t: Slownik, wersjaApi: String = "1.0.0", teraz: Date = .now) -> Motyw? {
         let id = t.s("id")
         guard !id.isEmpty else { return nil }
         let wariant = t.s("variant")
@@ -251,7 +306,9 @@ struct Motyw: Equatable {
                           stopka: p.s("foot").isEmpty ? nil : p.s("foot"),
                           odliczanieDo: ISO8601DateFormatter().date(from: p.s("countdownTo")))
         }
-        return Motyw(rodzaj: rodzaj, wariant: wariant, pasek: pasek)
+        // API 1.0 podawało tu kolory bazowe portalu, dopiero 1.1 kolory wersji
+        let kolory = rodzaj != .zwykly && wersjaApi.compare("1.1", options: .numeric) != .orderedAscending ? Paleta(t.slownik("colors")) : nil
+        return Motyw(rodzaj: rodzaj, wariant: wariant, pasek: pasek, paleta: kolory)
     }
 
     /// Do zrzutów i testów: -motyw zima itp.
