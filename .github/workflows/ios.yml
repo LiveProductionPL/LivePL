@@ -46,13 +46,17 @@ jobs:
           brew install xcodegen
           cd ios && xcodegen generate
 
-      - name: Budowa na symulator
+      - name: Budowa na symulator (LivePL i Poczta)
         run: |
           set -o pipefail
-          xcodebuild -project ios/LivePL.xcodeproj -scheme LivePL -configuration Debug \
-            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build 2>&1 | tee build.log | grep -E "error:|warning:|BUILD" || true
-          grep -q "BUILD SUCCEEDED" build.log
+          : > build.log
+          for SCHEMAT in LivePL Poczta; do
+            xcodebuild -project ios/LivePL.xcodeproj -scheme "$SCHEMAT" -configuration Debug \
+              -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+              -derivedDataPath build CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "build-$SCHEMAT.log" | grep -E "error:|warning:|BUILD" || true
+            cat "build-$SCHEMAT.log" >> build.log
+            grep -q "BUILD SUCCEEDED" "build-$SCHEMAT.log"
+          done
 
       - name: Ostrzeżenia kompilatora
         if: always()
