@@ -142,8 +142,9 @@ wersja 2.0 jak na iPhonie i w API (`minAppVersion.android`). Kod: [tvml/src/main
   np. sondy i ogłoszenia, aplikacja pomija), wersja wyglądu i jej kolory z `config.theme` (API 1.1), pasek
   „NA ŻYWO” z `config.ticker`, imieniny z `config.today`, gminy, subportale i strony redakcji.
   Odpowiedzi z ETag wracają jako 304, a bez internetu aplikacja pokazuje ostatnie pobrane dane.
-- **Subportale** (Sport, Muzyka, Kultura…) czyta przez `articles?subportal=`, bo kategoria subportalu ma
-  czasem inną nazwę (`muzyka` → `muzyka-tvml`, a `articles?category=muzyka` zwraca pustą listę).
+- **Subportale** (Sport, Muzyka, Kultura, Na sygnale) czyta przez kategorię subportalu z panelu
+  (`config.subportals[].category`, pusta = nazwa subportalu): `muzyka` to `muzyka-tvml` (`?category=muzyka`
+  jest puste), a `na-sygnale` nie ma w panelu kategorii ani tagu (`?subportal=na-sygnale` jest puste).
 - **Baner nad każdym ekranem:** logo z ozdobą wersji (bałwanek, czapka Mikołaja, gwiazda, flaga, „2027”),
   pogoda, szukaj, pasek życzeń z odliczaniem, śnieg albo iskry, przewijany pasek „NA ŻYWO”.
 - **Artykuł:** „Wróć”, rozmiar tekstu (trzy), udostępnianie, pasek postępu czytania; „Odsłuchaj” czyta polskim

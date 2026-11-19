@@ -49,8 +49,12 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
     var bloki by mutableStateOf(BlokStartu.domyslne)
     var gminy by mutableStateOf<List<Gmina>>(emptyList())
     var kategorie by mutableStateOf(KategoriaMenu.domyslne)
-    /** Subportale z panelu: ich listy idą przez ?subportal=, bo kategoria subportalu ma inną nazwę (muzyka → muzyka-tvml). */
-    var subportale by mutableStateOf(setOf("sport", "kultura", "muzyka", "na-sygnale"))
+    /**
+     * Kategoria artykułów każdego subportalu z panelu (config.subportals[].category). Nazwa subportalu nie zawsze
+     * jest kategorią: muzyka to „muzyka-tvml” (?category=muzyka jest puste), a „na-sygnale” nie ma w panelu
+     * ani kategorii, ani tagu, więc ?subportal=na-sygnale jest puste. Pusta kategoria w panelu = nazwa subportalu.
+     */
+    var kategorieSubportali by mutableStateOf(mapOf("muzyka" to "muzyka-tvml"))
     var dzisiaj by mutableStateOf<Dzisiaj?>(null)
     var strony by mutableStateOf(listOf(
         StronaRedakcji("o-nas", "O nas"), StronaRedakcji("redakcja", "Redakcja"), StronaRedakcji("reklama", "Reklama"),
@@ -140,7 +144,7 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
         gminy = konf.lista("counties").map(::Gmina).sortedBy { it.kolejnosc }
         val sub = konf.lista("subportals")
         if (sub.isNotEmpty()) {
-            subportale = sub.map { it.s("slug") }.toSet()
+            kategorieSubportali = sub.filter { it.s("slug").isNotEmpty() }.associate { it.s("slug") to it.s("category").ifEmpty { it.s("slug") } }
             kategorie = listOf(KategoriaMenu("Wszystko", null), KategoriaMenu("Aktualności", "aktualnosci")) +
                 sub.map { KategoriaMenu(it.s("name").replace("TVML.pl - ", ""), it.s("slug")) }
         }
@@ -172,14 +176,14 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
         e.await()?.let { if (it.ma("current")) pogoda = Pogoda(it) }
     }
 
-    /** Lista działu: subportal (Sport, Muzyka…) albo zwykła kategoria. */
+    /** Lista działu: subportal (Sport, Muzyka, Na sygnale…) przez jego kategorię z panelu albo zwykła kategoria. */
     suspend fun kategoria(slug: String, limit: Int = 20) {
-        val pole = if (slug in subportale) "subportal" else "category"
-        Siec.v1Obiekt("articles", mapOf(pole to slug, "limit" to limit.toString()))?.let {
+        val kat = kategorieSubportali[slug] ?: slug
+        Siec.v1Obiekt("articles", mapOf("category" to kat, "limit" to limit.toString()))?.let {
             wKategorii[slug] = it.lista("items").map(::Artykul)
             return
         }
-        val lista = Siec.staraLista("tvml-db.php?action=news&category=${Siec.koduj(slug)}&limit=$limit")
+        val lista = Siec.staraLista("tvml-db.php?action=news&category=${Siec.koduj(kat)}&limit=$limit")
         if (lista.isNotEmpty()) wKategorii[slug] = lista.map(::Artykul)
     }
 
