@@ -69,12 +69,12 @@ zrob() {
     ujecie connect-2-noc eu.livepl.connect dark
   fi
   if [ -n "$TVML" ]; then
-    # TVML pobiera wiadomości, pogodę i wygląd z tvml.pl (wersja z panelu); -motyw pokazuje wydanie świąteczne
+    # TVML pobiera wiadomości, pogodę i wygląd z tvml.pl (wersja z panelu); zakladka2 to druga zakładka z panelu (np. Sport)
     xcrun simctl terminate "$UDID" eu.livepl.connect 2>/dev/null || true
     ujecie tvml-1-start com.LiveProduction.TVML light
     ujecie tvml-2-artykul com.LiveProduction.TVML light -ekran artykul
     ujecie tvml-3-pogoda com.LiveProduction.TVML light -ekran pogoda
-    ujecie tvml-4-swieta com.LiveProduction.TVML light -motyw swieta
+    ujecie tvml-4-zakladka com.LiveProduction.TVML light -ekran zakladka2
     ujecie tvml-5-noc com.LiveProduction.TVML dark
     ujecie tvml-6-wideo com.LiveProduction.TVML dark -ekran wideo
   fi

@@ -20,7 +20,7 @@ struct TVMLApp: App {
 struct Glowny: View {
     @EnvironmentObject private var m: Magazyn
     @Environment(\.scenePhase) private var faza
-    /// Do zrzutów ekranu: -ekran pogoda|artykul|wideo|wiecej, -motyw zima|wigilia|…
+    /// Do zrzutów ekranu: -ekran pogoda|artykul|wideo|wiecej|zakladka2 (druga zakładka z panelu), -motyw zima|wigilia|…
     private let ekranStartowy = UserDefaults.standard.string(forKey: "ekran")
     private let motywTestowy = Motyw.zArgumentu(UserDefaults.standard.string(forKey: "motyw"))
 
@@ -53,6 +53,7 @@ struct Glowny: View {
             case "wideo": m.pokaz(.wideo)
             case "wiecej": m.pokaz(.wiecej)
             case "artykul": if let pierwszy = m.najnowsze.first { m.otworz(pierwszy) }
+            case "zakladka2": if m.zakladki.count > 1 { m.zakladka = m.zakladki[1].id }
             default: break
             }
         }
