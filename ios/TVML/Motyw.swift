@@ -60,6 +60,14 @@ struct Motyw: Equatable {
         default: return naZywo
         }
     }
+    /// Napis na kolorze akcentu: w nocy akcent zwykły jest złoty, a żałobny jasnoszary, więc wtedy ciemny napis.
+    var napisNaAkcencie: Color {
+        switch rodzaj {
+        case .zwykly: return Color.tryb(0xffffff, 0x1d1400)
+        case .zaloba: return Color.tryb(0xffffff, 0x111827)
+        default: return .white
+        }
+    }
     var snieg: Bool { [.zima, .mikolajki, .czapeczka, .wigilia, .swieta].contains(rodzaj) }
     var iskry: Bool { rodzaj == .sylwester || rodzaj == .nowyRok }
     var kolorPlatkow: Color {

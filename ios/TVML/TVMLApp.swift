@@ -201,17 +201,21 @@ struct NaZywo: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 12).frame(maxHeight: .infinity)
             .background(m.motyw.naZywo)
-            TimelineView(.animation(minimumInterval: 1.0 / 30)) { kontekst in
-                let przesuniecie = CGFloat(kontekst.date.timeIntervalSinceReferenceDate * 40).truncatingRemainder(dividingBy: szerokosc + 60)
-                Text(tekst)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Barwy.tekst)
-                    .fixedSize()
-                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { szerokosc = max(1, $0) }
-                    .offset(x: 10 - przesuniecie)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .clipped()
+            // tekst w nakładce, żeby jego szerokość nie wypychała etykiety „NA ŻYWO”
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .overlay(alignment: .leading) {
+                    TimelineView(.animation(minimumInterval: 1.0 / 30)) { kontekst in
+                        let przesuniecie = CGFloat(kontekst.date.timeIntervalSinceReferenceDate * 40).truncatingRemainder(dividingBy: szerokosc + 60)
+                        Text(tekst)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Barwy.tekst)
+                            .fixedSize()
+                            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { szerokosc = max(1, $0) }
+                            .offset(x: 10 - przesuniecie)
+                    }
+                }
+                .clipped()
         }
         .frame(height: 40)
         .background(Barwy.karta)

@@ -22,7 +22,7 @@ struct StartWidok: View {
                                 Text(k.nazwa)
                                     .font(.system(size: 13, weight: .semibold))
                                     .padding(.horizontal, 14).frame(height: 34)
-                                    .foregroundStyle(wybrana ? Color.white : Barwy.tekst)
+                                    .foregroundStyle(wybrana ? m.motyw.napisNaAkcencie : Barwy.tekst)
                                     .background(wybrana ? m.motyw.akcent : Barwy.karta, in: Capsule())
                                     .overlay(Capsule().stroke(wybrana ? Color.clear : Barwy.ramka))
                             }
