@@ -3,16 +3,6 @@ package eu.livepl.przegladarka
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.google.android.gms.tasks.Tasks
-import com.google.mlkit.common.model.DownloadConditions
-import com.google.mlkit.common.model.RemoteModelManager
-import com.google.mlkit.nl.languageid.LanguageIdentification
-import com.google.mlkit.nl.languageid.LanguageIdentificationOptions
-import com.google.mlkit.nl.translate.TranslateLanguage
-import com.google.mlkit.nl.translate.TranslateRemoteModel
-import com.google.mlkit.nl.translate.Translation
-import com.google.mlkit.nl.translate.Translator
-import com.google.mlkit.nl.translate.TranslatorOptions
 import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
@@ -29,49 +19,33 @@ sealed class StanTlumaczenia {
     data class Blad(val opis: String) : StanTlumaczenia()
 }
 
-/** Tłumacz ML Kit: wszystko dzieje się w telefonie, tekst strony nigdzie nie wychodzi. */
-object SilnikTlumaczenia {
-    const val CEL = TranslateLanguage.POLISH
+/**
+ * Silnik tłumaczenia. W przeglądarce LivePL to Google ML Kit (app/src/przegladarka), a Poczta LivePL ma wersję
+ * pustą (app/src/poczta), więc nie wozi ok. 14 MB bibliotek tłumacza. Obie dają obiekt SilnikTlumaczenia.
+ */
+interface Tlumacz {
+    /** Kod języka dla „en”, „de-DE”, „pt-BR”… albo null, gdy tego języka nie umie. */
+    fun obslugiwany(tag: String?): String?
 
-    private val rozpoznawanie by lazy {
-        LanguageIdentification.getClient(
-            LanguageIdentificationOptions.Builder().setConfidenceThreshold(0.5f).build(),
-        )
+    /** Język tekstu (kod) albo null. */
+    fun rozpoznaj(tekst: String, gotowe: (String?) -> Unit)
+
+    /** Czy słownik z tego języka na polski jest już w telefonie. */
+    fun maSlownik(zJezyka: String, gotowe: (Boolean) -> Unit)
+
+    /** Pobiera słownik, jeśli go nie ma. */
+    fun pobierzSlownik(zJezyka: String, gotowe: () -> Unit, blad: () -> Unit)
+
+    /** Tłumaczy teksty na polski; tekst, którego nie udało się przetłumaczyć, wraca bez zmian. */
+    fun przetlumacz(zJezyka: String, teksty: List<String>, gotowe: (List<String>) -> Unit)
+
+    companion object {
+        const val CEL = "pl"
+
+        /** „angielski”, „niemiecki”… */
+        fun nazwa(jezyk: String): String =
+            Locale.forLanguageTag(jezyk).getDisplayLanguage(Locale.forLanguageTag("pl")).ifBlank { jezyk }
     }
-    private val tlumacze = mutableMapOf<String, Translator>()
-
-    fun tlumacz(zJezyka: String): Translator = tlumacze.getOrPut(zJezyka) {
-        Translation.getClient(
-            TranslatorOptions.Builder().setSourceLanguage(zJezyka).setTargetLanguage(CEL).build(),
-        )
-    }
-
-    /** Kod języka ML Kit dla „en”, „de-DE”, „pt-BR”… albo null, gdy tego języka nie umie. */
-    fun obslugiwany(tag: String?): String? {
-        if (tag.isNullOrBlank()) return null
-        val t = tag.trim().replace('_', '-').lowercase()
-        return TranslateLanguage.fromLanguageTag(t) ?: TranslateLanguage.fromLanguageTag(t.substringBefore('-'))
-    }
-
-    fun rozpoznaj(tekst: String, gotowe: (String?) -> Unit) {
-        if (tekst.length < 20) return gotowe(null)
-        rozpoznawanie.identifyLanguage(tekst)
-            .addOnSuccessListener { gotowe(if (it == "und") null else it) }
-            .addOnFailureListener { gotowe(null) }
-    }
-
-    fun maSlownik(zJezyka: String, gotowe: (Boolean) -> Unit) {
-        RemoteModelManager.getInstance().getDownloadedModels(TranslateRemoteModel::class.java)
-            .addOnSuccessListener { modele ->
-                val kody = modele.map { it.language }
-                gotowe(zJezyka in kody && CEL in kody)
-            }
-            .addOnFailureListener { gotowe(false) }
-    }
-
-    /** „angielski”, „niemiecki”… */
-    fun nazwa(jezyk: String): String =
-        Locale.forLanguageTag(jezyk).getDisplayLanguage(Locale.forLanguageTag("pl")).ifBlank { jezyk }
 }
 
 /**
@@ -114,7 +88,7 @@ class Tlumaczenie(private val karta: Karta, private val p: Przegladarka) {
             SilnikTlumaczenia.rozpoznaj(tekst) { wykryty ->
                 if (nr != pokolenie || stan != null) return@rozpoznaj
                 val jezyk = SilnikTlumaczenia.obslugiwany(wykryty) ?: return@rozpoznaj
-                if (jezyk == SilnikTlumaczenia.CEL) return@rozpoznaj
+                if (jezyk == Tlumacz.CEL) return@rozpoznaj
                 if (jezyk == zawszeZ) {
                     zacznij(jezyk)
                 } else if (Adres.host(karta.adres) !in p.bezPropozycjiTlumaczenia) {
@@ -139,7 +113,7 @@ class Tlumaczenie(private val karta: Karta, private val p: Przegladarka) {
                 val jezyk = SilnikTlumaczenia.obslugiwany(wykryty) ?: SilnikTlumaczenia.obslugiwany(lang)
                 when {
                     jezyk == null -> stan = StanTlumaczenia.Blad("Nie udało się rozpoznać języka tej strony.")
-                    jezyk == SilnikTlumaczenia.CEL -> {
+                    jezyk == Tlumacz.CEL -> {
                         stan = null
                         p.komunikat("Ta strona już jest po polsku.")
                     }
@@ -195,20 +169,24 @@ class Tlumaczenie(private val karta: Karta, private val p: Przegladarka) {
         SilnikTlumaczenia.maSlownik(jezyk) { jest ->
             if (nr != pokolenie) return@maSlownik
             if (!jest) stan = StanTlumaczenia.PobieranieSlownika(jezyk)
-            SilnikTlumaczenia.tlumacz(jezyk).downloadModelIfNeeded(DownloadConditions.Builder().build())
-                .addOnSuccessListener {
-                    if (nr != pokolenie) return@addOnSuccessListener
-                    stan = StanTlumaczenia.Trwa(jezyk, 0, 0)
-                    karta.webViewJesli?.evaluateJavascript(SKRYPT_TLUMACZA) {
-                        if (nr != pokolenie) return@evaluateJavascript
-                        pracuje = true
-                        partia(nr)
+            SilnikTlumaczenia.pobierzSlownik(
+                jezyk,
+                gotowe = {
+                    if (nr == pokolenie) {
+                        stan = StanTlumaczenia.Trwa(jezyk, 0, 0)
+                        karta.webViewJesli?.evaluateJavascript(SKRYPT_TLUMACZA) {
+                            if (nr != pokolenie) return@evaluateJavascript
+                            pracuje = true
+                            partia(nr)
+                        }
                     }
-                }
-                .addOnFailureListener {
-                    if (nr != pokolenie) return@addOnFailureListener
-                    stan = StanTlumaczenia.Blad("Nie udało się pobrać słownika. Sprawdź internet i spróbuj jeszcze raz.")
-                }
+                },
+                blad = {
+                    if (nr == pokolenie) {
+                        stan = StanTlumaczenia.Blad("Nie udało się pobrać słownika. Sprawdź internet i spróbuj jeszcze raz.")
+                    }
+                },
+            )
         }
     }
 
@@ -226,17 +204,12 @@ class Tlumaczenie(private val karta: Karta, private val p: Przegladarka) {
                 stan = StanTlumaczenia.Gotowe(jezyk)
                 return@evaluateJavascript
             }
-            val tlumacz = SilnikTlumaczenia.tlumacz(jezyk)
-            val zadania = (0 until lista.length()).map { i ->
-                val para = lista.getJSONArray(i)
-                val tekst = para.getString(1)
-                tlumacz.translate(tekst).continueWith { t -> if (t.isSuccessful) t.result else tekst }
-            }
-            Tasks.whenAllComplete(zadania).addOnCompleteListener {
-                if (nr != pokolenie) return@addOnCompleteListener
+            val teksty = (0 until lista.length()).map { lista.getJSONArray(it).getString(1) }
+            SilnikTlumaczenia.przetlumacz(jezyk, teksty) { przetlumaczone ->
+                if (nr != pokolenie) return@przetlumacz
                 val gotowe = JSONArray()
-                zadania.forEachIndexed { i, z ->
-                    gotowe.put(JSONArray().put(lista.getJSONArray(i).getInt(0)).put(z.result ?: lista.getJSONArray(i).getString(1)))
+                przetlumaczone.forEachIndexed { i, t ->
+                    gotowe.put(JSONArray().put(lista.getJSONArray(i).getInt(0)).put(t))
                 }
                 karta.webViewJesli?.evaluateJavascript("window.__livepl_t && window.__livepl_t.wstaw($gotowe)", null)
                 zrobione += lista.length()

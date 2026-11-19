@@ -66,6 +66,12 @@ class Przegladarka private constructor(kontekstAplikacji: Context) {
     var pokazInformacje by mutableStateOf(false)
     var pokazCzyszczenie by mutableStateOf(false)
     var pokazUrzadzenie by mutableStateOf(false)
+    /** Czy na telefonie jest Poczta LivePL (sprawdzane przy każdym powrocie na ekran). */
+    var pocztaZainstalowana by mutableStateOf(false)
+        private set
+    /** Propozycja instalacji Poczty LivePL schowana „×” (na 30 dni). */
+    var propozycjaPocztyOdrzucona by mutableStateOf(false)
+        private set
 
     var aktywnosc: AktywnoscLivePL? = null
         private set
@@ -483,6 +489,13 @@ class Przegladarka private constructor(kontekstAplikacji: Context) {
 
     fun wznow() {
         karty.forEach { it.wznow() }
+        pocztaZainstalowana = AplikacjaPoczty.zainstalowana(aplikacja) != null
+        propozycjaPocztyOdrzucona = AplikacjaPoczty.odrzuconaNiedawno(ustawienia)
+    }
+
+    fun odrzucPropozycjePoczty() {
+        AplikacjaPoczty.odrzuc(ustawienia)
+        propozycjaPocztyOdrzucona = true
     }
 
     // MARK: - Start i sesja

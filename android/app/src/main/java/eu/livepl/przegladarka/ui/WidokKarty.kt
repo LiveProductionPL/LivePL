@@ -8,11 +8,13 @@ import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -55,6 +57,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -71,6 +74,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import eu.livepl.przegladarka.Adres
+import eu.livepl.przegladarka.AplikacjaPoczty
 import eu.livepl.przegladarka.BladStrony
 import eu.livepl.przegladarka.Karta
 import eu.livepl.przegladarka.Kolor
@@ -78,7 +82,7 @@ import eu.livepl.przegladarka.LocalPaleta
 import eu.livepl.przegladarka.MojaStrona
 import eu.livepl.przegladarka.Przegladarka
 import eu.livepl.przegladarka.R
-import eu.livepl.przegladarka.SilnikTlumaczenia
+import eu.livepl.przegladarka.Tlumacz
 import eu.livepl.przegladarka.StanTlumaczenia
 
 /** Otwarta karta: u góry wstecz, adres z kłódką, odśwież i menu; pod spodem strona. */
@@ -123,6 +127,8 @@ fun WidokKarty(p: Przegladarka, karta: Karta) {
                 karta.koniecSzukania()
             }
             karta.tlumaczenie.stan?.let { PasekTlumaczenia(karta, it) }
+            // otwarta Poczta, a aplikacji Poczta LivePL nie ma na telefonie
+            if (karta.programId == "poczta" && !p.pocztaZainstalowana && !p.propozycjaPocztyOdrzucona) PropozycjaPoczty(p)
             Box(Modifier.fillMaxWidth().height(0.5.dp).background(Kolor.ramka))
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -291,6 +297,12 @@ private fun MenuKarty(p: Przegladarka, karta: Karta, szukaj: () -> Unit) {
                 if (przetlumaczona) karta.tlumaczenie.oryginal() else karta.tlumaczenie.przetlumacz()
             }
             HorizontalDivider(color = Kolor.ramka)
+            if (karta.programId == "poczta" && p.pocztaZainstalowana) {
+                Pozycja("Otwórz w aplikacji Poczta", R.drawable.ic_poczta, true) {
+                    otwarte = false
+                    AplikacjaPoczty.otworz(kontekst)
+                }
+            }
             Pozycja("Dodaj do Moich stron", R.drawable.ic_dodaj, adres != null) {
                 otwarte = false
                 adres?.let { p.dodawanaStrona = MojaStrona(it, karta.tytul.take(24)) }
@@ -412,13 +424,47 @@ private fun PasekSzukania(karta: Karta, zamknij: () -> Unit) {
     }
 }
 
+// MARK: - Propozycja aplikacji Poczta LivePL
+
+@Composable
+private fun PropozycjaPoczty(p: Przegladarka) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 12.dp, end = 2.dp, top = 2.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Image(painterResource(R.drawable.program_poczta), contentDescription = null, modifier = Modifier.size(26.dp))
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Poczta ma własną aplikację", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Kolor.tekst)
+                Text(
+                    "Poczta LivePL: osobna ikona i poczta na cały ekran",
+                    fontSize = 12.sp,
+                    lineHeight = 15.sp,
+                    color = Kolor.slaby,
+                    maxLines = 2,
+                )
+            }
+            Spacer(Modifier.width(6.dp))
+            Button(
+                onClick = { AplikacjaPoczty.instaluj(p) },
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                modifier = Modifier.height(34.dp),
+            ) { Text("Zainstaluj", fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
+            IconButton(onClick = { p.odrzucPropozycjePoczty() }, modifier = Modifier.size(40.dp)) {
+                Ikona(R.drawable.ic_zamknij, "Nie teraz", Kolor.slaby, 18.dp)
+            }
+        }
+    }
+}
+
 // MARK: - Tłumaczenie
 
 /** Pasek pod adresem: propozycja tłumaczenia, postęp albo „Przetłumaczono” z powrotem do oryginału. */
 @Composable
 private fun PasekTlumaczenia(karta: Karta, stan: StanTlumaczenia) {
     val t = karta.tlumaczenie
-    fun nazwa(jezyk: String) = SilnikTlumaczenia.nazwa(jezyk)
+    fun nazwa(jezyk: String) = Tlumacz.nazwa(jezyk)
     val opis = when (stan) {
         is StanTlumaczenia.Propozycja -> "Język strony: ${nazwa(stan.jezyk)}"
         StanTlumaczenia.Sprawdzanie -> "Sprawdzam język strony…"

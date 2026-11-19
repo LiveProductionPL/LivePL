@@ -64,6 +64,10 @@ Przeglądarka LivePL:
   Certyfikat razem z kluczem pokazuje się stronom z naszych domen, gdy proszą o certyfikat klienta.
   Każda aplikacja ma własny klucz, więc Poczta LivePL zgłasza się jako „Android-KOD Poczta”, a wersje testowe
   z dopiskiem „test”. Emulator (zrzuty na GitHubie) do prawdziwego urzędu się nie zgłasza.
+- **Propozycja Poczty LivePL:** gdy w przeglądarce otwarta jest Poczta, a aplikacji Poczta LivePL nie ma na
+  telefonie, pod adresem pojawia się „Poczta ma własną aplikację” z przyciskiem „Zainstaluj” (Sklep Google Play,
+  a bez niego strona Sklepu) i „×”, które chowa propozycję na 30 dni. Gdy Poczta LivePL jest zainstalowana, menu ⋮
+  karty Poczty ma „Otwórz w aplikacji Poczta”. Dopóki Poczty LivePL nie ma w Sklepie, strona Sklepu jest pusta.
 - **Identyfikator przeglądarki** (User-Agent) to ten z Chrome z dopiskiem `LivePL/<wersja>` na końcu, więc nasze
   strony wiedzą, że są w aplikacji LivePL (np. poczta nie proponuje dodania się do ekranu).
 
@@ -87,8 +91,12 @@ Osobna aplikacja z tym samym silnikiem: poczta.livepl.eu na cały ekran, bez pas
   (także z `target=_blank`) otwiera domyślna przeglądarka telefonu.
 - **Okna poczty** (podgląd załącznika, drugie konto) otwierają się nad pocztą z przyciskami „Udostępnij” i „Gotowe”.
 - Załączniki pobierają się do Pobranych, a do wiadomości można dołączyć plik albo zdjęcie z aparatu.
+- **Bez tłumacza:** poczta jest po polsku, więc Poczta LivePL nie ma bibliotek ML Kit i waży ok. 1 MB zamiast
+  ok. 15 MB. Silnik tłumaczenia jest osobno w każdym wariancie (`SilnikTlumaczenia.kt` w `app/src/przegladarka`
+  i pusty w `app/src/poczta`).
   Poczta nie prosi o lokalizację ani mikrofon.
-- **Logowanie zostaje** w telefonie (ciasteczka WebView), aż wylogujesz się w poczcie albo wygaśnie po stronie serwera.
+- **Logowanie trzyma 90 dni:** serwer poczty przedłuża je, gdy w identyfikatorze przeglądarki widzi „LivePL/”
+  i „Android”, a aplikacja zapisuje ciasteczka na stałe przy każdym wyjściu do tła.
 - **Nieprzeczytane:** liczba z tytułu poczty (np. „(12) Poczta” albo „12 nieprzeczytanych”) jest w nazwie okna
   na liście ostatnich aplikacji. Android nie ma liczby na ikonie bez powiadomień, więc na ikonie jej nie ma.
 - Systemowy Wstecz zamyka okno poczty, cofa stronę, a na początku historii chowa aplikację.
@@ -102,7 +110,8 @@ publicznego repozytorium. Każda zmiana w `android/` wysłana na gałąź `andro
 2. **Zrzuty ekranu z emulatora** Androida 16 (Pixel 7): Start, Poczta i TVML w przeglądarce oraz Poczta LivePL,
    każde w dzień i w nocy. Wynik to artefakt `zrzuty-N` z dziennikiem emulatora.
 3. **Podpisane APK i AAB**, tylko gdy są ustawione sekrety kluczy (niżej). Wynik to artefakt `livepl-wydanie-N`:
-   - `LivePL-N.apk` i `Poczta-LivePL-N.apk` na app.livepl.eu: klucz aplikacji, tylko procesory telefonów (ARM), ok. 16 MB;
+   - `LivePL-N.apk` (ok. 15 MB) i `Poczta-LivePL-N.apk` (ok. 1 MB) na app.livepl.eu: klucz aplikacji,
+     tylko procesory telefonów (ARM);
    - `LivePL-N.aab` i `Poczta-LivePL-N.aab` do Google Play: klucz przesyłania, wszystkie procesory;
    - `SHA256SUMS.txt`.
 4. **Wysyłka do Google Play**, tylko gdy opis zmiany zawiera `[play]` (LivePL) albo `[play-poczta]`

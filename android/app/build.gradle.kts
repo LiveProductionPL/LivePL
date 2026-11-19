@@ -243,7 +243,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.19.1")
     implementation("androidx.webkit:webkit:1.18.0")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.2.0")
-    // tłumaczenie stron na telefonie: tekst nie wychodzi z urządzenia, słowniki pobierają się raz
-    implementation("com.google.mlkit:translate:17.0.3")
-    implementation("com.google.mlkit:language-id:17.0.6")
+    // tłumaczenie stron na telefonie (tylko przeglądarka): tekst nie wychodzi z urządzenia, słowniki pobierają się raz
+    "przegladarkaImplementation"("com.google.mlkit:translate:17.0.3")
+    "przegladarkaImplementation"("com.google.mlkit:language-id:17.0.6")
 }

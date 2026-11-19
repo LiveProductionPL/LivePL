@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Przeglądarka LivePL: Start, programy i karty. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- przeglądarka sprawdza, czy jest Poczta LivePL (propozycja instalacji, „Otwórz w aplikacji Poczta”) -->
+    <queries>
+        <package android:name="eu.livepl.poczta" />
+        <package android:name="eu.livepl.poczta.debug" />
+    </queries>
+
     <application>
         <activity
             android:name=".MainActivity"
