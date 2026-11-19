@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ekran startowy Androida 12+: tło Reżyserki i ikona LivePL -->
+    <style name="Theme.LivePL" parent="Baza.LivePL">
+        <item name="android:windowSplashScreenBackground">@color/tlo</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/ikona_tlo</item>
+    </style>
+</resources>

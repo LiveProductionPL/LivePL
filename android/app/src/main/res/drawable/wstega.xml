@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Wstęga LivePL na dzień; plik tworzy android/narzedzia/grafiki.js z ios/narzedzia/logo.js -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="44dp"
+    android:height="32dp"
+    android:viewportWidth="362"
+    android:viewportHeight="264">
+    <group android:translateX="-56" android:translateY="-122">
+        <path android:fillColor="#861a15" android:pathData="M120,130.5 L209.5,130.5 L171,299 L81.5,299 Z" />
+        <path android:fillColor="#861a15" android:pathData="M83.5,290.5 L170,290.5 L165,376 L152,381.5 L62.5,381.5 Z" />
+        <path android:fillColor="#b0261f" android:pathData="M83.5,290.5 L412,290.5 L372.5,337 L391.5,381.5 L152,381.5 Z" />
+        <path android:fillColor="#b0261f" android:pathData="M280.5,240.5 C278.46,249.34 269.64,256.5 260.81,256.5 C251.97,256.5 246.46,249.34 248.5,240.5 C250.54,231.66 259.36,224.5 268.19,224.5 C277.03,224.5 282.54,231.66 280.5,240.5 Z" />
+        <path android:strokeColor="#b0261f" android:strokeWidth="20.5" android:strokeLineCap="round" android:pathData="M285.15,189.78 C312.02,194.72 324.56,221.43 313.15,249.44" />
+        <path android:strokeColor="#b0261f" android:strokeWidth="20.5" android:strokeLineCap="round" android:pathData="M301.23,154.12 C345.12,163.05 366.03,206.39 348.81,252.75" />
+    </group>
+</vector>

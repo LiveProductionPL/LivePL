@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- jasny motyw: strony w WebView dostają prefers-color-scheme: light -->
+    <style name="Baza.LivePL" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/tlo</item>
+        <item name="android:colorAccent">@color/czerwony</item>
+        <item name="android:colorPrimary">@color/czerwony</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <style name="Theme.LivePL" parent="Baza.LivePL" />
+</resources>

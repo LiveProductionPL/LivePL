@@ -1,0 +1,12 @@
+# wyniki budowania i pamięć podręczna Gradle
+.gradle/
+.kotlin/
+build/
+local.properties
+*.apk
+*.aab
+*.idsig
+
+# klucz podpisu wydań zostaje w %USERPROFILE%\LivePL-klucze\android
+*.jks
+*.keystore

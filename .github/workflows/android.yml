@@ -1,0 +1,192 @@
+# LivePL na Androida: budowa APK, zrzuty z emulatora i (gdy są sekrety) podpisane wydanie.
+# Podpisany APK i AAB powstają tylko wtedy, gdy w GitHubie są sekrety klucza; z [play] w opisie zmiany
+# AAB trafia też do Google Play jako szkic testu wewnętrznego (android/README.md).
+name: LivePL Android
+
+on:
+  push:
+    branches: [android]
+    paths:
+      - "android/**"
+      - "programy.json"
+      - "assets/programy/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  LIVEPL_BUDOWA: ${{ github.run_number }}
+
+jobs:
+  budowa:
+    name: Debug APK i zrzuty z emulatora
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Debug APK i lint
+        working-directory: android
+        run: bash ./gradlew assembleDebug lintDebug --console=plain
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: livepl-debug-${{ github.run_number }}
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/reports/lint-results-debug.html
+          retention-days: 14
+
+      - name: KVM dla emulatora
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Zrzuty ekranu
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none
+          script: CZEKAJ=20 bash android/narzedzia/zrzuty.sh android/app/build/outputs/apk/debug/app-debug.apk zrzuty
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zrzuty-${{ github.run_number }}
+          path: zrzuty/
+          retention-days: 14
+
+  wydanie:
+    name: Podpisany APK i AAB
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANDROID_KLUCZ: ${{ secrets.ANDROID_KLUCZ }}
+      ANDROID_KLUCZ_HASLO: ${{ secrets.ANDROID_KLUCZ_HASLO }}
+      ANDROID_KLUCZ_ALIAS: ${{ secrets.ANDROID_KLUCZ_ALIAS }}
+      ANDROID_PRZESYLANIE: ${{ secrets.ANDROID_PRZESYLANIE }}
+      ANDROID_PRZESYLANIE_HASLO: ${{ secrets.ANDROID_PRZESYLANIE_HASLO }}
+    steps:
+      - name: Sekrety klucza
+        id: klucz
+        run: |
+          if [ -z "$ANDROID_KLUCZ" ] || [ -z "$ANDROID_KLUCZ_HASLO" ]; then
+            echo "::notice::Brak sekretów ANDROID_KLUCZ i ANDROID_KLUCZ_HASLO, więc bez podpisanego wydania (android/README.md)."
+            echo "jest=nie" >> "$GITHUB_OUTPUT"
+          else
+            echo "jest=tak" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.klucz.outputs.jest == 'tak'
+
+      - uses: actions/setup-java@v4
+        if: steps.klucz.outputs.jest == 'tak'
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.klucz.outputs.jest == 'tak'
+
+      # APK na app.livepl.eu: klucz aplikacji (ten sam podpis co LivePL z Google Play), tylko procesory telefonów
+      - name: Podpisany APK
+        if: steps.klucz.outputs.jest == 'tak'
+        working-directory: android
+        run: |
+          export LIVEPL_KLUCZ_PLIK="$RUNNER_TEMP/livepl.keystore"
+          export LIVEPL_KLUCZ_HASLO="$ANDROID_KLUCZ_HASLO"
+          export LIVEPL_KLUCZ_ALIAS="${ANDROID_KLUCZ_ALIAS:-livepl}"
+          printf '%s' "$ANDROID_KLUCZ" | base64 --decode > "$LIVEPL_KLUCZ_PLIK"
+          bash ./gradlew assembleRelease -Plivepl.tylkoTelefony --console=plain
+          rm -f "$LIVEPL_KLUCZ_PLIK"
+
+      # AAB do Google Play: klucz przesyłania (Google podpisuje potem kluczem aplikacji); bez niego klucz aplikacji
+      - name: Podpisany AAB
+        if: steps.klucz.outputs.jest == 'tak'
+        working-directory: android
+        run: |
+          export LIVEPL_KLUCZ_PLIK="$RUNNER_TEMP/livepl-aab.keystore"
+          if [ -n "$ANDROID_PRZESYLANIE" ] && [ -n "$ANDROID_PRZESYLANIE_HASLO" ]; then
+            printf '%s' "$ANDROID_PRZESYLANIE" | base64 --decode > "$LIVEPL_KLUCZ_PLIK"
+            export LIVEPL_KLUCZ_HASLO="$ANDROID_PRZESYLANIE_HASLO" LIVEPL_KLUCZ_ALIAS=przesylanie
+          else
+            printf '%s' "$ANDROID_KLUCZ" | base64 --decode > "$LIVEPL_KLUCZ_PLIK"
+            export LIVEPL_KLUCZ_HASLO="$ANDROID_KLUCZ_HASLO" LIVEPL_KLUCZ_ALIAS="${ANDROID_KLUCZ_ALIAS:-livepl}"
+          fi
+          bash ./gradlew bundleRelease --console=plain
+          rm -f "$LIVEPL_KLUCZ_PLIK"
+
+      - name: Sprawdzenie podpisu
+        if: steps.klucz.outputs.jest == 'tak'
+        run: |
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          AAB=android/app/build/outputs/bundle/release/app-release.aab
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | grep -E "Verified|SHA-256 digest|DN"
+          keytool -printcert -jarfile "$AAB" | grep -E "Owner|SHA256" || true
+          mkdir -p wydanie
+          cp "$APK" "wydanie/LivePL-${{ github.run_number }}.apk"
+          cp "$AAB" "wydanie/LivePL-${{ github.run_number }}.aab"
+          ls -la wydanie
+          (cd wydanie && sha256sum * | tee SHA256SUMS.txt)
+
+      - uses: actions/upload-artifact@v4
+        if: steps.klucz.outputs.jest == 'tak'
+        with:
+          name: livepl-wydanie-${{ github.run_number }}
+          path: wydanie/
+          retention-days: 30
+
+      - name: Sprzątanie
+        if: always()
+        run: rm -f "$RUNNER_TEMP/livepl.keystore" "$RUNNER_TEMP/livepl-aab.keystore"
+
+  play:
+    name: Wysyłka do Google Play (test wewnętrzny)
+    needs: wydanie
+    if: contains(github.event.head_commit.message, '[play]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PLAY_KONTO_USLUGI: ${{ secrets.PLAY_KONTO_USLUGI }}
+    steps:
+      - name: Klucz konta usługi
+        run: |
+          if [ -z "$PLAY_KONTO_USLUGI" ]; then
+            echo "::error::Brak sekretu PLAY_KONTO_USLUGI (android/README.md, Google Play)."
+            exit 1
+          fi
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: livepl-wydanie-${{ github.run_number }}
+          path: wydanie
+
+      # wersja trafia do Play Console jako szkic; publikuje ją człowiek
+      - uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_KONTO_USLUGI }}
+          packageName: eu.livepl.przegladarka
+          releaseFiles: wydanie/LivePL-${{ github.run_number }}.aab
+          track: internal
+          status: draft

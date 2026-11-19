@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 8–11: kopia zapasowa tylko ustawień LivePL, bez ciasteczek i logowań -->
+<full-backup-content>
+    <include domain="sharedpref" path="livepl.xml" />
+</full-backup-content>
