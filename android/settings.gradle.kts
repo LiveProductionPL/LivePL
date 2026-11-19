@@ -1,4 +1,5 @@
-// LivePL na Androida. Budowanie: ./gradlew assembleDebug (opis w README.md).
+// LivePL na Androida (app: LivePL, Poczta LivePL, LivePL Connect) i TVML (tvml).
+// Budowanie: ./gradlew assembleDebug (opis w README.md).
 pluginManagement {
     repositories {
         google()
@@ -17,3 +18,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "LivePL"
 include(":app")
+include(":tvml")

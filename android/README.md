@@ -6,8 +6,11 @@ z jednego kodu (warianty `przegladarka`, `poczta` i `connect`):
 - **LivePL** (`eu.livepl.przegladarka`): przeglądarka, która wygląda jak „Reżyserka” z LivePL na Windows
   i działa jak [LivePL na iPhone'a](../ios/README.md);
 - **Poczta LivePL** (`eu.livepl.poczta`): firmowa poczta na cały ekran (opis niżej);
-- **LivePL Connect** (`eu.livepl.connect`, pod ikoną „Connect”): zdalny pulpit Live Production na cały ekran
+- **LivePL Connect** (`eu.livepl.connect`, ta sama nazwa pod ikoną): zdalny pulpit Live Production na cały ekran
   (opis niżej).
+
+Obok, w osobnym module [tvml](tvml), jest natywne **TVML** (`pl.tvml`):
+serwis informacyjny tvml.pl, jak TVML na iPhonie (opis niżej).
 
 Przeglądarka LivePL:
 
@@ -127,22 +130,62 @@ urządzeniami. Całe sterowanie robi strona, aplikacja dokłada to, czego strona
   wraca do ekranu połączeń; na nim Wstecz chowa aplikację.
 - Bez aparatu, mikrofonu i lokalizacji. Bez tłumacza (jak Poczta LivePL), ok. 1 MB.
 
+## TVML
+
+Serwis informacyjny Telewizji TVML (tvml.pl) natywnie w Compose, bez WebView, przeniesiony z TVML na iPhonie
+(gałąź `ios`, folder `ios/TVML`) według projektu zatwierdzonego przez Karola. Pod ikoną i w Sklepie samo „TVML”;
+wersja 2.0 jak na iPhonie i w API (`minAppVersion.android`). Kod: [tvml/src/main/java/pl/tvml](tvml/src/main/java/pl/tvml).
+
+- **Wszystko z panelu tvml.pl** przez API dla aplikacji ([tvml.pl/api/v1](https://tvml.pl/api/v1/config), zapasowo
+  `tvml-app.php?route=`, a bez API stare akcje strony): zakładki z `config.tabs` (`home`, `video`, `weather`,
+  `more`, `subportal:slug`; „Więcej” jest zawsze), bloki Startu z `config.home` w tej kolejności (nieznane typy,
+  np. sondy i ogłoszenia, aplikacja pomija), wersja wyglądu i jej kolory z `config.theme` (API 1.1), pasek
+  „NA ŻYWO” z `config.ticker`, imieniny z `config.today`, gminy, subportale i strony redakcji.
+  Odpowiedzi z ETag wracają jako 304, a bez internetu aplikacja pokazuje ostatnie pobrane dane.
+- **Subportale** (Sport, Muzyka, Kultura…) czyta przez `articles?subportal=`, bo kategoria subportalu ma
+  czasem inną nazwę (`muzyka` → `muzyka-tvml`, a `articles?category=muzyka` zwraca pustą listę).
+- **Baner nad każdym ekranem:** logo z ozdobą wersji (bałwanek, czapka Mikołaja, gwiazda, flaga, „2027”),
+  pogoda, szukaj, pasek życzeń z odliczaniem, śnieg albo iskry, przewijany pasek „NA ŻYWO”.
+- **Artykuł:** „Wróć”, rozmiar tekstu (trzy), udostępnianie, pasek postępu czytania; „Odsłuchaj” czyta polskim
+  głosem telefonu (silnik mowy Androida), „Zapisz” i „Komentarze” po prawej, tagi na końcu. Filmy z treści
+  i z kanału grają w aplikacji (youtube-nocookie na stronie osadzającej z adresem tvml.pl, bo YouTube wymaga
+  nagłówka Referer), z pełnym ekranem i „Otwórz w YouTube”.
+- **Pogoda:** scena z leszczyńskim Ratuszem rysowana natywnie (stan ze stacji, pora dnia, pora roku, wersja),
+  teraz, 24 godziny i 14 dni.
+- **Ikona zimowa i świąteczna** (`config.theme.appIcon`: `winter`, `xmas`, `default`): trzy `activity-alias`
+  w manifeście, zawsze dokładnie jeden włączony ([IkonaAplikacji.kt](tvml/src/main/java/pl/tvml/IkonaAplikacji.kt)).
+  Zmiana idzie, gdy aplikacja schodzi z ekranu. Na Pixel Launcherze (emulator, Android 16) ikona na ekranie
+  głównym zostaje i tylko zmienia wygląd; niektóre inne launchery mogą ją przy zmianie zdjąć z ekranu głównego.
+  Ikony powstają z ikon TVML na iPhonie (`npx electron android/narzedzia/grafiki-tvml.js <folder z ikonami iOS>`),
+  z warstwą jednobarwną do ikon motywowych.
+- **Agent** `TVMLApp/2.0 (Android 16)`: tvml.pl ma dla niego wyjątek w liczniku odsłon.
+- **Osobny klucz podpisu** (`tvml.keystore`), nie ten co LivePL (sekcja „Klucze podpisu”).
+- **Bez śledzenia** i bez identyfikatora reklamowego; jedyne uprawnienie to internet. Na razie bez formularzy
+  (zgłoszenia, komentarze, sondy i ogłoszenia otwierają tvml.pl w karcie przeglądarki) i bez powiadomień:
+  wejdą z kolejnym krokiem API (Play Integrity, FCM).
+- **Linki** `https://tvml.pl/artykul/<id>` otwierają artykuł w aplikacji, gdy tvml.pl poda `assetlinks.json`
+  dla pakietu (sesja TVML Connect, za zgodą Karola).
+- Do zrzutów: `adb shell am start -n pl.tvml/pl.tvml.MainActivity --es ekran pogoda|artykul|wideo|wiecej|szukaj`,
+  `--es motyw zima|czapeczka|wigilia|sylwester|listopad|zaloba`, `--es wyglad dzien|noc`, `--es ikona zwykla|zima|swieta`.
+- Ok. 2 MB (wydanie po R8).
+
 ## Budowanie bez Android Studio
 
 Buduje [.github/workflows/android.yml](../.github/workflows/android.yml) na Linuksie GitHuba, bez opłat dla
 publicznego repozytorium. Każda zmiana w `android/` wysłana na gałąź `android` przechodzi przez te kroki:
 
-1. **Debug APK** wszystkich trzech aplikacji i sprawdzenie kodu (lint). Wynik to artefakt `livepl-debug-N`.
+1. **Debug APK** wszystkich czterech aplikacji i sprawdzenie kodu (lint). Wynik to artefakt `livepl-debug-N`.
 2. **Zrzuty ekranu z emulatora** Androida 16 (Pixel 7): Start, Poczta i TVML w przeglądarce, Poczta LivePL
-   i LivePL Connect, każde w dzień i w nocy. Wynik to artefakt `zrzuty-N` z dziennikiem emulatora.
+   i LivePL Connect, każde w dzień i w nocy, oraz aplikacja TVML (Start, artykuł, pogoda, wideo, zima,
+   Wigilia w nocy). Wynik to artefakt `zrzuty-N` z dziennikiem emulatora.
 3. **Podpisane APK i AAB**, tylko gdy są ustawione sekrety kluczy (niżej). Wynik to artefakt `livepl-wydanie-N`:
    - `LivePL-N.apk` (ok. 15 MB), `Poczta-LivePL-N.apk` i `LivePL-Connect-N.apk` (po ok. 1 MB)
-     na app.livepl.eu: klucz aplikacji, tylko procesory telefonów (ARM);
-   - `LivePL-N.aab`, `Poczta-LivePL-N.aab` i `LivePL-Connect-N.aab` do Google Play: klucz przesyłania,
-     wszystkie procesory;
+     na app.livepl.eu: klucz aplikacji, tylko procesory telefonów (ARM); do tego `TVML-N.apk` (ok. 2 MB);
+   - `LivePL-N.aab`, `Poczta-LivePL-N.aab`, `LivePL-Connect-N.aab` i `TVML-N.aab` do Google Play:
+     klucz przesyłania, wszystkie procesory;
    - `SHA256SUMS.txt`.
 4. **Wysyłka do Google Play**, tylko gdy opis zmiany zawiera `[play]` (LivePL), `[play-poczta]`
-   (Poczta LivePL) albo `[play-connect]` (LivePL Connect) i jest ustawiony klucz konta usługi. AAB trafia do testu wewnętrznego jako szkic, a publikuje
+   (Poczta LivePL), `[play-connect]` (LivePL Connect) albo `[play-tvml]` (TVML) i jest ustawiony klucz konta usługi. AAB trafia do testu wewnętrznego jako szkic, a publikuje
    go człowiek w Play Console.
 
 Numer budowy (`versionCode`) to numer przebiegu workflow, a wersja (`versionName`) jest w
@@ -155,8 +198,8 @@ gh run download <numer przebiegu> --repo LiveProductionPL/LivePL -n livepl-wydan
 
 Lokalnie wystarczą JDK 17+ i [narzędzia wiersza poleceń Androida](https://developer.android.com/studio#command-tools)
 (bez Android Studio). Ustaw `JAVA_HOME` i `ANDROID_HOME`, a potem w folderze `android`: `.\gradlew.bat assembleDebug`
-(wszystkie trzy aplikacje; jedna to np. `assemblePrzegladarkaDebug`, `assemblePocztaDebug`
-albo `assembleConnectDebug`).
+(wszystkie cztery aplikacje; jedna to np. `assemblePrzegladarkaDebug`, `assemblePocztaDebug`,
+`assembleConnectDebug` albo `:tvml:assembleDebug`).
 Wydania skraca R8 w trybie pełnym; biblioteki, które tworzą obiekty przez refleksję (ML Kit), mają reguły
 w [app/proguard-rules.pro](app/proguard-rules.pro). Przed wydaniem warto sprawdzić tłumacza na podpisanym APK,
 bo wersja testowa (debug) nie przechodzi przez R8.
@@ -176,23 +219,30 @@ Grafiki tworzą dwa skrypty, uruchamiane z katalogu `przegladarka-livepl`:
   a także ikonę LivePL Connect (`app/src/connect/res`) i jej grafiki
   ([sklep/eu.livepl.connect/pl-PL/images/icon.png](sklep/eu.livepl.connect/pl-PL/images/icon.png)).
 - `node android/narzedzia/ikony.mjs` pobiera ikony interfejsu z Material Symbols (Google, licencja Apache 2.0).
+- `npx electron android/narzedzia/grafiki-tvml.js <folder z ikonami iOS>` robi trzy ikony TVML, ikonę 512 px
+  i grafikę funkcji do Sklepu ([sklep/pl.tvml/pl-PL/images](sklep/pl.tvml/pl-PL/images)). Zrzuty TVML do Sklepu:
+  `android/narzedzia/zrzuty-sklep.sh - - - <APK TVML>`.
 
 ## Klucze podpisu
 
-Są dwa klucze, wspólne dla LivePL, Poczty LivePL i LivePL Connect. Oba leżą w `%USERPROFILE%\LivePL-klucze\android\`, każdy z losowym hasłem w pliku obok.
-Tworzy je `node android/narzedzia/zrob-klucz.mjs` (z argumentem `przesylanie` drugi). Skrypt nie nadpisuje
-istniejących kluczy. Oba powstały 19.11.2026.
+Klucze leżą w `%USERPROFILE%\LivePL-klucze\android\`, każdy z losowym hasłem w pliku obok. Klucz aplikacji
+LivePL jest wspólny dla LivePL, Poczty LivePL i LivePL Connect, TVML ma własny (inna marka; decyzja Karola),
+a klucz przesyłania jest wspólny dla wszystkich czterech. Tworzy je `node android/narzedzia/zrob-klucz.mjs`
+(z argumentem `przesylanie` klucz przesyłania, z `tvml` klucz TVML). Skrypt nie nadpisuje istniejących kluczy.
+Wszystkie powstały 19.11.2026.
 
 | Klucz | Pliki | Do czego | Odcisk SHA-256 certyfikatu (publiczny) |
 |---|---|---|---|
 | aplikacji | `livepl.keystore`, `livepl-haslo.txt` | APK z app.livepl.eu; ten sam klucz dostaje Google Play do podpisywania wersji ze Sklepu | `45:99:A9:F4:32:0C:F3:4B:5D:08:65:50:F5:9A:D3:F4:15:27:C9:A9:B0:D1:1B:F0:77:46:CE:1B:C7:FD:7C:41` |
 | przesyłania | `livepl-przesylanie.keystore`, `livepl-przesylanie-haslo.txt`, `livepl-przesylanie-certyfikat.pem` | podpis AAB wysyłanego do Google Play | `F5:A6:7E:F5:1F:9B:35:68:8A:9A:6E:A8:2E:AB:AE:2E:3F:6E:43:EC:65:EB:D3:F6:99:F2:44:8D:BE:B1:74:14` |
+| aplikacji TVML | `tvml.keystore`, `tvml-haslo.txt` (alias `tvml`) | TVML: APK spoza Sklepu i (przez PEPK) podpis wersji z Google Play; ten odcisk idzie do `assetlinks.json` na tvml.pl | `41:83:0B:7B:19:3C:E6:65:79:04:4A:1C:F0:88:8A:11:93:FC:A0:8D:20:3A:59:F1:A5:91:FB:79:3A:83:73:4B` |
 
 - **Klucza aplikacji nie wolno zgubić ani zmienić.** Android instaluje aktualizację tylko wtedy, gdy ma ten sam
   podpis. Zrób kopię obu kluczy i haseł w bezpiecznym miejscu poza tym komputerem.
 - Zgubiony klucz przesyłania da się wymienić przez Play Console. Klucza aplikacji nie da się wymienić.
 - **Sekrety GitHuba** wpisujesz sam: `node android/narzedzia/ustaw-sekrety.mjs`. Ustawia `ANDROID_KLUCZ`,
-  `ANDROID_KLUCZ_HASLO`, `ANDROID_KLUCZ_ALIAS`, `ANDROID_PRZESYLANIE` i `ANDROID_PRZESYLANIE_HASLO`.
+  `ANDROID_KLUCZ_HASLO`, `ANDROID_KLUCZ_ALIAS`, `ANDROID_PRZESYLANIE`, `ANDROID_PRZESYLANIE_HASLO`
+  oraz `ANDROID_KLUCZ_TVML` i `ANDROID_KLUCZ_TVML_HASLO` (bez nich nie powstaje APK TVML).
   Wartości idą prosto z plików do `gh secret set` i nigdzie się nie wyświetlają.
 
 Lokalnie podpisany APK zbudujesz tak (w folderze `android`; do AAB podstaw klucz przesyłania z aliasem `przesylanie`):
@@ -201,6 +251,14 @@ Lokalnie podpisany APK zbudujesz tak (w folderze `android`; do AAB podstaw klucz
 $env:LIVEPL_KLUCZ_PLIK = "$env:USERPROFILE\LivePL-klucze\android\livepl.keystore"
 $env:LIVEPL_KLUCZ_HASLO = (Get-Content "$env:USERPROFILE\LivePL-klucze\android\livepl-haslo.txt").Trim()
 .\gradlew.bat assemblePrzegladarkaRelease assemblePocztaRelease assembleConnectRelease "-Plivepl.tylkoTelefony"
+```
+
+TVML podpisuje własny klucz (zmienne `TVML_KLUCZ_*`, alias domyślnie `tvml`):
+
+```powershell
+$env:TVML_KLUCZ_PLIK = "$env:USERPROFILE\LivePL-klucze\android\tvml.keystore"
+$env:TVML_KLUCZ_HASLO = (Get-Content "$env:USERPROFILE\LivePL-klucze\android\tvml-haslo.txt").Trim()
+.\gradlew.bat :tvml:assembleRelease
 ```
 
 ## Dystrybucja
@@ -253,6 +311,11 @@ Aplikacji jeszcze nie ma. Kroki robi Karol w Play Console; AI niczego tam nie tw
    ten sam klucz aplikacji przez PEPK i klucz przesyłania, plik `LivePL-Connect-N.aab`, wysyłkę z GitHuba
    włącza `[play-connect]`. Recenzenci Google potrzebują ID i stałego hasła komputera testowego, włączonego
    w czasie przeglądu; wpisuje je Karol w Play Console (Dostęp do aplikacji).
+8. **TVML** to czwarta aplikacja (nazwa „TVML”, pakiet `pl.tvml`), kategoria
+   Wiadomości i czasopisma, z deklaracją aplikacji z wiadomościami. Podpisywanie przez Google Play z **osobnym**
+   kluczem aplikacji TVML przez PEPK (`--keystore=...\tvml.keystore --alias=tvml`, hasło z `tvml-haslo.txt`,
+   plik np. `tvml-dla-play.zip`) i tym samym certyfikatem klucza przesyłania co LivePL. Plik `TVML-N.aab`,
+   wysyłkę z GitHuba włącza `[play-tvml]`; materiały i odpowiedzi do formularzy w [sklep/README.md](sklep/README.md).
 
 ### app.livepl.eu (uzupełnienie)
 

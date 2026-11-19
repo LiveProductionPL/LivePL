@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- pod ikoną i w Sklepie samo „TVML” (2.0 to tylko numer wersji) -->
+    <string name="app_name">TVML</string>
+</resources>

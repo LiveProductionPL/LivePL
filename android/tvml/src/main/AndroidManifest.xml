@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TVML: serwis informacyjny tvml.pl. Bez śledzenia, bez identyfikatora reklamowego, na razie bez powiadomień. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- karta przeglądarki dla stron tvml.pl (Custom Tabs) -->
+    <queries>
+        <intent>
+            <action android:name="android.support.customtabs.action.CustomTabsService" />
+        </intent>
+    </queries>
+
+    <application
+        android:allowBackup="true"
+        android:enableOnBackInvokedCallback="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.TVML">
+
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.TVML.Start">
+            <!-- linki do artykułów otwierają się w aplikacji, gdy tvml.pl poda assetlinks.json dla tego pakietu -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="tvml.pl" />
+                <data android:host="www.tvml.pl" />
+                <data android:pathPrefix="/artykul/" />
+            </intent-filter>
+        </activity>
+
+        <!-- Trzy ikony wbudowane w aplikację: panel tvml.pl wybiera je przez wersję wyglądu (theme.appIcon).
+             Włączona jest zawsze dokładnie jedna (IkonaAplikacji.kt). -->
+        <activity-alias
+            android:name=".IkonaZwykla"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IkonaZima"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_zima"
+            android:roundIcon="@mipmap/ic_launcher_zima"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".IkonaSwieta"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_swieta"
+            android:roundIcon="@mipmap/ic_launcher_swieta"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+    </application>
+</manifest>

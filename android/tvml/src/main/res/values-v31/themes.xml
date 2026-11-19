@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+: systemowy ekran startowy z ikoną aplikacji na granacie -->
+    <style name="Theme.TVML.Start">
+        <item name="android:windowBackground">@color/granat</item>
+        <item name="android:windowSplashScreenBackground">@color/granat</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ikona_startu</item>
+    </style>
+</resources>

@@ -1,6 +1,6 @@
-# Google Play: LivePL, Poczta LivePL i LivePL Connect
+# Google Play: LivePL, Poczta LivePL, LivePL Connect i TVML
 
-Wszystko do wpisów w Sklepie Google Play dla trzech aplikacji. Teksty są zgodne z App Store
+Wszystko do wpisów w Sklepie Google Play dla trzech aplikacji LivePL, a na końcu dla TVML. Teksty są zgodne z App Store
 (`ios/sklep/metadane.json`). Pliki leżą w układzie katalogów [fastlane](https://docs.fastlane.tools/actions/supply/),
 więc później da się je wgrywać automatycznie:
 
@@ -124,3 +124,44 @@ jednorazowy komunikat przy pierwszym uruchomieniu.
 5. Test wewnętrzny: wgraj `LivePL-N.aab`, `Poczta-LivePL-N.aab` i `LivePL-Connect-N.aab` z artefaktu
    `livepl-wydanie-N`, dodaj testerów.
 6. Po sprawdzeniu: wersja produkcyjna. Konto organizacji nie musi przechodzić testu zamkniętego z 12 testerami.
+
+## TVML (`pl.tvml`)
+
+Natywna aplikacja serwisu tvml.pl (opis w [android/README.md](../README.md), sekcja TVML). Teksty są zgodne
+z wpisem TVML w App Store (`ios/sklep/metadane.json`, `com.LiveProduction.TVML`). Pliki: `pl.tvml/pl-PL/…`,
+7 zrzutów telefonu (Start, artykuł, pogoda, wideo, Więcej, zima, Wigilia w nocy), ikona 512 px z ikony iOS
+i grafika funkcji z nocną panoramą Leszna.
+
+| Pole | TVML |
+|---|---|
+| Nazwa | TVML (2.0 to tylko numer wersji) |
+| Język domyślny | polski (pl-PL) |
+| Aplikacja czy gra, cena | aplikacja, bezpłatna |
+| Kategoria | Wiadomości i czasopisma (w App Store: Wiadomości) |
+| E-mail kontaktowy | redakcja@tvml.pl |
+| Strona | https://tvml.pl/ |
+| Polityka prywatności | https://tvml.pl/strona/polityka-prywatnosci (jak w App Store) |
+| Reklamy | **zawiera reklamy** (decyzja Karola): sieci reklamowych nie ma, ale czasem są „Artykuły sponsorowane”, a Google liczy jako reklamy też treści płatne i promocje własne |
+| Dostęp do aplikacji | wszystko działa bez logowania |
+
+- **Deklaracja aplikacji z wiadomościami** (Treść aplikacji → Aplikacje z wiadomościami): **tak**. Google wymaga
+  przy niej danych wydawcy i kontaktu do redakcji (strony „O nas”, „Redakcja”, „Kontakt” są w aplikacji
+  w Więcej) oraz autora i daty przy artykułach (są). Dane wydawcy potwierdza Karol.
+- **Grupa docelowa:** 13 lat i więcej (decyzja Karola): grupy 13–15, 16–17 i 18+. Bez grup poniżej 13 lat,
+  bo te włączają zasady Google dla rodzin (Families). Identyfikatora wyświetlania reklam nie ma (brak `AD_ID`).
+- **Ocena treści (IARC):** kategoria „Informacje, nauka, wiadomości” (Reference, News, or Educational).
+  Jak w App Store: przemoc realistyczna rzadka i łagodna (wiadomości o wypadkach i przestępstwach), treści
+  użytkowników: tak (komentarze czytelników tylko do odczytu, moderowane przez redakcję), lokalizacja: nie,
+  zakupy: nie, nieograniczony dostęp do internetu: nie (strony tvml.pl otwierają się w karcie przeglądarki).
+- **Bezpieczeństwo danych:** aplikacja nie wysyła identyfikatorów ani danych o użytkowniku; zapisane artykuły,
+  rozmiar tekstu i wygląd zostają w telefonie. tvml.pl dostaje zwykłe zapytania HTTPS z agentem `TVMLApp`
+  (jak przy wejściu na stronę). Propozycja odpowiedzi: „nie zbiera danych”, szyfrowanie: tak. Do decyzji Karola:
+  filmy grają w odtwarzaczu YouTube (youtube-nocookie), który sam rozmawia z Google; zwykle się tego nie zaznacza
+  jako danych aplikacji, ale warto wspomnieć o YouTube w polityce prywatności. Formularz trzeba poprawić, gdy
+  dojdą powiadomienia (token FCM), odsłony z `installationId` albo Play Integrity (kolejny krok API).
+- **Podpisywanie:** TVML ma **osobny klucz aplikacji** (`tvml.keystore`, alias `tvml`), który Karol przekazuje
+  Google przez PEPK przy pierwszej wersji, tak jak klucz LivePL; AAB podpisuje wspólny klucz przesyłania
+  (ten sam certyfikat `livepl-przesylanie-certyfikat.pem` wgrywa się w Play Console TVML).
+- **Linki do artykułów (App Links):** `https://tvml.pl/.well-known/assetlinks.json` dla pakietu `pl.tvml`
+  z odciskiem SHA-256 klucza aplikacji TVML: `41:83:0B:7B:19:3C:E6:65:79:04:4A:1C:F0:88:8A:11:93:FC:A0:8D:20:3A:59:F1:A5:91:FB:79:3A:83:73:4B`.
+  Wgrywa go sesja TVML Connect po zgodzie Karola.

@@ -1,7 +1,8 @@
 #!/bin/bash
 # Zrzuty ekranu do Google Play z działającego emulatora: telefon 1080×1920 i tablet 10" 1440×2560 (proporcja 9:16,
 # jak wymaga Sklep). Najlepiej z wydania, żeby w stopce nie było „-debug”:
-#   android/narzedzia/zrzuty-sklep.sh <APK LivePL> <APK Poczty LivePL> [APK LivePL Connect]
+#   android/narzedzia/zrzuty-sklep.sh <APK LivePL> <APK Poczty LivePL> [APK LivePL Connect] [APK TVML]
+# „-” zamiast APK pomija tę aplikację (np. tylko TVML: zrzuty-sklep.sh - - - tvml.apk).
 # Zrzuty trafiają do android/sklep/<pakiet>/pl-PL/images (układ katalogów fastlane).
 set -euo pipefail
 # Git Bash na Windows nie może zamieniać ścieżek telefonu (/sdcard/…) na ścieżki Windows
@@ -10,6 +11,9 @@ export MSYS_NO_PATHCONV=1
 APK_LIVEPL="$1"
 APK_POCZTY="$2"
 APK_CONNECT="${3:-}"
+APK_TVML="${4:-}"
+[ "$APK_CONNECT" = "-" ] && APK_CONNECT=""
+[ "$APK_TVML" = "-" ] && APK_TVML=""
 SKLEP="$(cd "$(dirname "$0")/.." && pwd)/sklep"
 L=eu.livepl.przegladarka
 P=eu.livepl.poczta
@@ -17,11 +21,13 @@ OBRAZY_L="$SKLEP/$L/pl-PL/images"
 OBRAZY_P="$SKLEP/$P/pl-PL/images"
 C=eu.livepl.connect
 OBRAZY_C="$SKLEP/$C/pl-PL/images"
+T=pl.tvml
+OBRAZY_T="$SKLEP/$T/pl-PL/images"
 
 adb wait-for-device
 adb shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 1; done'
-adb install -r "$APK_LIVEPL" > /dev/null
-adb install -r "$APK_POCZTY" > /dev/null
+[ "$APK_LIVEPL" != "-" ] && adb install -r "$APK_LIVEPL" > /dev/null
+[ "$APK_POCZTY" != "-" ] && adb install -r "$APK_POCZTY" > /dev/null
 
 # pasek stanu jak na zdjęciach reklamowych: 9:41, pełna bateria, bez powiadomień
 adb shell settings put global sysui_demo_allowed 1
@@ -94,6 +100,7 @@ tlumacz() {
 
 # ---------- LivePL, telefon ----------
 ekran 1080 1920 420
+if [ "$APK_LIVEPL" != "-" ]; then
 przygotuj "$L"
 livepl; sleep 6; zrzut "$OBRAZY_L/phoneScreenshots/1.png"
 livepl --es otworz poczta; sleep 14; zrzut "$OBRAZY_L/phoneScreenshots/2.png"
@@ -119,14 +126,17 @@ stuknij "Poczta" || true; sleep 12; zrzut "$OBRAZY_L/tenInchScreenshots/2.png"
 tlumacz; zrzut "$OBRAZY_L/tenInchScreenshots/3.png"
 adb shell cmd uimode night yes > /dev/null; sleep 5; demo
 stuknij "Start" || true; sleep 4; zrzut "$OBRAZY_L/tenInchScreenshots/4.png"
+ekran 1080 1920 420
+fi
 
 # ---------- Poczta LivePL, telefon ----------
-ekran 1080 1920 420
+if [ "$APK_POCZTY" != "-" ]; then
 przygotuj "$P"
 adb shell am start -W -n "$P/eu.livepl.przegladarka.PocztaActivity" > /dev/null; sleep 14
 zrzut "$OBRAZY_P/phoneScreenshots/1.png"
 adb shell cmd uimode night yes > /dev/null; sleep 8; demo; sleep 2
 zrzut "$OBRAZY_P/phoneScreenshots/2.png"
+fi
 
 # ---------- LivePL Connect, telefon ----------
 if [ -n "$APK_CONNECT" ]; then
@@ -136,6 +146,24 @@ if [ -n "$APK_CONNECT" ]; then
   zrzut "$OBRAZY_C/phoneScreenshots/1.png"
   adb shell cmd uimode night yes > /dev/null; sleep 8; demo; sleep 2
   zrzut "$OBRAZY_C/phoneScreenshots/2.png"
+fi
+
+# ---------- TVML, telefon ----------
+if [ -n "$APK_TVML" ]; then
+  adb install -r "$APK_TVML" > /dev/null
+  tvml() {
+    adb shell am force-stop "$T"
+    adb shell am start -W -n "$T/pl.tvml.MainActivity" "$@" > /dev/null
+  }
+  przygotuj "$T"
+  tvml; sleep 12; zrzut "$OBRAZY_T/phoneScreenshots/1.png"
+  tvml --es ekran artykul; sleep 10; zrzut "$OBRAZY_T/phoneScreenshots/2.png"
+  tvml --es ekran pogoda; sleep 8; zrzut "$OBRAZY_T/phoneScreenshots/3.png"
+  tvml --es ekran wideo; sleep 8; zrzut "$OBRAZY_T/phoneScreenshots/4.png"
+  tvml --es ekran wiecej; sleep 6; zrzut "$OBRAZY_T/phoneScreenshots/5.png"
+  tvml --es motyw zima; sleep 8; zrzut "$OBRAZY_T/phoneScreenshots/6.png"
+  adb shell cmd uimode night yes > /dev/null; sleep 5; demo
+  tvml --es motyw wigilia; sleep 8; zrzut "$OBRAZY_T/phoneScreenshots/7.png"
 fi
 
 adb shell cmd uimode night no > /dev/null

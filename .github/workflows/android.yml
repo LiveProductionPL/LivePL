@@ -1,7 +1,8 @@
 # LivePL na Androida: budowa APK, zrzuty z emulatora i (gdy są sekrety) podpisane wydanie.
-# Trzy aplikacje z tego samego kodu: przeglądarka LivePL, Poczta LivePL i LivePL Connect. Podpisane APK i AAB
-# powstają tylko wtedy, gdy w GitHubie są sekrety klucza; z [play], [play-poczta] albo [play-connect] w opisie
-# zmiany AAB trafia też do Google Play jako szkic testu wewnętrznego (android/README.md).
+# Trzy aplikacje z tego samego kodu (android/app): przeglądarka LivePL, Poczta LivePL i LivePL Connect,
+# a obok natywne TVML (android/tvml). Podpisane APK i AAB powstają tylko wtedy, gdy w GitHubie są sekrety klucza;
+# z [play], [play-poczta], [play-connect] albo [play-tvml] w opisie zmiany AAB trafia też do Google Play
+# jako szkic testu wewnętrznego (android/README.md).
 name: LivePL Android
 
 on:
@@ -38,9 +39,9 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      - name: Debug APK (przeglądarka, Poczta, Connect) i lint
+      - name: Debug APK (przeglądarka, Poczta, Connect, TVML) i lint
         working-directory: android
-        run: bash ./gradlew assembleDebug lintPrzegladarkaDebug lintPocztaDebug lintConnectDebug --console=plain
+        run: bash ./gradlew assembleDebug lintPrzegladarkaDebug lintPocztaDebug lintConnectDebug :tvml:lintDebug --console=plain
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -49,6 +50,8 @@ jobs:
           path: |
             android/app/build/outputs/apk/*/debug/*.apk
             android/app/build/reports/lint-results-*.html
+            android/tvml/build/outputs/apk/debug/*.apk
+            android/tvml/build/reports/lint-results-*.html
           retention-days: 14
 
       - name: KVM dla emulatora
@@ -66,7 +69,7 @@ jobs:
           profile: pixel_7
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none
-          script: CZEKAJ=20 bash android/narzedzia/zrzuty.sh android/app/build/outputs/apk/przegladarka/debug/app-przegladarka-debug.apk zrzuty android/app/build/outputs/apk/poczta/debug/app-poczta-debug.apk android/app/build/outputs/apk/connect/debug/app-connect-debug.apk
+          script: CZEKAJ=20 bash android/narzedzia/zrzuty.sh android/app/build/outputs/apk/przegladarka/debug/app-przegladarka-debug.apk zrzuty android/app/build/outputs/apk/poczta/debug/app-poczta-debug.apk android/app/build/outputs/apk/connect/debug/app-connect-debug.apk android/tvml/build/outputs/apk/debug/tvml-debug.apk
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -85,6 +88,8 @@ jobs:
       ANDROID_KLUCZ_ALIAS: ${{ secrets.ANDROID_KLUCZ_ALIAS }}
       ANDROID_PRZESYLANIE: ${{ secrets.ANDROID_PRZESYLANIE }}
       ANDROID_PRZESYLANIE_HASLO: ${{ secrets.ANDROID_PRZESYLANIE_HASLO }}
+      ANDROID_KLUCZ_TVML: ${{ secrets.ANDROID_KLUCZ_TVML }}
+      ANDROID_KLUCZ_TVML_HASLO: ${{ secrets.ANDROID_KLUCZ_TVML_HASLO }}
     steps:
       - name: Sekrety klucza
         id: klucz
@@ -117,6 +122,15 @@ jobs:
           printf '%s' "$ANDROID_KLUCZ" | base64 --decode > "$LIVEPL_KLUCZ_PLIK"
           bash ./gradlew assemblePrzegladarkaRelease assemblePocztaRelease assembleConnectRelease -Plivepl.tylkoTelefony --console=plain
           rm -f "$LIVEPL_KLUCZ_PLIK"
+          # TVML ma osobny klucz aplikacji; bez jego sekretów nie ma APK TVML
+          if [ -n "$ANDROID_KLUCZ_TVML" ] && [ -n "$ANDROID_KLUCZ_TVML_HASLO" ]; then
+            export TVML_KLUCZ_PLIK="$RUNNER_TEMP/tvml.keystore" TVML_KLUCZ_HASLO="$ANDROID_KLUCZ_TVML_HASLO" TVML_KLUCZ_ALIAS=tvml
+            printf '%s' "$ANDROID_KLUCZ_TVML" | base64 --decode > "$TVML_KLUCZ_PLIK"
+            bash ./gradlew :tvml:assembleRelease --console=plain
+            rm -f "$TVML_KLUCZ_PLIK"
+          else
+            echo "::notice::Brak sekretów ANDROID_KLUCZ_TVML i ANDROID_KLUCZ_TVML_HASLO, więc bez APK TVML."
+          fi
 
       # AAB do Google Play: klucz przesyłania (Google podpisuje potem kluczem aplikacji); bez niego klucz aplikacji
       - name: Podpisany AAB
@@ -127,12 +141,21 @@ jobs:
           if [ -n "$ANDROID_PRZESYLANIE" ] && [ -n "$ANDROID_PRZESYLANIE_HASLO" ]; then
             printf '%s' "$ANDROID_PRZESYLANIE" | base64 --decode > "$LIVEPL_KLUCZ_PLIK"
             export LIVEPL_KLUCZ_HASLO="$ANDROID_PRZESYLANIE_HASLO" LIVEPL_KLUCZ_ALIAS=przesylanie
+            # TVML: ten sam klucz przesyłania (Google podpisuje potem osobnym kluczem aplikacji TVML)
+            export TVML_KLUCZ_PLIK="$LIVEPL_KLUCZ_PLIK" TVML_KLUCZ_HASLO="$ANDROID_PRZESYLANIE_HASLO" TVML_KLUCZ_ALIAS=przesylanie
           else
             printf '%s' "$ANDROID_KLUCZ" | base64 --decode > "$LIVEPL_KLUCZ_PLIK"
             export LIVEPL_KLUCZ_HASLO="$ANDROID_KLUCZ_HASLO" LIVEPL_KLUCZ_ALIAS="${ANDROID_KLUCZ_ALIAS:-livepl}"
+            # bez klucza przesyłania AAB TVML podpisuje jego własny klucz aplikacji (nigdy klucz LivePL)
+            if [ -n "$ANDROID_KLUCZ_TVML" ] && [ -n "$ANDROID_KLUCZ_TVML_HASLO" ]; then
+              export TVML_KLUCZ_PLIK="$RUNNER_TEMP/tvml-aab.keystore" TVML_KLUCZ_HASLO="$ANDROID_KLUCZ_TVML_HASLO" TVML_KLUCZ_ALIAS=tvml
+              printf '%s' "$ANDROID_KLUCZ_TVML" | base64 --decode > "$TVML_KLUCZ_PLIK"
+            fi
           fi
-          bash ./gradlew bundlePrzegladarkaRelease bundlePocztaRelease bundleConnectRelease --console=plain
-          rm -f "$LIVEPL_KLUCZ_PLIK"
+          ZADANIA="bundlePrzegladarkaRelease bundlePocztaRelease bundleConnectRelease"
+          [ -n "${TVML_KLUCZ_PLIK:-}" ] && ZADANIA="$ZADANIA :tvml:bundleRelease"
+          bash ./gradlew $ZADANIA --console=plain
+          rm -f "$LIVEPL_KLUCZ_PLIK" "$RUNNER_TEMP/tvml-aab.keystore"
 
       - name: Sprawdzenie podpisu
         if: steps.klucz.outputs.jest == 'tak'
@@ -149,6 +172,16 @@ jobs:
             cp "$WYJSCIE/apk/$WARIANT/release/app-$WARIANT-release.apk" "wydanie/$NAZWA-$N.apk"
             cp "$WYJSCIE/bundle/${WARIANT}Release/app-$WARIANT-release.aab" "wydanie/$NAZWA-$N.aab"
           done
+          # TVML: osobny moduł android/tvml i osobny klucz aplikacji (gdy są jego sekrety)
+          TVML=android/tvml/build/outputs
+          if [ -f "$TVML/apk/release/tvml-release.apk" ]; then
+            "$APKSIGNER" verify --verbose --print-certs "$TVML/apk/release/tvml-release.apk" | grep -E "Verified|SHA-256 digest|DN"
+            cp "$TVML/apk/release/tvml-release.apk" "wydanie/TVML-$N.apk"
+          fi
+          if [ -f "$TVML/bundle/release/tvml-release.aab" ]; then
+            keytool -printcert -jarfile "$TVML/bundle/release/tvml-release.aab" | grep -E "Owner|SHA256" || true
+            cp "$TVML/bundle/release/tvml-release.aab" "wydanie/TVML-$N.aab"
+          fi
           ls -la wydanie
           (cd wydanie && sha256sum * | tee SHA256SUMS.txt)
 
@@ -161,14 +194,14 @@ jobs:
 
       - name: Sprzątanie
         if: always()
-        run: rm -f "$RUNNER_TEMP/livepl.keystore" "$RUNNER_TEMP/livepl-aab.keystore"
+        run: rm -f "$RUNNER_TEMP/livepl.keystore" "$RUNNER_TEMP/livepl-aab.keystore" "$RUNNER_TEMP/tvml.keystore" "$RUNNER_TEMP/tvml-aab.keystore"
 
   play:
     name: Wysyłka do Google Play (test wewnętrzny)
     needs: wydanie
-    # [play] wysyła LivePL, [play-poczta] Pocztę LivePL, [play-connect] LivePL Connect
+    # [play] wysyła LivePL, [play-poczta] Pocztę LivePL, [play-connect] LivePL Connect, [play-tvml] TVML
     # (każda aplikacja musi już istnieć w Play Console)
-    if: contains(github.event.head_commit.message, '[play]') || contains(github.event.head_commit.message, '[play-poczta]') || contains(github.event.head_commit.message, '[play-connect]')
+    if: contains(github.event.head_commit.message, '[play]') || contains(github.event.head_commit.message, '[play-poczta]') || contains(github.event.head_commit.message, '[play-connect]') || contains(github.event.head_commit.message, '[play-tvml]')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -211,5 +244,14 @@ jobs:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_KONTO_USLUGI }}
           packageName: eu.livepl.connect
           releaseFiles: wydanie/LivePL-Connect-${{ github.run_number }}.aab
+          track: internal
+          status: draft
+
+      - uses: r0adkll/upload-google-play@v1
+        if: contains(github.event.head_commit.message, '[play-tvml]')
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_KONTO_USLUGI }}
+          packageName: pl.tvml
+          releaseFiles: wydanie/TVML-${{ github.run_number }}.aab
           track: internal
           status: draft

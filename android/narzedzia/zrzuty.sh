@@ -1,6 +1,6 @@
 #!/bin/bash
 # Zrzuty ekranu LivePL z emulatora Androida (na GitHubie albo lokalnie, gdy emulator już działa).
-#   android/narzedzia/zrzuty.sh <APK przeglądarki> <folder na zrzuty> [APK Poczty LivePL] [APK LivePL Connect]
+#   android/narzedzia/zrzuty.sh <APK przeglądarki> <folder na zrzuty> [APK Poczty LivePL] [APK LivePL Connect] [APK TVML]
 # CZEKAJ=<sekundy> zmienia czas na załadowanie strony (domyślnie 15).
 set -euo pipefail
 
@@ -8,6 +8,7 @@ APK="$1"
 WYJSCIE="$2"
 APK_POCZTY="${3:-}"
 APK_CONNECT="${4:-}"
+APK_TVML="${5:-}"
 CZEKAJ="${CZEKAJ:-15}"
 mkdir -p "$WYJSCIE"
 
@@ -71,6 +72,30 @@ if [ -n "$APK_CONNECT" ]; then
   echo "aplikacja: $ID_CONNECT"
   zrzutAplikacji "$ID_CONNECT" ConnectActivity 9-connect-dzien no
   zrzutAplikacji "$ID_CONNECT" ConnectActivity 10-connect-noc yes
+fi
+
+# TVML: natywna aplikacja tvml.pl (osobny moduł android/tvml); ekrany i wersje wyglądu z argumentów
+if [ -n "$APK_TVML" ]; then
+  adb install -r "$APK_TVML"
+  ID_TVML=$(adb shell pm list packages pl.tvml | sed 's/^package://' | tr -d '\r' | head -1)
+  echo "aplikacja: $ID_TVML"
+  zrzutTvml() {
+    local nazwa="$1" noc="$2"
+    shift 2
+    adb shell cmd uimode night "$noc" > /dev/null
+    adb shell am force-stop "$ID_TVML"
+    adb shell pm clear "$ID_TVML" > /dev/null
+    adb shell am start -W -n "$ID_TVML/pl.tvml.MainActivity" "$@" > /dev/null
+    sleep "$CZEKAJ"
+    adb exec-out screencap -p > "$WYJSCIE/$nazwa.png"
+    echo "zrzut: $nazwa"
+  }
+  zrzutTvml 11-tvml-start no
+  zrzutTvml 12-tvml-artykul no --es ekran artykul
+  zrzutTvml 13-tvml-pogoda no --es ekran pogoda
+  zrzutTvml 14-tvml-wideo yes --es ekran wideo
+  zrzutTvml 15-tvml-zima no --es motyw zima
+  zrzutTvml 16-tvml-noc yes --es motyw wigilia
 fi
 
 adb shell cmd uimode night no > /dev/null

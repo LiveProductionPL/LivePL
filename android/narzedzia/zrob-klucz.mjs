@@ -2,6 +2,7 @@
 //
 //   node android/narzedzia/zrob-klucz.mjs              klucz podpisu aplikacji (livepl.keystore)
 //   node android/narzedzia/zrob-klucz.mjs przesylanie  klucz przesyłania do Google Play (livepl-przesylanie.keystore)
+//   node android/narzedzia/zrob-klucz.mjs tvml         osobny klucz podpisu aplikacji TVML (tvml.keystore)
 //
 // Hasło jest losowe i leży w pliku obok klucza. Skrypt niczego nie wypisuje poza odciskiem certyfikatu,
 // który jest publiczny. Klucz przesyłania dostaje też certyfikat .pem do wgrania w Play Console.
@@ -16,12 +17,13 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const przesylanie = process.argv[2] === 'przesylanie';
+const tvml = process.argv[2] === 'tvml';
 const FOLDER = path.join(os.homedir(), 'LivePL-klucze', 'android');
-const NAZWA = przesylanie ? 'livepl-przesylanie' : 'livepl';
+const NAZWA = przesylanie ? 'livepl-przesylanie' : (tvml ? 'tvml' : 'livepl');
 const KLUCZ = path.join(FOLDER, `${NAZWA}.keystore`);
 const HASLO = path.join(FOLDER, `${NAZWA}-haslo.txt`);
 const CERTYFIKAT = path.join(FOLDER, `${NAZWA}-certyfikat.pem`);
-const ALIAS = przesylanie ? 'przesylanie' : 'livepl';
+const ALIAS = przesylanie ? 'przesylanie' : (tvml ? 'tvml' : 'livepl');
 
 if (fs.existsSync(KLUCZ)) {
   console.error(`Klucz już jest: ${KLUCZ}\nNie nadpisuję go.`);
@@ -47,7 +49,7 @@ const w = spawnSync(keytool, [
   '-genkeypair', '-v',
   '-keystore', KLUCZ, '-storetype', 'PKCS12',
   '-alias', ALIAS, '-keyalg', 'RSA', '-keysize', '4096', '-validity', '10950',
-  '-dname', 'CN=Karol Kowalski, O=Live Production, C=PL',
+  '-dname', tvml ? 'CN=TVML, O=Live Production, C=PL' : 'CN=Karol Kowalski, O=Live Production, C=PL',
   '-storepass:env', 'LIVEPL_HASLO', '-keypass:env', 'LIVEPL_HASLO',
 ], { env, encoding: 'utf8' });
 

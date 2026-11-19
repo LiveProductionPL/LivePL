@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.TVML" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/tlo</item>
+        <item name="android:colorAccent">@color/zloto</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- ekran startowy: granat z logo, jak na iPhonie -->
+    <style name="Theme.TVML.Start">
+        <item name="android:windowBackground">@drawable/start</item>
+    </style>
+</resources>

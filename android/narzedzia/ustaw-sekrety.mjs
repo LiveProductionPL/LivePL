@@ -4,7 +4,8 @@
 //   node android/narzedzia/ustaw-sekrety.mjs                    klucze podpisu z %USERPROFILE%\LivePL-klucze\android
 //   node android/narzedzia/ustaw-sekrety.mjs --play <plik.json>  dodatkowo klucz konta usługi Google Play
 //
-// Klucze tworzy zrob-klucz.mjs (bez argumentu: klucz aplikacji, z „przesylanie”: klucz przesyłania do Play).
+// Klucze tworzy zrob-klucz.mjs (bez argumentu: klucz aplikacji, z „przesylanie”: klucz przesyłania do Play,
+// z „tvml”: osobny klucz aplikacji TVML).
 
 import fs from 'node:fs';
 import os from 'node:os';
@@ -23,6 +24,10 @@ const sekrety = {
 if (fs.existsSync(plik('livepl-przesylanie.keystore'))) {
   sekrety.ANDROID_PRZESYLANIE = fs.readFileSync(plik('livepl-przesylanie.keystore')).toString('base64');
   sekrety.ANDROID_PRZESYLANIE_HASLO = fs.readFileSync(plik('livepl-przesylanie-haslo.txt'), 'utf8').trim();
+}
+if (fs.existsSync(plik('tvml.keystore'))) {
+  sekrety.ANDROID_KLUCZ_TVML = fs.readFileSync(plik('tvml.keystore')).toString('base64');
+  sekrety.ANDROID_KLUCZ_TVML_HASLO = fs.readFileSync(plik('tvml-haslo.txt'), 'utf8').trim();
 }
 const i = process.argv.indexOf('--play');
 if (i > 0) {

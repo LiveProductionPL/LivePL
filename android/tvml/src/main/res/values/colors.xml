@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- granat TVML: ekran startowy i baner (TloStartu na iPhonie) -->
+    <color name="granat">#0A1F44</color>
+    <color name="tlo">#EEF1F6</color>
+    <color name="zloto">#E29818</color>
+</resources>

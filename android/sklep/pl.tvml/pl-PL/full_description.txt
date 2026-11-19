@@ -1,0 +1,30 @@
+TVML to aplikacja Telewizji TVML i serwisu tvml.pl. Najświeższe wiadomości z Leszna i powiatu leszczyńskiego, materiały wideo i pogoda masz zawsze pod ręką.
+
+START
+• Najważniejsze tematy dnia i pilne komunikaty redakcji.
+• Pasek „NA ŻYWO” z najnowszymi wiadomościami.
+• Najnowsze, najczęściej czytane i fotorelacje, w kolejności ustalonej przez redakcję.
+• Wiadomości z gmin powiatu leszczyńskiego i działy: sport, kultura, muzyka i inne.
+
+ARTYKUŁY
+• Wygodne czytanie, trzy rozmiary tekstu.
+• „Odsłuchaj”: telefon przeczyta artykuł na głos.
+• Zapisz na później, udostępnij znajomym, przeczytaj komentarze.
+• Szukaj w artykułach tvml.pl.
+
+WIDEO
+• Najnowsze materiały Telewizji TVML, odtwarzane w aplikacji.
+
+POGODA
+• Pogoda dla Leszna: teraz, godzina po godzinie i na 14 dni.
+• Scena z leszczyńskim Ratuszem zmienia się razem z pogodą, porą dnia i porą roku: słońce, deszcz, śnieg, burza, mgła, a nocą gwiazdy.
+• Imieniny na każdy dzień.
+
+WYDANIA OKOLICZNOŚCIOWE
+• Zimą, w Boże Narodzenie, w Sylwestra, w Nowy Rok i 11 Listopada aplikacja zmienia wygląd razem z tvml.pl.
+• Zimą i w święta zmienia się też ikona aplikacji.
+
+WYGODA
+• Tryb dzień, noc albo jak w telefonie.
+• Alert TVML: zgłoś redakcji zdarzenie z okolicy.
+• Bez logowania i bez śledzenia.

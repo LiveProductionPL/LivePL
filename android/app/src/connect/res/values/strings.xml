@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- krótko pod ikoną; w Sklepie pełna nazwa „LivePL Connect” -->
-    <string name="app_name">Connect</string>
+    <!-- pod ikoną i w Sklepie ta sama nazwa, jak na iPhonie (samo „Connect” Apple uznał za zajęte) -->
+    <string name="app_name">LivePL Connect</string>
 </resources>
