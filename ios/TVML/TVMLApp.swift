@@ -155,6 +155,7 @@ struct Baner: View {
             }
             NaZywo()
             if let k = m.komunikat, k.pilny || !m.zamknieteKomunikaty.contains(k.id) { BanerKomunikatu(komunikat: k) }
+            if let n = m.nowaWersja, !m.wymaganaAktualizacja, !m.zamknieteKomunikaty.contains(n.id) { BanerKomunikatu(komunikat: n) }
         }
         .sheet(isPresented: $szukaj) { SzukajWidok() }
     }
@@ -174,7 +175,7 @@ struct BanerKomunikatu: View {
             VStack(alignment: .leading, spacing: 2) {
                 if !komunikat.tytul.isEmpty { Text(komunikat.tytul).font(.system(size: 14, weight: .bold)) }
                 if !komunikat.tekst.isEmpty { Text(komunikat.tekst).font(.system(size: 13)).lineLimit(3) }
-                if komunikat.link != nil { Text("Więcej").font(.system(size: 13, weight: .semibold)).underline() }
+                if komunikat.link != nil { Text(komunikat.etykieta).font(.system(size: 13, weight: .semibold)).underline() }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             if !komunikat.pilny {

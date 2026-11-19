@@ -292,6 +292,8 @@ final class Magazyn: ObservableObject {
     /// Ogłoszenia drobne zatwierdzone w panelu (/api/v1/classifieds, API 1.4).
     @Published var ogloszenia: [Ogloszenie] = []
     @Published var wymaganaAktualizacja = false
+    /// Nowsza wersja w App Store: łagodna prośba o aktualizację pod paskiem „NA ŻYWO” (do zamknięcia).
+    @Published var nowaWersja: Komunikat?
     @Published var zamknieteKomunikaty: [String] = UserDefaults.standard.stringArray(forKey: "tvml-zamkniete-komunikaty") ?? [] {
         didSet { UserDefaults.standard.set(Array(zamknieteKomunikaty.suffix(50)), forKey: "tvml-zamkniete-komunikaty") }
     }
@@ -320,9 +322,23 @@ final class Magazyn: ObservableObject {
         if await odswiezV1() {
             blad = nil
             ostatnio = Date()
+            await sprawdzNowaWersje()
             return
         }
         await odswiezStare()
+        await sprawdzNowaWersje()
+    }
+
+    /// Najnowsza wersja TVML w App Store (wyszukiwarka Apple, bez żadnych danych o telefonie).
+    func sprawdzNowaWersje() async {
+        guard let adres = URL(string: "https://itunes.apple.com/lookup?bundleId=com.LiveProduction.TVML&country=pl"),
+              let odp = try? await URLSession.shared.data(from: adres),
+              let j = (try? JSONSerialization.jsonObject(with: odp.0)) as? Slownik,
+              let w = j.lista("results").first?.s("version"), !w.isEmpty,
+              Wersja.starsza(Wersja.biezaca, niz: w) else { nowaWersja = nil; return }
+        nowaWersja = Komunikat(["id": "aktualizacja-" + w, "title": "Nowa wersja TVML \(w)",
+                                "text": "Zaktualizuj aplikację w App Store, żeby mieć najnowsze funkcje.", "level": "info",
+                                "link": "https://apps.apple.com/app/id1468277905", "linkLabel": "Aktualizuj"])
     }
 
     /// Nowe API (/api/v1): config, artykuły, najczęściej czytane, wideo, pogoda.
@@ -505,6 +521,7 @@ struct Komunikat: Equatable {
     let tekst: String
     let poziom: String
     let link: URL?
+    let etykieta: String
 
     init?(_ j: Slownik) {
         tytul = Html.tekst(j.s("title"))
@@ -514,6 +531,7 @@ struct Komunikat: Equatable {
         id = j.s("id").isEmpty ? tytul + "|" + tekst : j.s("id")
         poziom = ["info", "warning", "urgent"].contains(j.s("level")) ? j.s("level") : "info"
         link = j.s("link").isEmpty ? nil : URL(string: j.s("link"))
+        etykieta = j.s("linkLabel").isEmpty ? "Więcej" : j.s("linkLabel")
     }
 
     var pilny: Bool { poziom == "urgent" }
