@@ -388,3 +388,6 @@ button {
   letter-spacing: 3px;
   user-select: text;
 }
+
+/* odcisk certyfikatu (okienko kłódki, Ustawienia → Wyjątki certyfikatów) */
+.linia.odcisk b, .strona-adres.odcisk { font-family: "Cascadia Mono", Consolas, monospace; font-size: 11px; }

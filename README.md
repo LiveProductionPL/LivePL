@@ -32,6 +32,33 @@ Układ nazywa się **Reżyserka**: strona jest jak monitor w ramce, programy są
 - **Dzień i noc** przełączają się same razem z trybem Windows: kolory, logo w rogu, ikona okna, ikona przy zegarze i ikona skrótu na pulpicie.
 - **Udostępnianie ekranu** (np. na lekcjach w Sevetoo) otwiera okienko wyboru ekranu albo okna.
 - **Prawy przycisk myszy:** kopiuj, wklej, poprawianie literówek, otwieranie linku w nowej karcie albo w zwykłej przeglądarce.
+- **Wejście mimo błędu certyfikatu** i **Bezpieczny DNS**: opis niżej.
+
+## Błąd certyfikatu: wejście mimo to
+
+Strona z nieprawidłowym certyfikatem jest domyślnie zablokowana. Na stronie błędu jest link „Wiem, co robię – wejdź mimo to…”. Rozwija ostrzeżenie i dane certyfikatu (dla kogo, wystawca, ważność, odcisk SHA-256). Potem wybierasz:
+
+- **Tylko teraz:** wyjątek w pamięci, do zamknięcia LivePL.
+- **Zapamiętaj ten certyfikat:** wyjątek trafia do ustawień (menu ⋮ → Ustawienia → Wyjątki certyfikatów, tam też go usuniesz).
+
+Wyjątek to zawsze **adres z portem i odcisk SHA-256 jednego certyfikatu** (np. `203.0.113.10:2222` + odcisk), a nie zaufanie do całego serwera. Gdy serwer pokaże inny certyfikat, ostrzeżenie wraca z dopiskiem, że certyfikat się zmienił. Nowy certyfikat zastępuje stary dopiero po ponownym „Wejdź mimo to”. Strona otwarta mimo błędu ma czerwoną kłódkę. Okienko kłódki pokazuje wyjątek i ma przycisk „Usuń wyjątek i zablokuj znowu”. Po usunięciu otwarte połączenia są zamykane, a karty z tym adresem wczytują się od nowa.
+
+Błąd zostaje twardy (bez przycisku):
+
+- dla **naszych domen** z `assets/ca/domeny.json`,
+- dla stron z **HSTS**, czyli z listy wbudowanej w silnik i takich, które same zażądały HSTS. LivePL pyta o to silnik zapytaniem `http://host:1/`. Dla hosta z HSTS silnik sam przekierowuje je na https, a port 1 jest zablokowany, więc nic nie wychodzi do sieci. Gdy silnik nie odpowie jasno, LivePL traktuje stronę jak HSTS. Adresy IP nie mają HSTS.
+
+Odcisk i adres bierze z tego, co sam widział przy błędzie. Strona błędu tylko prosi „wejdź”, a LivePL sprawdza jeszcze raz, że to jego strona błędu (`ui/blad.html` w karcie), że to nie nasza domena i nie HSTS. AI (Dostęp dla AI) nie może kliknąć ani wpisać nic na stronie z ostrzeżeniem o certyfikacie. Decyzja zawsze należy do człowieka.
+
+Gdy certyfikat jest dobry, ale dla innej nazwy (np. panel otwarty po IP, a certyfikat jest dla `panel.example.pl`), strona błędu mówi, dla jakiej nazwy jest certyfikat, i ma przycisk „Otwórz panel.example.pl:2222”. Port i ścieżka zostają.
+
+Kod: `src/wyjatki-certyfikatow.js` (obsługa `app.on('certificate-error')`), strona błędu `ui/blad.*`, lista w `ui/panel.js`.
+
+## Bezpieczny DNS
+
+Menu ⋮ → Ustawienia → Bezpieczny DNS: **Wyłączony** (DNS z Windows i sieci), **Cloudflare** albo **Google** (DNS przez HTTPS). Z dostawcą LivePL pyta o adresy stron jego szyfrowany serwer. Gdy dostawca nie odpowiada, wraca do DNS z Windows (`app.configureHostResolver`, tryb `automatic`), więc strony nie przestają działać. Zmiana działa od razu i czyści pamięć DNS silnika.
+
+To pomaga, gdy DNS operatora pamięta stary albo błędny wpis. Przykład: hotspot w telefonie przez jakiś czas odpowiadał, że nowa nazwa serwera nie istnieje, choć rekord był już dodany. Po starcie LivePL silnik przez ok. 5 s sprawdza dostawcę i do tego czasu pyta jeszcze DNS z Windows. „Wyłączony” zostawia silnik bez zmian (tak jak do tej pory). Domyślnie: wyłączony. Ustawienie: `dns` w `ustawienia.json`.
 
 ## Dostęp dla AI (Claude i inne)
 
@@ -98,6 +125,9 @@ Programy są w pliku `programy.json` (menu ⋮ → Ustawienia → Edytuj listę 
 
 - `src/main.js` – okno, karty, pobieranie, uprawnienia, zasobnik
 - `src/dostep-ai.js`, `src/ai-most.js`, `src/ai-narzedzia.js` – dostęp dla AI (MCP)
+- `src/nasze-ca.js` – zaufanie do LivePL Root CA dla naszych domen
+- `src/wyjatki-certyfikatow.js` – wejście mimo błędu certyfikatu (wyjątki host:port + odcisk, HSTS)
+- `src/bezpieczny-dns.js` – Bezpieczny DNS (DNS przez HTTPS)
 - `ui/` – pasek boczny i górny, pusta karta, ekran błędu, wybór ekranu
 - dane przeglądarki (logowania, ustawienia okna): `%APPDATA%\LivePL`
 

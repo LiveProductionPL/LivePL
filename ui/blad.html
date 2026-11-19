@@ -17,6 +17,7 @@
 
     <div class="przyciski">
       <a class="przycisk glowny" id="ponow" href="#">Spróbuj teraz</a>
+      <a class="przycisk" id="nazwa-certyfikatu" href="#" hidden></a>
     </div>
 
     <div class="odliczanie" id="odliczanie" hidden>
@@ -27,6 +28,27 @@
     <section class="rady" id="rady" hidden>
       <h2>Co możesz zrobić</h2>
       <ul id="rady-lista"></ul>
+    </section>
+
+    <!-- błąd certyfikatu: świadome wejście mimo to (nigdy dla naszych domen i stron z HSTS) -->
+    <section class="obejscie" id="obejscie" hidden>
+      <button type="button" class="link-obejscia" id="obejscie-pokaz" aria-expanded="false" aria-controls="obejscie-panel">Wiem, co robię – wejdź mimo to…</button>
+      <div class="obejscie-panel" id="obejscie-panel" hidden>
+        <h2><span id="obejscie-ikona"></span>Wejść mimo błędu certyfikatu?</h2>
+        <p class="ostrzezenie" id="obejscie-ostrzezenie"></p>
+        <p class="ostrzezenie mocne" id="obejscie-zmieniony" hidden></p>
+        <dl class="cert" id="obejscie-cert"></dl>
+        <fieldset class="jak">
+          <legend>Na jak długo</legend>
+          <label><input type="radio" name="jak" value="raz" checked><span><b>Tylko teraz</b><small>do zamknięcia LivePL</small></span></label>
+          <label><input type="radio" name="jak" value="zawsze"><span><b>Zapamiętaj ten certyfikat</b><small id="obejscie-zawsze-opis"></small></span></label>
+        </fieldset>
+        <div class="przyciski">
+          <button type="button" class="przycisk niebezpieczny" id="obejscie-wejdz">Wejdź mimo to</button>
+          <button type="button" class="przycisk" id="obejscie-anuluj">Anuluj</button>
+        </div>
+        <p class="blad-obejscia" id="obejscie-blad" role="alert" hidden></p>
+      </div>
     </section>
 
     <details class="szczegoly" id="szczegoly" hidden>

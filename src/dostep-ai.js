@@ -218,6 +218,15 @@ function karta(id) {
   return k;
 }
 
+// ostrzeżenie o certyfikacie (strona błędu LivePL) zostaje dla człowieka: AI tu nie klika i nie pisze
+function bezOstrzezeniaCertyfikatu(k) {
+  const kod = k.blad ? Number(k.blad.kod) : 0;
+  if (kod <= -200 && kod > -300) {
+    throw new Error('This tab shows a certificate warning. Only the user can decide to continue; ask them to do it themselves.');
+  }
+  return k;
+}
+
 function oknoWidoczne() {
   const w = L.okno();
   return !!w && !w.isDestroyed() && w.isVisible() && !w.isMinimized();
@@ -674,7 +683,7 @@ const WYKONAWCY = {
   },
 
   async click(a) {
-    const k = karta(a.tab_id);
+    const k = bezOstrzezeniaCertyfikatu(karta(a.tab_id));
     let x, y, opis;
     if (a.ref) {
       const p = await wStronie(k, stronaPunkt, { ref: String(a.ref) });
@@ -696,7 +705,7 @@ const WYKONAWCY = {
   },
 
   async type(a) {
-    const k = karta(a.tab_id);
+    const k = bezOstrzezeniaCertyfikatu(karta(a.tab_id));
     const t = String(a.text == null ? '' : a.text);
     if (t.length > 20000) throw new Error('Text is too long (max 20000 characters).');
     const f = await wStronie(k, stronaFokus, { ref: a.ref ? String(a.ref) : null, wyczysc: !!a.clear });
@@ -714,7 +723,7 @@ const WYKONAWCY = {
   },
 
   async press_key(a) {
-    const k = karta(a.tab_id);
+    const k = bezOstrzezeniaCertyfikatu(karta(a.tab_id));
     const mod = Array.isArray(a.modifiers) ? a.modifiers : [];
     if (/^f12$/i.test(String(a.key || ''))) throw new Error('F12 (developer tools) is not available to AI.');
     // w polu hasła AI może tylko z niego wyjść (Tab, Esc): żadnych znaków ani wklejania (Ctrl+V)

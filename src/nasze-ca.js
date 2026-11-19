@@ -211,5 +211,7 @@ module.exports = {
   // nazwa naszego urzędu, jeśli ta strona ma certyfikat od niego
   dlaHosta: (host) => zaufaneHosty.get(String(host || '').toLowerCase()) || null,
   infoHosta: (host) => infoHostow.get(String(host || '').toLowerCase()) || null,
-  ileRootow: () => rooty.length
+  ileRootow: () => rooty.length,
+  // nasze domeny (assets/ca/domeny.json): tu błędu certyfikatu nigdy nie da się obejść
+  wNaszychDomenach
 };

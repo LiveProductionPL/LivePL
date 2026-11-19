@@ -19,6 +19,8 @@ const hasla = require('./hasla');
 const certWin = require('./certyfikaty-windows');
 const urzadzenie = require('./urzadzenie');
 const dostepAI = require('./dostep-ai');
+const wyjatki = require('./wyjatki-certyfikatow');
+const bezpiecznyDns = require('./bezpieczny-dns');
 const fs = require('fs');
 
 const ID_APLIKACJI = 'pl.livepl.przegladarka';
@@ -677,7 +679,12 @@ function sslKarty(k) {
   if (/^http:/i.test(adres)) return { stan: 'brak', host: hostZ(adres) };
   if (!/^https:/i.test(adres)) return null;
   const info = naszeCA.infoHosta(hostZ(adres));
-  return { stan: !info || info.ok ? 'ok' : 'zly', host: hostZ(adres), ...(info || {}) };
+  // strona otwarta mimo błędu certyfikatu (wyjątek dodany przez użytkownika)
+  const w = info && !info.ok ? wyjatki.dlaAdresu(adres) : null;
+  return {
+    stan: !info || info.ok ? 'ok' : 'zly', host: hostZ(adres), ...(info || {}),
+    wyjatek: w ? { klucz: w.klucz, trwaly: w.trwaly, odcisk: w.odcisk, dodano: w.dodano || null } : null
+  };
 }
 
 function stan() {
@@ -871,11 +878,40 @@ function pokazBlad(k, kod, opis, url) {
   k.blad = { kod, url };
   k.adres = url || k.adres;
   k.laduje = false;
-  k.wc.loadFile(path.join(UI, 'blad.html'), {
-    query: { kod, opis: opis || '', adres: url || '', nazwa: k.program ? k.program.nazwa : '', proba: String(k.proby) }
-  }).catch(() => {});
+  const query = { kod, opis: opis || '', adres: url || '', nazwa: k.program ? k.program.nazwa : '', proba: String(k.proby) };
+  // błąd certyfikatu: co LivePL widział (odcisk, dla kogo jest) i czy wolno wejść mimo to
+  const c = Number(kod) <= -200 && Number(kod) > -300 ? wyjatki.dlaStronyBledu(k.wc, url) : null;
+  if (c) {
+    query.certyfikat = JSON.stringify({
+      mozna: !c.powod, powod: c.powod, port: c.port, odcisk: c.odcisk, dla: c.dla, nazwy: c.nazwy,
+      wystawca: c.wystawca, waznyOd: c.waznyOd, waznyDo: c.waznyDo, samopodpisany: c.samopodpisany, zmieniony: c.zmieniony
+    });
+  }
+  k.wc.loadFile(path.join(UI, 'blad.html'), { query }).catch(() => {});
   wyslijStan();
 }
+
+// „Wiem, co robię – wejdź mimo to” na stronie błędu certyfikatu (tylko plik ui/blad.html w karcie).
+// Odcisk i adres bierzemy z tego, co LivePL sam widział przy błędzie, nie od strony.
+ipcMain.handle('blad:wejdz', async (e, trwale) => {
+  const k = kartaDla(e.sender);
+  let plik = '';
+  try { plik = new URL(e.senderFrame ? e.senderFrame.url : '').pathname; } catch { /* zostaje pusty */ }
+  if (!k || !k.blad || !/\/ui\/blad\.html$/i.test(plik)) return { blad: 'To działa tylko na stronie błędu LivePL.' };
+  // AI może klikać w stronach, ale tej decyzji nie podejmie za człowieka
+  if (dostepAI.stan().dziala) return { blad: 'Tę decyzję podejmuje człowiek, nie AI. Gdy lampka „AI” zgaśnie, kliknij jeszcze raz.' };
+  try {
+    const url = await wyjatki.wejdz(k.wc, k.blad.url, !!trwale);
+    const a = hostZ(url) + (new URL(url).port ? ':' + new URL(url).port : '');
+    dodajWiadomosc(trwale
+      ? `Zapamiętano certyfikat ${a}. Wyjątek usuniesz w Ustawieniach → Wyjątki certyfikatów`
+      : `Wchodzisz na ${a} mimo błędu certyfikatu (do zamknięcia LivePL)`, {}, 20 * 1000);
+    laduj(k, url);
+    return { ok: true };
+  } catch (err) {
+    return { blad: err.message };
+  }
+});
 
 function napiszMail(mailto) {
   const p = programy.find(x => x.id === 'poczta');
@@ -1303,6 +1339,8 @@ function danePanelu() {
     folderDanych: app.getPath('userData'),
     pobrane: pobrane.slice(0, 12).map(p => ({ id: p.id, nazwa: p.nazwa, stan: p.stan, procent: p.procent || 0 })),
     ai: dostepAI.danePanelu(),
+    wyjatkiCertyfikatow: wyjatki.lista(),
+    dns: { tryb: bezpiecznyDns.tryb(ustawienia), dostawcy: bezpiecznyDns.dostawcy() },
     karta: kp ? { id: kp.id, adres: kp.blad ? kp.blad.url : kp.adres, nowa: !!kp.nowa, inne: dodatkowe.length > 1, przypinalna: !kp.nowa && /^https?:/i.test(kp.adres || '') } : null
   };
 }
@@ -1414,7 +1452,7 @@ function otworzOknoLicencji() {
 const ZOSTAW_OTWARTY = ['cert-osobisty-odswiez', 'zaufanie-odswiez', 'strona-dodaj', 'strona-nazwa', 'strona-usun',
   'haslo-usun', 'haslo-nigdy-usun', 'hasla-wlacz', 'hasla-odswiez', 'cert-win-odswiez', 'cert-win-kopiuj',
   'urzadzenie-zarejestruj', 'urzadzenie-sprawdz', 'zoom-', 'zoom+', 'zoom0', 'tlo', 'autostart', 'pobrany-anuluj', 'aktualizacje-sprawdz', 'aktualizacje-pobierz', 'auto-aktualizacje',
-  'ai-poziom', 'ai-claude', 'ai-kopiuj-code', 'ai-kopiuj-mcp'];
+  'ai-poziom', 'ai-claude', 'ai-kopiuj-code', 'ai-kopiuj-mcp', 'wyjatek-usun', 'dns'];
 
 function akcjaPanelu(nazwa, arg) {
   if (nazwa === 'podpis-tak' || nazwa === 'podpis-nie') {
@@ -1462,6 +1500,25 @@ function akcjaPanelu(nazwa, arg) {
     case 'ai-kopiuj-code': clipboard.writeText(dostepAI.polecenieClaudeCode()); dodajWiadomosc('Skopiowano polecenie dla Claude Code: wklej je w terminalu'); break;
     case 'ai-kopiuj-mcp': clipboard.writeText(dostepAI.tekstKonfiguracji()); dodajWiadomosc('Skopiowano ustawienia MCP: wklej je w ustawieniach swojego AI'); break;
     case 'licencje': otworzOknoLicencji(); break;
+    // ustawienia → Wyjątki certyfikatów (też okienko kłódki na stronie otwartej mimo błędu)
+    case 'wyjatek-usun':
+      if (typeof arg === 'string' && wyjatki.usun(arg)) {
+        dodajWiadomosc(`Usunięto wyjątek certyfikatu dla ${arg}`);
+        // otwarte strony z tego adresu wczytują się od nowa i znowu pokazują ostrzeżenie
+        for (const x of karty.values()) {
+          const a = wyjatki.adresZ(x.blad ? x.blad.url : x.adres);
+          if (a && a.klucz === arg) odswiez(x, false);
+        }
+      }
+      break;
+    case 'dns': {
+      if (!['wylaczony', ...bezpiecznyDns.dostawcy().map(d => d.id)].includes(arg)) break;
+      ustawienia.dns = arg;
+      zapiszUstawienia();
+      bezpiecznyDns.zastosuj(ustawienia, session.fromPartition(PARTYCJA));
+      dodajWiadomosc(arg === 'wylaczony' ? 'Bezpieczny DNS wyłączony: adresy stron podaje DNS z Windows' : `Bezpieczny DNS włączony: ${bezpiecznyDns.nazwa(arg)}`);
+      break;
+    }
     case 'cert-osobisty-odswiez':
       certOsobisty.lista().catch(() => {}).then(() => wyslijDoPanelu());
       break;
@@ -2222,6 +2279,10 @@ app.whenReady().then(() => {
   uprawnienia(ses);
   obslugaPobierania(ses);
   naszeCA.wlacz(ses);
+  // błąd certyfikatu: domyślnie blokada; wejście mimo to tylko po świadomej decyzji na stronie błędu
+  wyjatki.uruchom({ ustawienia: () => ustawienia, zapiszUstawienia, sesja: () => ses });
+  app.on('certificate-error', wyjatki.bladCertyfikatu);
+  bezpiecznyDns.zastosuj(ustawienia);
 
   Menu.setApplicationMenu(null);
   ikonyWedlugTrybuOdRazu();

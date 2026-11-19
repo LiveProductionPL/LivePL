@@ -1,7 +1,7 @@
 {
   "name": "przegladarka-livepl",
   "productName": "LivePL",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Przeglądarka LivePL – poczta, strefa klienta, Sevetoo i panel w jednym oknie",
   "author": "Karol Kowalski",
   "license": "MIT",

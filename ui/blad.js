@@ -10,9 +10,13 @@ const nazwa = q.get('nazwa') || '';
 const opisChromium = q.get('opis') || '';
 const proba = Math.max(0, Number(q.get('proba')) || 0);
 const n = Number(kod);
+// błąd certyfikatu: co LivePL widział i czy wolno wejść mimo to (podaje main.js)
+let cert = null;
+try { cert = JSON.parse(q.get('certyfikat') || 'null'); } catch { cert = null; }
 
 let host = adres;
-try { host = new URL(adres).host || adres; } catch { /* zostaje adres */ }
+let samHost = adres;
+try { host = new URL(adres).host || adres; samHost = new URL(adres).hostname || adres; } catch { /* zostaje adres */ }
 const http = /^https?:/i.test(adres);
 
 // nazwy błędów Chromium do szczegółów, gdy strona nie podała własnego opisu
@@ -112,10 +116,21 @@ if (kod === 'awaria') {
     rady: [
       ...(n === -201 ? ['Sprawdź, czy data i godzina w komputerze są dobre.'] : []),
       'Nie wpisuj na tej stronie haseł ani danych.',
-      'Jeśli to nasz serwer, sprawdź certyfikat w DirectAdminie.'
+      'Jeśli to nasz serwer, sprawdź certyfikat w DirectAdminie.',
+      ...(cert && cert.powod === 'nasza' ? ['To adres Live Production: tu LivePL nigdy nie wpuści z błędnym certyfikatem. Daj znać informatykowi.'] : []),
+      ...(cert && cert.powod === 'hsts' ? ['Ta strona wymaga zawsze bezpiecznego połączenia (HSTS), więc nie da się wejść mimo błędu.'] : []),
+      ...(cert && cert.powod === 'nie-wiem' ? ['LivePL nie zdążył sprawdzić, czy ta strona wymaga bezpiecznego połączenia. Spróbuj za chwilę.'] : [])
     ],
     ponawiaj: false
   };
+  // certyfikat jest dobry, ale dla innej nazwy (np. strona otwarta po adresie IP): podpowiadamy tę nazwę
+  if (n === -200 && cert && Array.isArray(cert.nazwy)) {
+    const nazwa = cert.nazwy.find(x => /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(x));
+    if (nazwa) {
+      r.opis = ['Certyfikat strony ', H, ' jest wystawiony dla ', { b: nazwa }, ', a nie dla tego adresu, więc LivePL ją zatrzymał, żeby chronić Twoje dane.'];
+      r.innaNazwa = nazwa;
+    }
+  }
 } else if (n === -310) {
   r = {
     mina: 'zdziwiony',
@@ -214,6 +229,7 @@ const szczegoly = [];
 if (adres) szczegoly.push(['Adres', adres]);
 if (kod && kod !== 'awaria') szczegoly.push(['Błąd', `${opisChromium || NAZWY[kod] || 'ERR'} (${kod})`]);
 if (kod === 'awaria' && opisChromium) szczegoly.push(['Powód', opisChromium]);
+if (cert && cert.odcisk) szczegoly.push(['Odcisk SHA-256', cert.odcisk]);
 if (proba) szczegoly.push(['Próba', String(proba + 1)]);
 szczegoly.push(['Godzina', new Date().toLocaleTimeString('pl-PL')]);
 for (const [dt, dd] of szczegoly) {
@@ -240,6 +256,88 @@ if (http) {
   ponow.addEventListener('click', (e) => { e.preventDefault(); wczytajPonownie(); });
 } else {
   ponow.hidden = true;
+}
+
+// ten sam adres pod nazwą z certyfikatu (port i ścieżka zostają)
+if (r.innaNazwa && http) {
+  try {
+    const u = new URL(adres);
+    u.hostname = r.innaNazwa;
+    const b = $('nazwa-certyfikatu');
+    b.href = u.href;
+    b.textContent = `Otwórz ${u.host}`;
+    b.title = u.href;
+    b.hidden = false;
+  } catch { /* zły adres: bez podpowiedzi */ }
+}
+
+// ---------------------------------------------------------------- wejście mimo błędu certyfikatu
+
+function dataPL(ms) {
+  const d = new Date(ms);
+  return String(d.getDate()).padStart(2, '0') + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + d.getFullYear();
+}
+
+if (cert && cert.mozna && cert.odcisk && window.liveplBlad && /^https:/i.test(adres)) {
+  const sekcja = $('obejscie');
+  const pokaz = $('obejscie-pokaz');
+  const panel = $('obejscie-panel');
+  $('obejscie-ikona').innerHTML = ikona('uwaga');
+  $('obejscie-ostrzezenie').textContent =
+    `LivePL nie może sprawdzić, czy to naprawdę ${samHost}. Jeśli ktoś podsłuchuje tę sieć (np. publiczne Wi-Fi albo hotspot), ` +
+    'może podejrzeć albo zmienić wszystko, co tu zobaczysz i wpiszesz, także hasła. ' +
+    'Wejdź tylko wtedy, gdy wiesz, czyj to serwer i dlaczego certyfikat się nie zgadza (np. panel serwera otwierany po adresie IP).';
+  if (cert.zmieniony) {
+    const z = $('obejscie-zmieniony');
+    z.textContent = 'Uwaga: ten serwer pokazał inny certyfikat niż zapamiętany' +
+      (cert.zmieniony.dodano ? ` ${dataPL(cert.zmieniony.dodano)}` : '') +
+      '. Może to być nowy certyfikat serwera, ale też próba podszycia się pod niego. Jeśli wejdziesz, nowy certyfikat zastąpi zapamiętany.';
+    z.hidden = false;
+  }
+  const linie = [];
+  const dla = (Array.isArray(cert.nazwy) && cert.nazwy.length ? cert.nazwy.join(', ') : cert.dla) || '(brak nazwy)';
+  linie.push(['Wystawiony dla', dla]);
+  if (cert.wystawca) linie.push(['Wystawca', cert.samopodpisany ? `${cert.wystawca} (sam się podpisał)` : cert.wystawca]);
+  if (cert.waznyDo) linie.push(['Ważny', (cert.waznyOd ? dataPL(cert.waznyOd) + ' – ' : 'do ') + dataPL(cert.waznyDo)]);
+  linie.push(['Odcisk SHA-256', cert.odcisk]);
+  for (const [dt, dd] of linie) {
+    const a = document.createElement('dt'); a.textContent = dt;
+    const b = document.createElement('dd'); b.textContent = dd;
+    $('obejscie-cert').append(a, b);
+  }
+  $('obejscie-zawsze-opis').textContent = `dla ${host}; gdy serwer pokaże inny certyfikat, LivePL znowu ostrzeże`;
+
+  pokaz.addEventListener('click', () => {
+    panel.hidden = false;
+    pokaz.hidden = true;
+    pokaz.setAttribute('aria-expanded', 'true');
+    const pierwszy = panel.querySelector('input[name="jak"]:checked');
+    if (pierwszy) pierwszy.focus();
+    panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+  $('obejscie-anuluj').addEventListener('click', () => {
+    panel.hidden = true;
+    pokaz.hidden = false;
+    pokaz.setAttribute('aria-expanded', 'false');
+    pokaz.focus();
+  });
+  const wejdz = $('obejscie-wejdz');
+  const blad = $('obejscie-blad');
+  wejdz.addEventListener('click', async () => {
+    const trwale = (panel.querySelector('input[name="jak"]:checked') || {}).value === 'zawsze';
+    wejdz.disabled = true;
+    blad.hidden = true;
+    try {
+      const w = await window.liveplBlad.wejdz(trwale);
+      if (w && w.ok) { wejdz.textContent = 'Wczytuję…'; return; }
+      blad.textContent = (w && w.blad) || 'Nie udało się.';
+    } catch (e) {
+      blad.textContent = 'Nie udało się: ' + ((e && e.message) || e);
+    }
+    blad.hidden = false;
+    wejdz.disabled = false;
+  });
+  sekcja.hidden = false;
 }
 
 if (r.ponawiaj && http) {

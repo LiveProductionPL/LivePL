@@ -163,6 +163,8 @@ function ekranUstawienia() {
   f.appendChild(poz('serwer', 'Urządzenie LivePL', { dalej: true, klik: () => { ekran = 'urzadzenie'; rysuj(); P.akcja('urzadzenie-sprawdz'); } }));
   f.appendChild(poz('pinezka', 'Moje strony na pasku', { dalej: true, klik: () => { ekran = 'strony'; rysuj(); } }));
   f.appendChild(poz('klucz', 'Hasła', { dalej: true, klik: () => { ekran = 'hasla'; rysuj(); P.akcja('hasla-odswiez'); } }));
+  f.appendChild(poz('uwaga', 'Wyjątki certyfikatów', { dalej: true, klik: () => { ekran = 'wyjatki'; rysuj(); } }));
+  f.appendChild(poz('tarcza', 'Bezpieczny DNS', { dalej: true, klik: () => { ekran = 'dns'; rysuj(); } }));
   f.appendChild(poz('ai', 'Dostęp dla AI (Claude i inne)', { dalej: true, klik: () => { ekran = 'ai'; rysuj(); } }));
   f.appendChild(poz('przywroc', 'Uruchom LivePL ponownie', { akcja: 'restart' }));
   f.appendChild(kreska());
@@ -318,11 +320,18 @@ function ekranSsl() {
     brak: 'Dane między Tobą a stroną nie są szyfrowane. Nie wpisuj tu haseł ani danych klientów.',
     zly: 'LivePL zablokował tę stronę, bo jej certyfikat jest nieprawidłowy albo wystawił go nieznany urząd.'
   };
+  const w = s.stan === 'zly' ? s.wyjatek : null;
   const n = el('div', 'ssl-naglowek ' + (s.stan === 'ok' ? 'ok' : 'zly'));
   n.append(ikonaEl(s.stan === 'ok' ? 'klodka' : s.stan === 'brak' ? 'klodka-otwarta' : 'uwaga'), el('span', '', tytuly[s.stan] || ''));
   f.appendChild(n);
-  f.appendChild(el('div', 'opis', opisy[s.stan] || ''));
-  const linie = [['Strona', s.host]];
+  f.appendChild(el('div', 'opis', w
+    ? `Ta strona jest otwarta mimo ostrzeżenia (${w.trwaly ? 'zapamiętany certyfikat' : 'do zamknięcia LivePL'}). LivePL nie może potwierdzić, kto jest po drugiej stronie. Nie wpisuj tu haseł, jeśli nie musisz.`
+    : (opisy[s.stan] || '')));
+  const linie = [['Strona', w ? w.klucz : s.host]];
+  if (w) {
+    linie.push(['Odcisk SHA-256', w.odcisk]);
+    if (w.trwaly && w.dodano) linie.push(['Zapamiętano', dataPL(w.dodano)]);
+  }
   if (s.stan === 'ok' && s.wystawca) {
     linie.push(['Wystawca', s.nasz ? s.wystawca + ' (nasz urząd LivePL)' : [s.wystawca, s.wystawcaFirma].filter(Boolean).join(', ')]);
   }
@@ -331,13 +340,78 @@ function ekranSsl() {
     linie.push(['Ważny do', dataPL(s.waznyDo) + (dni >= 0 ? ' (jeszcze ' + dni + ' ' + (dni === 1 ? 'dzień' : 'dni') + ')' : '')]);
   }
   for (const [a, b] of linie) {
-    const l = el('div', 'linia');
+    const l = el('div', 'linia' + (a === 'Odcisk SHA-256' ? ' odcisk' : ''));
     l.append(el('span', '', a + ': '), el('b', '', b || ''));
     f.appendChild(l);
+  }
+  if (w) {
+    f.appendChild(kreska());
+    f.appendChild(poz('kosz', w.trwaly ? 'Usuń wyjątek i zablokuj znowu' : 'Cofnij wejście i zablokuj znowu', { akcja: 'wyjatek-usun', arg: w.klucz, czerwona: true }));
   }
   const odstep = el('div');
   odstep.style.height = '8px';
   f.appendChild(odstep);
+  return f;
+}
+
+// ustawienia → Wyjątki certyfikatów: strony otwierane mimo błędu certyfikatu (host:port + odcisk)
+function ekranWyjatki() {
+  const f = document.createDocumentFragment();
+  const lista = D.wyjatkiCertyfikatow || [];
+  f.appendChild(naglowek('Wyjątki certyfikatów', 'ustawienia'));
+  if (!lista.length) {
+    f.appendChild(el('div', 'opis', 'Nie ma zapamiętanych wyjątków. Gdy strona ma nieprawidłowy certyfikat, LivePL ją blokuje. Na stronie błędu możesz świadomie wejść mimo to i zapamiętać jej certyfikat.'));
+  }
+  for (const w of lista) {
+    const r = el('div', 'wiersz strona-wiersz');
+    const ik = el('span', 'ikonka-wiersza'); ik.appendChild(ikonaEl('uwaga'));
+    const opis = el('div', 'strona-opis');
+    const odcisk = String(w.odcisk || '').split(':').slice(0, 8).join(':') + '…';
+    const pod = [w.dla, w.dodano ? 'od ' + dataPL(w.dodano) : ''].filter(Boolean).join(' · ');
+    opis.append(el('b', 'haslo-host', w.klucz), el('div', 'strona-adres', pod), el('div', 'strona-adres odcisk', odcisk));
+    opis.title = 'Odcisk SHA-256: ' + w.odcisk;
+    const usun = el('button', 'maly usun-strone'); usun.type = 'button'; usun.title = 'Usuń wyjątek (strona znowu będzie zablokowana)';
+    usun.appendChild(ikonaEl('kosz'));
+    usun.addEventListener('click', () => P.akcja('wyjatek-usun', w.klucz));
+    r.append(ik, opis, usun);
+    f.appendChild(r);
+  }
+  f.appendChild(kreska());
+  f.appendChild(el('div', 'opis', 'Każdy wyjątek dotyczy jednego adresu z portem i jednego certyfikatu. Gdy serwer pokaże inny certyfikat, LivePL znowu ostrzeże. Dla adresów Live Production i stron z HSTS wyjątków nie ma.'));
+  return f;
+}
+
+// ustawienia → Bezpieczny DNS (DNS przez HTTPS)
+function ekranDns() {
+  const f = document.createDocumentFragment();
+  const d = D.dns || { tryb: 'wylaczony', dostawcy: [] };
+  f.appendChild(naglowek('Bezpieczny DNS', 'ustawienia'));
+  f.appendChild(el('div', 'opis', 'DNS zamienia adres strony (np. server.tvml.pl) na numer serwera. Zwykle robi to sieć, z której korzystasz, i czasem pamięta stare albo błędne wpisy. Bezpieczny DNS pyta zaufanego dostawcę przez szyfrowane połączenie.'));
+  const opcje = [
+    ['wylaczony', 'Wyłączony', 'DNS z Windows i Twojej sieci'],
+    ...d.dostawcy.map(x => [x.id, x.nazwa, x.id === 'cloudflare' ? '1.1.1.1, szyfrowany (DNS przez HTTPS)' : '8.8.8.8, szyfrowany (DNS przez HTTPS)'])
+  ];
+  for (const [id, tekst, podpis] of opcje) {
+    const wl = d.tryb === id;
+    const b = el('button', 'poz poz-wysoka');
+    b.type = 'button';
+    b.setAttribute('role', 'menuitemradio');
+    b.setAttribute('aria-checked', String(wl));
+    const pole = el('span', 'pole okragle' + (wl ? ' wl' : ''));
+    pole.appendChild(ikonaEl('znacznik'));
+    const t = el('span', 'tekst');
+    t.append(el('span', '', tekst), el('small', 'podpis-pozycji', podpis));
+    b.append(pole, t);
+    b.addEventListener('click', () => {
+      if (wl) return;
+      d.tryb = id;
+      P.akcja('dns', id);
+      rysuj();
+    });
+    f.appendChild(b);
+  }
+  f.appendChild(kreska());
+  f.appendChild(el('div', 'opis', 'Gdy dostawca nie odpowiada, LivePL sam wraca do DNS z Windows, więc strony nie przestają działać. Zmiana działa od razu.'));
   return f;
 }
 
@@ -946,6 +1020,8 @@ function rysuj() {
     'certyfikat-win': ekranCertyfikatWin,
     'hasla-wybor': ekranHaslaWybor,
     hasla: ekranHasla,
+    wyjatki: ekranWyjatki,
+    dns: ekranDns,
     podpis: ekranPodpis,
     karta: ekranKarta,
     ai: ekranAI

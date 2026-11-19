@@ -15,6 +15,13 @@ if (location.protocol === 'file:' && /\/ui\/nowa\.html$/i.test(location.pathname
   });
 }
 
+// strona błędu LivePL (plik ui/blad.html): „Wiem, co robię – wejdź mimo to” przy błędzie certyfikatu
+if (location.protocol === 'file:' && /\/ui\/blad\.html$/i.test(location.pathname)) {
+  contextBridge.exposeInMainWorld('liveplBlad', {
+    wejdz: (trwale) => ipcRenderer.invoke('blad:wejdz', !!trwale)
+  });
+}
+
 // logowanie do panelu urzędu: tylko na cert.livepl.eu (i adres testowy), resztę sprawdza LivePL
 if ((location.protocol === 'https:' && location.hostname === 'cert.livepl.eu') || location.hostname === '127.0.0.1') {
   contextBridge.exposeInMainWorld('liveplCA', {
