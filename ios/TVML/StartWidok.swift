@@ -184,10 +184,10 @@ struct BlokWidok: View {
         if !blok.ukryjTytul && !blok.tytul.isEmpty { Naglowek(tytul: blok.tytul) }
     }
 
-    /// Wpisy bloku: z kategorii z panelu albo kolejne najnowsze po karuzeli.
+    /// Wpisy bloku: z kategorii albo flagi z panelu, albo kolejne najnowsze po karuzeli.
     private var listaWpisow: [Artykul] {
         let limit = blok.limit > 0 ? blok.limit : 4
-        if let k = blok.kategoria { return Array((m.wKategorii[k] ?? []).prefix(limit)) }
+        if let k = blok.klucz { return Array((m.wKategorii[k] ?? []).prefix(limit)) }
         let karuzela = m.bloki.first { $0.typ == "hero" }.map { $0.limit > 0 ? $0.limit : 5 } ?? 0
         return Array(m.najnowsze.dropFirst(karuzela).prefix(limit))
     }
@@ -330,14 +330,24 @@ struct KartaArtykulu: View {
     }
 }
 
+/// Kategoria artykułu, a przed nią „PILNE” i po niej „SPONSOROWANE”, gdy redakcja tak oznaczyła artykuł (API 1.2).
 struct EtykietaKategorii: View {
     let artykul: Artykul
     var body: some View {
-        let tlo = artykul.kolorKategorii
-        Text(artykul.kategoria.uppercased())
+        HStack(spacing: 6) {
+            if artykul.pilne { znaczek("PILNE", tlo: Color(hex: "#c8102e"), napis: .white) }
+            if !artykul.kategoria.isEmpty {
+                znaczek(artykul.kategoria.uppercased(), tlo: artykul.kolorKategorii, napis: Kontrast.napis(na: artykul.kolor))
+            }
+            if artykul.sponsorowany { znaczek("SPONSOROWANE", tlo: Color(hex: "#5b6475"), napis: .white) }
+        }
+    }
+
+    private func znaczek(_ tekst: String, tlo: Color, napis: Color) -> some View {
+        Text(tekst)
             .font(.system(size: 11, weight: .heavy)).kerning(1)
             .padding(.horizontal, 10).padding(.vertical, 5)
-            .foregroundStyle(Kontrast.napis(na: artykul.kolor))
+            .foregroundStyle(napis)
             .background(tlo, in: RoundedRectangle(cornerRadius: 8))
     }
 }

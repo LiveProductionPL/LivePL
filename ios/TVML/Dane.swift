@@ -127,6 +127,7 @@ struct Artykul: Identifiable, Hashable {
     let zrodloZdjecia: String
     let tresc: String?
     let pilne: Bool
+    let sponsorowany: Bool
     /// Gotowe rozmiary obrazu z API v1 (400, 800, 1200).
     let warianty: [Int: String]
 
@@ -167,6 +168,7 @@ struct Artykul: Identifiable, Hashable {
         let t = j["contentHtml"] != nil ? j.s("contentHtml") : j.s("content")
         tresc = t.isEmpty ? nil : t
         pilne = j.slownik("flags").b("urgent")
+        sponsorowany = j.slownik("flags").b("sponsored")
     }
 
     var link: URL { URL(string: "https://tvml.pl/artykul/\(id)")! }
@@ -285,6 +287,12 @@ final class Magazyn: ObservableObject {
     @Published var gminy: [Gmina] = []
     @Published var kategorie: [KategoriaMenu] = KategoriaMenu.domyslne
     @Published var dzisiaj: Dzisiaj?
+    /// Komunikat redakcji z panelu (config.message) i prośba o aktualizację (config.minAppVersion.ios), od API 1.2.
+    @Published var komunikat: Komunikat?
+    @Published var wymaganaAktualizacja = false
+    @Published var zamknieteKomunikaty: [String] = UserDefaults.standard.stringArray(forKey: "tvml-zamkniete-komunikaty") ?? [] {
+        didSet { UserDefaults.standard.set(Array(zamknieteKomunikaty.suffix(50)), forKey: "tvml-zamkniete-komunikaty") }
+    }
     @Published var arkuszPogody = false
     @Published var arkuszWideo = false
     @Published var zapisane: [Int] = UserDefaults.standard.array(forKey: "tvml-zapisane") as? [Int] ?? [] {
@@ -345,10 +353,25 @@ final class Magazyn: ObservableObject {
         if !sub.isEmpty { kategorie = [.init(nazwa: "Wszystko", slug: nil), .init(nazwa: "Aktualności", slug: "aktualnosci")] + sub }
         let d0 = konf.slownik("today")
         if !d0.s("label").isEmpty { dzisiaj = Dzisiaj(etykieta: d0.s("label"), imieniny: (d0["nameDays"] as? [String]) ?? []) }
+        komunikat = Komunikat(konf.slownik("message"))
+        let minimalna = konf.slownik("minAppVersion").s("ios")
+        wymaganaAktualizacja = !minimalna.isEmpty && Wersja.starsza(Wersja.biezaca, niz: minimalna)
         if let j = (try? await b) as? Slownik { najczytniejsze = j.lista("items").map(Artykul.init) }
         if let j = (try? await d) as? Slownik { filmy = j.lista("items").map(Film.init) }
         if let j = (try? await e) as? Slownik, j["current"] != nil { pogoda = Pogoda(j) }
+        // listy bloków Start z kategorią albo flagą i fotorelacje, odświeżane razem z resztą
+        for b in bloki where b.typ == "posts" { await wpisy(b) }
+        if let g = bloki.first(where: { $0.typ == "gallery" }) { await fotorelacje(limit: g.limit) }
         return true
+    }
+
+    /// Wpisy bloku posts z kategorią albo flagą z panelu.
+    func wpisy(_ b: BlokStartu) async {
+        guard let klucz = b.klucz else { return }
+        var p = ["limit": String(b.limit > 0 ? b.limit : 4)]
+        if let k = b.kategoria { p["category"] = k }
+        if let f = b.filtr { p[f] = "1" }
+        if let j = (try? await Siec.v1("articles", p)) as? Slownik { wKategorii[klucz] = j.lista("items").map(Artykul.init) }
     }
 
     /// Zapas: te same akcje co strona (tvml-db.php i tvml-portal.php).
@@ -463,6 +486,40 @@ struct ZakladkaApp: Identifiable, Hashable {
     }
 }
 
+/// Komunikat redakcji (config.message): baner pod paskiem „NA ŻYWO”. Pilnego nie da się zamknąć.
+struct Komunikat: Equatable {
+    let id: String
+    let tytul: String
+    let tekst: String
+    let poziom: String
+    let link: URL?
+
+    init?(_ j: Slownik) {
+        tytul = Html.tekst(j.s("title"))
+        tekst = Html.tekst(j.s("text"))
+        guard !tekst.isEmpty || !tytul.isEmpty else { return nil }
+        if let koniec = ISO8601DateFormatter().date(from: j.s("until")), koniec < .now { return nil }
+        id = j.s("id").isEmpty ? tytul + "|" + tekst : j.s("id")
+        poziom = ["info", "warning", "urgent"].contains(j.s("level")) ? j.s("level") : "info"
+        link = j.s("link").isEmpty ? nil : URL(string: j.s("link"))
+    }
+
+    var pilny: Bool { poziom == "urgent" }
+}
+
+/// Porównanie wersji aplikacji („2.0” < „2.0.1” < „2.1”).
+enum Wersja {
+    static var biezaca: String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0" }
+    static func starsza(_ a: String, niz b: String) -> Bool {
+        let x = a.split(separator: ".").map { Int($0) ?? 0 }, y = b.split(separator: ".").map { Int($0) ?? 0 }
+        for i in 0..<max(x.count, y.count) {
+            let p = i < x.count ? x[i] : 0, q = i < y.count ? y[i] : 0
+            if p != q { return p < q }
+        }
+        return false
+    }
+}
+
 /// Blok ekranu Start z panelu (Page builder, wersja na telefon).
 struct BlokStartu: Identifiable, Hashable {
     let id: String
@@ -471,6 +528,8 @@ struct BlokStartu: Identifiable, Hashable {
     let ukryjTytul: Bool
     let limit: Int
     let kategoria: String?
+    /// Flaga z panelu dla bloku posts (API 1.3): sponsored, featured, urgent albo photoReport, filtr do /articles.
+    let filtr: String?
 
     static let domyslne: [BlokStartu] = [
         BlokStartu(id: "hero", typ: "hero", tytul: "", ukryjTytul: true, limit: 5, kategoria: nil),
@@ -480,21 +539,27 @@ struct BlokStartu: Identifiable, Hashable {
         BlokStartu(id: "video", typ: "video", tytul: "Wideo", ukryjTytul: false, limit: 6, kategoria: nil)
     ]
 
-    init(id: String, typ: String, tytul: String, ukryjTytul: Bool, limit: Int, kategoria: String?) {
+    init(id: String, typ: String, tytul: String, ukryjTytul: Bool, limit: Int, kategoria: String?, filtr: String? = nil) {
         self.id = id; self.typ = typ; self.tytul = tytul; self.ukryjTytul = ukryjTytul; self.limit = limit; self.kategoria = kategoria
+        self.filtr = filtr
     }
 
     init?(_ j: Slownik) {
         let p = j.slownik("props")
         let typ = j.s("type")
-        guard ["hero", "weather", "alert", "video", "posts", "mostread", "gallery", "counties", "social"].contains(typ) else { return nil }
-        self.typ = typ
+        guard ["hero", "weather", "alert", "video", "posts", "mostread", "gallery", "counties", "social", "sponsored"].contains(typ) else { return nil }
+        // „sponsored” z kreatora to lista artykułów sponsorowanych, rysowana jak posts
+        self.typ = typ == "sponsored" ? "posts" : typ
         id = j.s("id").isEmpty ? UUID().uuidString : j.s("id")
         tytul = j.s("title")
         ukryjTytul = p.b("hideTitle")
         limit = p.i("limit")
         kategoria = p.s("category").isEmpty ? nil : p.s("category")
+        filtr = typ == "sponsored" ? "sponsored" : ["sponsored", "featured", "urgent", "photoReport"].first { p.b($0) }
     }
+
+    /// Klucz własnej listy bloku posts (kategoria albo flaga); nil, gdy blok pokazuje kolejne najnowsze.
+    var klucz: String? { kategoria == nil && filtr == nil ? nil : "blok:\(kategoria ?? ""):\(filtr ?? "")" }
 }
 
 struct Gmina: Identifiable, Hashable {

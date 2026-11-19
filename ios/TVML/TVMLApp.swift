@@ -41,6 +41,7 @@ struct Glowny: View {
             .tint(m.motyw.akcent)
         }
         .background(Barwy.tlo)
+        .overlay { if m.wymaganaAktualizacja { EkranAktualizacji() } }
         .sheet(isPresented: $m.arkuszPogody) { NavigationStack { PogodaWidok().toolbar(.hidden, for: .navigationBar) } }
         .sheet(isPresented: $m.arkuszWideo) { NavigationStack { WideoWidok().toolbar(.hidden, for: .navigationBar) } }
         .task {
@@ -151,8 +152,78 @@ struct Baner: View {
                 }
             }
             NaZywo()
+            if let k = m.komunikat, k.pilny || !m.zamknieteKomunikaty.contains(k.id) { BanerKomunikatu(komunikat: k) }
         }
         .sheet(isPresented: $szukaj) { SzukajWidok() }
+    }
+}
+
+/// Komunikat redakcji z panelu: informacja, ostrzeżenie albo pilny. Stuknięcie otwiera link, krzyżyk zamyka (poza pilnym).
+struct BanerKomunikatu: View {
+    @EnvironmentObject private var m: Magazyn
+    @Environment(\.openURL) private var otworz
+    @Environment(\.colorScheme) private var schemat
+    let komunikat: Komunikat
+
+    var body: some View {
+        let (tlo, napis, ikona) = wyglad
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: ikona).font(.system(size: 15, weight: .bold)).padding(.top, 1)
+            VStack(alignment: .leading, spacing: 2) {
+                if !komunikat.tytul.isEmpty { Text(komunikat.tytul).font(.system(size: 14, weight: .bold)) }
+                if !komunikat.tekst.isEmpty { Text(komunikat.tekst).font(.system(size: 13)).lineLimit(3) }
+                if komunikat.link != nil { Text("Więcej").font(.system(size: 13, weight: .semibold)).underline() }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if !komunikat.pilny {
+                Button { m.zamknieteKomunikaty.append(komunikat.id) } label: {
+                    Image(systemName: "xmark").font(.system(size: 13, weight: .bold)).frame(width: 32, height: 32)
+                }
+                .accessibilityLabel("Zamknij komunikat")
+            }
+        }
+        .foregroundStyle(napis)
+        .padding(.leading, 16).padding(.trailing, komunikat.pilny ? 16 : 6).padding(.vertical, 10)
+        .background(tlo)
+        .contentShape(Rectangle())
+        .onTapGesture { if let l = komunikat.link { otworz(l) } }
+    }
+
+    private var wyglad: (Color, Color, String) {
+        let ciemny = schemat == .dark
+        switch komunikat.poziom {
+        case "urgent": return (Color(hex: "#c8102e"), .white, "exclamationmark.octagon.fill")
+        case "warning": return ciemny ? (Color(hex: "#3a2a0a"), Color(hex: "#f5c463"), "exclamationmark.triangle.fill")
+                                      : (Color(hex: "#fdf1dc"), Color(hex: "#7a4a00"), "exclamationmark.triangle.fill")
+        default: return ciemny ? (Color(hex: "#0f2140"), Color(hex: "#dbe4f3"), "info.circle.fill")
+                               : (Color(hex: "#e8f0fe"), Color(hex: "#0a1f44"), "info.circle.fill")
+        }
+    }
+}
+
+/// Prośba o aktualizację, gdy panel ustawi wyższą minimalną wersję (config.minAppVersion.ios).
+struct EkranAktualizacji: View {
+    @Environment(\.openURL) private var otworz
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Spacer()
+            Image("LogoNoc").resizable().scaledToFit().frame(height: 56)
+            Text("Zaktualizuj aplikację TVML").font(.system(size: 22, weight: .bold))
+            Text("Ta wersja (\(Wersja.biezaca)) jest już nieaktualna. Pobierz nową z App Store, żeby dalej czytać wiadomości.")
+                .font(.system(size: 15)).multilineTextAlignment(.center).opacity(0.85)
+            Button { otworz(URL(string: "https://apps.apple.com/app/id1468277905")!) } label: {
+                Text("Otwórz App Store").font(.system(size: 16, weight: .bold))
+                    .frame(maxWidth: 320).frame(height: 50)
+                    .background(Color(hex: "#e29818"), in: RoundedRectangle(cornerRadius: 12))
+                    .foregroundStyle(Color(hex: "#1d1400"))
+            }
+            Spacer()
+        }
+        .padding(28)
+        .foregroundStyle(.white)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(hex: "#0a1f44").ignoresSafeArea())
     }
 }
 

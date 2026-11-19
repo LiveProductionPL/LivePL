@@ -45,7 +45,7 @@ const patch = (typ, id, attributes, relationships) =>
 const ENUMY = ['alcoholTobaccoOrDrugUseOrReferences', 'contests', 'gamblingSimulated', 'gunsOrOtherWeapons', 'horrorOrFearThemes',
   'matureOrSuggestiveThemes', 'medicalOrTreatmentInformation', 'profanityOrCrudeHumor', 'sexualContentGraphicAndNudity',
   'sexualContentOrNudity', 'violenceCartoonOrFantasy', 'violenceRealistic', 'violenceRealisticProlongedGraphicOrSadistic'];
-const LOGICZNE = ['gambling', 'lootBox', 'advertising', 'ageAssurance', 'healthOrWellnessTopics', 'parentalControls', 'userGeneratedContent', 'messagingAndChat', 'socialMedia'];
+const LOGICZNE = ['gambling', 'lootBox', 'advertising', 'ageAssurance', 'healthOrWellnessTopics', 'parentalControls', 'userGeneratedContent', 'messagingAndChat', 'socialMedia', 'sharedLocation', 'datingAndRelationships'];
 
 for (const [bundle, a] of Object.entries(META.aplikacje)) {
   if (tylko && bundle !== tylko) continue;
