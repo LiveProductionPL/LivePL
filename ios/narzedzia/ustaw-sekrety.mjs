@@ -33,6 +33,9 @@ if (fs.existsSync(profilPoczty)) sekrety.APPLE_PROFIL_POCZTA = fs.readFileSync(p
 // profil LivePL Connect, jeśli jest (apple-konfiguracja.mjs --bundle eu.livepl.connect …)
 const profilConnect = path.join(FOLDER, 'LivePL_Connect_App_Store.mobileprovision');
 if (fs.existsSync(profilConnect)) sekrety.APPLE_PROFIL_CONNECT = fs.readFileSync(profilConnect).toString('base64');
+// profil TVML (apple-konfiguracja.mjs --bundle com.LiveProduction.TVML …)
+const profilTvml = path.join(FOLDER, 'TVML_App_Store.mobileprovision');
+if (fs.existsSync(profilTvml)) sekrety.APPLE_PROFIL_TVML = fs.readFileSync(profilTvml).toString('base64');
 
 for (const [nazwa, wartosc] of Object.entries(sekrety)) {
   const w = spawnSync('gh', ['secret', 'set', nazwa, '--repo', REPO], { input: wartosc, encoding: 'utf8' });

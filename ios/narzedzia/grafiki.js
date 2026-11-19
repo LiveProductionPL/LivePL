@@ -232,5 +232,56 @@ app.whenReady().then(async () => {
     info: { author: 'xcode', version: 1 }
   });
   console.log('Grafiki Connect gotowe w', path.relative(KATALOG, CONNECT));
+
+  // ---------- TVML: logo z tvml.pl (ios/TVML/zrodla) na granacie; ikony zimowa i świąteczna jak w projekcie ----------
+  const TVML = path.join(KATALOG, 'ios', 'TVML', 'Assets.xcassets');
+  const ZRODLA = path.join(KATALOG, 'ios', 'TVML', 'zrodla');
+  zapiszJSON(path.join(TVML, 'Contents.json'), { info: { author: 'xcode', version: 1 } });
+  const logoTvml = 'data:image/png;base64,' + fs.readFileSync(path.join(ZRODLA, 'logo-noc.png')).toString('base64');
+  const BALWAN = `<g transform="translate(700 300) scale(5.2)"><circle cx="11" cy="20" r="7" fill="#f8fbff"/><circle cx="11" cy="10" r="5" fill="#f8fbff"/>
+<rect x="6" y="1" width="10" height="5" rx="1" fill="#0f3156"/><rect x="4" y="5" width="14" height="2" rx="1" fill="#0f3156"/>
+<path d="M11 11l3 1-3 1z" fill="#f97316"/><path d="M6 15h10" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/></g>`;
+  const CZAPKA = `<g transform="translate(690 270) rotate(14) scale(6)"><path d="M3 19C7 8 15 3 24 5c-2 4-1 8 2 12z" fill="#c8102e"/>
+<rect x="1" y="17" width="24" height="5" rx="2.5" fill="#f8fafc"/><circle cx="25" cy="5" r="3.2" fill="#f8fafc"/></g>
+<g transform="translate(150 150) scale(4)"><path d="M12 1l2.6 7.4L22 11l-7.4 2.6L12 21l-2.6-7.4L2 11l7.4-2.6z" fill="#e0b45a"/></g>`;
+  const PLATKI = [[150, 130], [770, 110], [480, 820], [120, 700], [860, 760], [300, 900], [690, 880]]
+    .map(([x, y], i) => `<circle cx="${x}" cy="${y}" r="${i % 2 ? 12 : 16}" fill="#ffffff"/>`).join('');
+  const ikonaTvml = (tlo, dodatki, linia) => `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024" width="1024" height="1024">
+<defs><linearGradient id="t" x1="0" y1="0" x2="0.4" y2="1">${tlo.map((k, i) => `<stop offset="${i / (tlo.length - 1)}" stop-color="${k}"/>`).join('')}</linearGradient></defs>
+<rect width="1024" height="1024" fill="url(#t)"/>${dodatki.tlo || ''}
+<image href="${logoTvml}" x="187" y="365" width="650" height="303" preserveAspectRatio="xMidYMid meet"/>${dodatki.wierzch || ''}
+${linia ? `<rect x="0" y="1000" width="1024" height="24" fill="${linia}"/>` : ''}</svg>`;
+  for (const [nazwa, svg] of [
+    ['AppIcon', ikonaTvml(['#12306a', '#0a1f44', '#061430'], {}, null)],
+    ['IkonaZima', ikonaTvml(['#040d1a', '#0a1e38', '#0f3156'], { tlo: PLATKI, wierzch: BALWAN }, '#38bdf8')],
+    ['IkonaSwieta', ikonaTvml(['#2b0b12', '#14070c'], { wierzch: CZAPKA }, '#e0b45a')]
+  ]) {
+    const dir = path.join(TVML, `${nazwa}.appiconset`);
+    fs.mkdirSync(dir, { recursive: true });
+    const plik = `${nazwa.toLowerCase()}.png`;
+    fs.writeFileSync(path.join(dir, plik), pngRGB(1024, 1024, await rysuj(svg, 1024, 1024, 'rgba')));
+    zapiszJSON(path.join(dir, 'Contents.json'), {
+      images: [{ filename: plik, idiom: 'universal', platform: 'ios', size: '1024x1024' }],
+      info: { author: 'xcode', version: 1 }
+    });
+  }
+  for (const [nazwa, plik, skala] of [['LogoNoc', 'logo-noc.png', '2x'], ['LogoStartu', 'logo-noc.png', '2x'], ['LogoZaloba', 'logo-zaloba-noc.png', '3x']]) {
+    const dir = path.join(TVML, `${nazwa}.imageset`);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.copyFileSync(path.join(ZRODLA, plik), path.join(dir, plik));
+    zapiszJSON(path.join(dir, 'Contents.json'), { images: [{ filename: plik, idiom: 'universal', scale: skala }], info: { author: 'xcode', version: 1 } });
+  }
+  zapiszJSON(path.join(TVML, 'TloStartu.colorset', 'Contents.json'), {
+    colors: [{ idiom: 'universal', color: kolor('0x0A', '0x1F', '0x44') }],
+    info: { author: 'xcode', version: 1 }
+  });
+  zapiszJSON(path.join(TVML, 'AccentColor.colorset', 'Contents.json'), {
+    colors: [
+      { idiom: 'universal', color: kolor('0x0A', '0x1F', '0x44') },
+      { idiom: 'universal', appearances: [{ appearance: 'luminosity', value: 'dark' }], color: kolor('0xE2', '0x98', '0x18') }
+    ],
+    info: { author: 'xcode', version: 1 }
+  });
+  console.log('Grafiki TVML gotowe w', path.relative(KATALOG, TVML));
   app.quit();
 });

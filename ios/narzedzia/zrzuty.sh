@@ -1,6 +1,6 @@
 #!/bin/bash
 # Zrzuty ekranu LivePL z symulatora iPhone'a (na Macach GitHuba, po zbudowaniu na symulator).
-#   ios/narzedzia/zrzuty.sh <ścieżka do LivePL.app> <folder na zrzuty> [Poczta.app] [Connect.app]
+#   ios/narzedzia/zrzuty.sh <ścieżka do LivePL.app> <folder na zrzuty> [Poczta.app] [Connect.app] [TVML.app]
 set -euo pipefail
 
 APP="$1"
@@ -74,6 +74,17 @@ if [ -n "${4:-}" ] && [ -d "$4" ]; then
   zrzut 10-connect-noc dark
 fi
 
+# TVML (piąty argument: ścieżka do TVML.app)
+if [ -n "${5:-}" ] && [ -d "$5" ]; then
+  xcrun simctl terminate "$UDID" "$ID" 2>/dev/null || true
+  ID="com.LiveProduction.TVML"
+  xcrun simctl install "$UDID" "$5"
+  zrzut 11-tvml-dzien light
+  zrzut 12-tvml-noc dark
+  zrzut 13-tvml-pogoda light -ekran pogoda
+  zrzut 14-tvml-artykul light -ekran artykul
+fi
+
 # dziennik aplikacji z ostatnich minut (błędy WebKit, SwiftUI)
 xcrun simctl spawn "$UDID" log show --last 5m --style compact \
-  --predicate 'process == "LivePL" OR process == "Poczta" OR process == "Connect"' > "$WYJSCIE/dziennik.txt" 2>/dev/null || true
+  --predicate 'process == "LivePL" OR process == "Poczta" OR process == "Connect" OR process == "TVML"' > "$WYJSCIE/dziennik.txt" 2>/dev/null || true

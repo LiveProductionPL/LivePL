@@ -1,0 +1,262 @@
+import SwiftUI
+
+/// TVML 2.0: serwis informacyjny tvml.pl na iPhone'a i iPada.
+/// Baner (logo, pogoda, szukaj, pasek „NA ŻYWO”) jest nad wszystkimi ekranami, a jego wygląd zmienia się
+/// razem z wersją ustawioną w panelu (zima, święta, Sylwester, 11 Listopada, żałoba).
+@main
+struct TVMLApp: App {
+    @StateObject private var magazyn = Magazyn()
+    @AppStorage("tvml-wyglad") private var wyglad = "auto"
+
+    var body: some Scene {
+        WindowGroup {
+            Glowny()
+                .environmentObject(magazyn)
+                .preferredColorScheme(wyglad == "dzien" ? .light : (wyglad == "noc" ? .dark : nil))
+        }
+    }
+}
+
+struct Glowny: View {
+    @EnvironmentObject private var m: Magazyn
+    @Environment(\.scenePhase) private var faza
+    /// Do zrzutów ekranu: -ekran pogoda|artykul|wideo|wiecej, -motyw zima|wigilia|…
+    private let ekranStartowy = UserDefaults.standard.string(forKey: "ekran")
+    private let motywTestowy = Motyw.zArgumentu(UserDefaults.standard.string(forKey: "motyw"))
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Baner()
+            TabView(selection: $m.zakladka) {
+                zakladka(.start) { StartWidok() }
+                    .tabItem { Label("Start", systemImage: "house") }
+                    .tag(Zakladka.start)
+                zakladka(.sport) { ListaKategorii(slug: "sport", tytul: "Sport") }
+                    .tabItem { Label("Sport", systemImage: "sportscourt") }
+                    .tag(Zakladka.sport)
+                zakladka(.wideo) { WideoWidok() }
+                    .tabItem { Label("Wideo", systemImage: "play.rectangle") }
+                    .tag(Zakladka.wideo)
+                zakladka(.pogoda) { PogodaWidok() }
+                    .tabItem { Label("Pogoda", systemImage: "cloud.sun") }
+                    .tag(Zakladka.pogoda)
+                zakladka(.wiecej) { WiecejWidok() }
+                    .tabItem { Label("Więcej", systemImage: "square.grid.2x2") }
+                    .tag(Zakladka.wiecej)
+            }
+            .tint(m.motyw.akcent)
+        }
+        .background(Barwy.tlo)
+        .task {
+            if ekranStartowy == "pogoda" { m.zakladka = .pogoda }
+            if ekranStartowy == "wideo" { m.zakladka = .wideo }
+            if ekranStartowy == "wiecej" { m.zakladka = .wiecej }
+            await m.odswiez(wymus: true)
+            if let motywTestowy { m.motyw = motywTestowy }
+            if ekranStartowy == "artykul", let pierwszy = m.najnowsze.first { m.otworz(pierwszy) }
+        }
+        .onChange(of: faza) { _, nowa in
+            guard nowa == .active else { return }
+            Task {
+                await m.odswiez()
+                if let motywTestowy { m.motyw = motywTestowy }
+            }
+        }
+        .onChange(of: m.motyw) { _, nowy in
+            guard motywTestowy == nil else { return }
+            ustawIkone(nowy.ikona)
+        }
+    }
+
+    private func zakladka<Tresc: View>(_ z: Zakladka, @ViewBuilder tresc: () -> Tresc) -> some View {
+        NavigationStack(path: m.sciezka(z)) {
+            tresc()
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(for: Artykul.self) { ArtykulWidok(poczatkowy: $0) }
+        }
+    }
+
+    /// Ikona zimowa i świąteczna są w aplikacji. Panel wybiera je przez wersję wyglądu, iOS pokazuje wtedy komunikat.
+    private func ustawIkone(_ nazwa: String?) {
+        let app = UIApplication.shared
+        guard app.supportsAlternateIcons, app.applicationState == .active, app.alternateIconName != nazwa else { return }
+        app.setAlternateIconName(nazwa) { _ in }
+    }
+}
+
+extension Magazyn {
+    func sciezka(_ z: Zakladka) -> Binding<[Artykul]> {
+        Binding(get: { self.sciezki[z] ?? [] }, set: { self.sciezki[z] = $0 })
+    }
+
+    func otworz(_ a: Artykul) {
+        sciezki[zakladka, default: []].append(a)
+    }
+}
+
+/// Baner nad każdym ekranem: pasek życzeń z panelu, logo z ozdobą, pogoda, szukaj i pasek „NA ŻYWO”.
+struct Baner: View {
+    @EnvironmentObject private var m: Magazyn
+    @State private var szukaj = false
+
+    var body: some View {
+        let motyw = m.motyw
+        VStack(spacing: 0) {
+            if let pasek = motyw.pasek {
+                PasekZyczen(pasek: pasek, motyw: motyw)
+                    .background(LinearGradient(colors: motyw.tloPaska, startPoint: .top, endPoint: .bottom).ignoresSafeArea(edges: .top))
+            }
+            HStack(spacing: 8) {
+                Button { m.zakladka = .start; m.sciezki[.start] = [] } label: {
+                    Image(motyw.logo)
+                        .resizable().scaledToFit()
+                        .frame(height: 40)
+                        .overlay(alignment: .topTrailing) { OzdobaLogo(motyw: motyw) }
+                }
+                .accessibilityLabel("Telewizja TVML, strona główna")
+                Spacer()
+                Button { m.zakladka = .pogoda } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: ikonaPogody(m.pogoda?.ikona ?? "cloud"))
+                        Text(m.pogoda.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–")
+                    }
+                    .font(.system(size: 14, weight: .semibold))
+                    .padding(.horizontal, 12).frame(height: 36)
+                    .background(.white.opacity(0.12), in: Capsule())
+                }
+                .accessibilityLabel("Pogoda")
+                Button { szukaj = true } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: 44, height: 44)
+                        .background(.white.opacity(0.12), in: Circle())
+                }
+                .accessibilityLabel("Szukaj")
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 10)
+            .background {
+                ZStack {
+                    LinearGradient(colors: motyw.naglowek, startPoint: .top, endPoint: .bottom)
+                    if motyw.snieg || motyw.iskry { Platki(kolor: motyw.kolorPlatkow, iskry: motyw.iskry) }
+                }
+                .ignoresSafeArea(edges: motyw.pasek == nil ? .top : [])
+            }
+            .overlay(alignment: .bottom) {
+                if let linia = motyw.linia { linia.frame(height: 2) }
+            }
+            NaZywo()
+        }
+        .sheet(isPresented: $szukaj) { SzukajWidok() }
+    }
+}
+
+struct PasekZyczen: View {
+    let pasek: Motyw.Pasek
+    let motyw: Motyw
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Gwiazda().fill(motyw.zlotoPaska).frame(width: 12, height: 12)
+                Text(pasek.etykieta).font(.system(size: 11, weight: .heavy)).kerning(1.4)
+            }
+            .foregroundStyle(motyw.zlotoPaska)
+            Text(pasek.tekst).font(.system(size: 13)).foregroundStyle(Color(hex: "#f6efe3"))
+            if let doKiedy = pasek.odliczanieDo {
+                TimelineView(.periodic(from: .now, by: 1)) { kontekst in
+                    Text("● ODLICZANIE DO \(Calendar.current.component(.year, from: doKiedy).formatted(.number.grouping(.never))) • \(Odliczanie.tekst(od: kontekst.date, do: doKiedy))")
+                        .font(.system(size: 11, weight: .bold)).kerning(1)
+                        .foregroundStyle(motyw.zlotoPaska)
+                }
+            } else if let stopka = pasek.stopka {
+                Text(stopka).font(.system(size: 11, weight: .bold)).kerning(1).foregroundStyle(motyw.zlotoPaska)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 18).padding(.top, 6).padding(.bottom, 12)
+    }
+}
+
+enum Odliczanie {
+    static func tekst(od: Date, do koniec: Date) -> String {
+        let s = max(0, Int(koniec.timeIntervalSince(od)))
+        return String(format: "%dD %02d:%02d:%02d", s / 86400, (s % 86400) / 3600, (s % 3600) / 60, s % 60)
+    }
+}
+
+/// Pasek „NA ŻYWO”: najnowsze wiadomości przesuwają się jak na stronie. Stuknięcie otwiera pierwszą z nich.
+struct NaZywo: View {
+    @EnvironmentObject private var m: Magazyn
+    @State private var szerokosc: CGFloat = 1
+
+    var body: some View {
+        let tekst = m.pasek.map(\.tytul).joined(separator: "     •     ")
+        HStack(spacing: 0) {
+            HStack(spacing: 6) {
+                Circle().fill(.white).frame(width: 8, height: 8)
+                Text("NA ŻYWO").font(.system(size: 11, weight: .heavy)).kerning(1)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12).frame(maxHeight: .infinity)
+            .background(m.motyw.naZywo)
+            TimelineView(.animation(minimumInterval: 1.0 / 30)) { kontekst in
+                let przesuniecie = CGFloat(kontekst.date.timeIntervalSinceReferenceDate * 40).truncatingRemainder(dividingBy: szerokosc + 60)
+                Text(tekst)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Barwy.tekst)
+                    .fixedSize()
+                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { szerokosc = max(1, $0) }
+                    .offset(x: 10 - przesuniecie)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .clipped()
+        }
+        .frame(height: 40)
+        .background(Barwy.karta)
+        .overlay(alignment: .bottom) { Barwy.ramka.frame(height: 1) }
+        .contentShape(Rectangle())
+        .onTapGesture { if let pierwszy = m.pasek.first { m.otworz(pierwszy) } }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Na żywo: \(m.pasek.first?.tytul ?? "")")
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// Śnieg albo iskry w banerze, delikatnie opadające.
+struct Platki: View {
+    let kolor: Color
+    let iskry: Bool
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20)) { kontekst in
+            Canvas { ctx, size in
+                let t = kontekst.date.timeIntervalSinceReferenceDate
+                for i in 0..<18 {
+                    let x0 = Double((i * 73) % 390) / 390 * size.width
+                    let szybkosc = 8 + Double(i % 5) * 3
+                    let y = (Double(i * 37 % 60) + t * szybkosc).truncatingRemainder(dividingBy: size.height + 10) - 5
+                    let x = x0 + sin(t * 0.8 + Double(i)) * 6
+                    let r = iskry ? 1.4 : (i % 3 == 0 ? 2.2 : 1.6)
+                    ctx.opacity = iskry ? 0.5 + 0.5 * sin(t * 3 + Double(i)) : 0.85
+                    ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: r * 2, height: r * 2)), with: .color(kolor))
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+func ikonaPogody(_ ikona: String) -> String {
+    let i = ikona.lowercased()
+    if i.contains("storm") || i.contains("thunder") { return "cloud.bolt.rain.fill" }
+    if i.contains("snow") { return "cloud.snow.fill" }
+    if i.contains("rain") || i.contains("sleet") || i.contains("hail") || i.contains("shower") { return "cloud.rain.fill" }
+    if i.contains("fog") { return "cloud.fog.fill" }
+    if i.contains("wind") { return "wind" }
+    if i.contains("night") { return "moon.stars.fill" }
+    if i.contains("cloud-sun") || i.contains("partly") { return "cloud.sun.fill" }
+    if i.contains("sun") || i.contains("clear") { return "sun.max.fill" }
+    return "cloud.fill"
+}

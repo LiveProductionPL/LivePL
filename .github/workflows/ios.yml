@@ -46,11 +46,11 @@ jobs:
           brew install xcodegen
           cd ios && xcodegen generate
 
-      - name: Budowa na symulator (LivePL, Poczta i Connect)
+      - name: Budowa na symulator (LivePL, Poczta, Connect i TVML)
         run: |
           set -o pipefail
           : > build.log
-          for SCHEMAT in LivePL Poczta Connect; do
+          for SCHEMAT in LivePL Poczta Connect TVML; do
             xcodebuild -project ios/LivePL.xcodeproj -scheme "$SCHEMAT" -configuration Debug \
               -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
               -derivedDataPath build CODE_SIGNING_ALLOWED=NO build 2>&1 | tee "build-$SCHEMAT.log" | grep -E "error:|warning:|BUILD" || true
@@ -66,7 +66,7 @@ jobs:
       - name: Zrzuty ekranu
         run: |
           P=build/Build/Products/Debug-iphonesimulator
-          bash ios/narzedzia/zrzuty.sh $P/LivePL.app zrzuty $P/Poczta.app $P/Connect.app
+          bash ios/narzedzia/zrzuty.sh $P/LivePL.app zrzuty $P/Poczta.app $P/Connect.app $P/TVML.app
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -104,7 +104,7 @@ jobs:
       - name: Budowa na symulator
         run: |
           set -o pipefail
-          for SCHEMAT in LivePL Poczta Connect; do
+          for SCHEMAT in LivePL Poczta Connect TVML; do
             xcodebuild -project ios/LivePL.xcodeproj -scheme "$SCHEMAT" -configuration Debug \
               -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
               -derivedDataPath build CODE_SIGNING_ALLOWED=NO build 2>&1 | grep -E "error:|BUILD" || true
@@ -133,6 +133,7 @@ jobs:
       APPLE_PROFIL: ${{ secrets.APPLE_PROFIL }}
       APPLE_PROFIL_POCZTA: ${{ secrets.APPLE_PROFIL_POCZTA }}
       APPLE_PROFIL_CONNECT: ${{ secrets.APPLE_PROFIL_CONNECT }}
+      APPLE_PROFIL_TVML: ${{ secrets.APPLE_PROFIL_TVML }}
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
       ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
@@ -147,6 +148,7 @@ jobs:
           done
           if [ -z "$APPLE_PROFIL_POCZTA" ]; then echo "::warning::Brak sekretu APPLE_PROFIL_POCZTA: Poczta LivePL nie pójdzie do TestFlight"; fi
           if [ -z "$APPLE_PROFIL_CONNECT" ]; then echo "::warning::Brak sekretu APPLE_PROFIL_CONNECT: LivePL Connect nie pójdzie do TestFlight"; fi
+          if [ -z "$APPLE_PROFIL_TVML" ]; then echo "::warning::Brak sekretu APPLE_PROFIL_TVML: TVML nie pójdzie do TestFlight"; fi
           exit $brak
 
       - name: Najnowszy Xcode
@@ -178,6 +180,7 @@ jobs:
             printf '%s' "$APPLE_PROFIL" | base64 --decode > "$d/livepl-app-store.mobileprovision"
             if [ -n "$APPLE_PROFIL_POCZTA" ]; then printf '%s' "$APPLE_PROFIL_POCZTA" | base64 --decode > "$d/poczta-app-store.mobileprovision"; fi
             if [ -n "$APPLE_PROFIL_CONNECT" ]; then printf '%s' "$APPLE_PROFIL_CONNECT" | base64 --decode > "$d/connect-app-store.mobileprovision"; fi
+            if [ -n "$APPLE_PROFIL_TVML" ]; then printf '%s' "$APPLE_PROFIL_TVML" | base64 --decode > "$d/tvml-app-store.mobileprovision"; fi
           done
 
       - name: Archiwum i wysyłka do App Store Connect
@@ -192,6 +195,8 @@ jobs:
           Poczta|Poczta LivePL App Store|ios/ExportOptions-poczta.plist"; fi
           if [ -n "$APPLE_PROFIL_CONNECT" ]; then APLIKACJE="$APLIKACJE
           Connect|LivePL Connect App Store|ios/ExportOptions-connect.plist"; fi
+          if [ -n "$APPLE_PROFIL_TVML" ]; then APLIKACJE="$APLIKACJE
+          TVML|TVML App Store|ios/ExportOptions-tvml.plist"; fi
           echo "$APLIKACJE" | while IFS='|' read -r SCHEMAT PROFIL OPCJE; do
             SCHEMAT=$(echo "$SCHEMAT" | xargs)
             echo "::group::$SCHEMAT"
@@ -208,5 +213,5 @@ jobs:
           security delete-keychain "$RUNNER_TEMP/livepl.keychain-db" 2>/dev/null || true
           rm -rf "$RUNNER_TEMP/asc"
           for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
-            rm -f "$d/livepl-app-store.mobileprovision" "$d/poczta-app-store.mobileprovision" "$d/connect-app-store.mobileprovision"
+            rm -f "$d/livepl-app-store.mobileprovision" "$d/poczta-app-store.mobileprovision" "$d/connect-app-store.mobileprovision" "$d/tvml-app-store.mobileprovision"
           done
