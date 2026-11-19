@@ -204,6 +204,48 @@ struct Motyw: Equatable {
         return .zwykly
     }
 
+    /// Wersja wyliczona przez serwer (API v1, pole theme). nil, gdy odpowiedź jej nie ma.
+    static func zV1(_ t: Slownik, teraz: Date = .now) -> Motyw? {
+        let id = t.s("id")
+        guard !id.isEmpty else { return nil }
+        let wariant = t.s("variant")
+        let miesiac = Calendar.current.component(.month, from: teraz)
+        let rodzaj: Rodzaj
+        switch id {
+        case "mourning", "zaloba": rodzaj = .zaloba
+        case "indep", "11listopada": rodzaj = .listopad
+        case "winter": rodzaj = .zima
+        case "xmas":
+            switch wariant {
+            case "mikolajki": rodzaj = .mikolajki
+            case "wigilia": rodzaj = .wigilia
+            case "swieta": rodzaj = .swieta
+            default: rodzaj = .czapeczka
+            }
+        case "nye": rodzaj = (wariant == "new_year" || wariant == "nowy_rok" || miesiac == 1) ? .nowyRok : .sylwester
+        default: rodzaj = .zwykly
+        }
+        var pasek: Pasek?
+        let p = t.slownik("topbar")
+        if !p.s("text").isEmpty {
+            let domyslna: String
+            switch rodzaj {
+            case .listopad: domyslna = "ŚWIĘTO NIEPODLEGŁOŚCI"
+            case .zima: domyslna = "ZIMA"
+            case .mikolajki: domyslna = "6 GRUDNIA · MIKOŁAJKI"
+            case .czapeczka, .wigilia, .swieta: domyslna = "BOŻE NARODZENIE"
+            case .sylwester: domyslna = "SYLWESTER"
+            case .nowyRok: domyslna = "NOWY ROK"
+            default: domyslna = "TVML"
+            }
+            pasek = Pasek(etykieta: p.s("label").isEmpty ? domyslna : p.s("label"),
+                          tekst: p.s("text"),
+                          stopka: p.s("foot").isEmpty ? nil : p.s("foot"),
+                          odliczanieDo: ISO8601DateFormatter().date(from: p.s("countdownTo")))
+        }
+        return Motyw(rodzaj: rodzaj, wariant: wariant, pasek: pasek)
+    }
+
     /// Do zrzutów i testów: -motyw zima itp.
     static func zArgumentu(_ nazwa: String?) -> Motyw? {
         guard let nazwa, let r = Rodzaj(rawValue: nazwa) else { return nil }

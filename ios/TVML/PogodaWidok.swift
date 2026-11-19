@@ -36,8 +36,11 @@ struct PogodaWidok: View {
                     Gwiazda().fill(Color(hex: "#e8c26a")).frame(width: 14, height: 14)
                         .frame(width: 30, height: 30).overlay(Circle().stroke(Color(hex: "#e8c26a"), lineWidth: 1.5))
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide).year().locale(Locale(identifier: "pl_PL"))))
+                        Text(m.dzisiaj?.etykieta ?? Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide).year().locale(Locale(identifier: "pl_PL"))))
                             .font(.system(size: 13, weight: .bold))
+                        if let imieniny = m.dzisiaj?.imieniny, !imieniny.isEmpty {
+                            Text("Imieniny: \(imieniny.joined(separator: ", "))").font(.system(size: 12)).foregroundStyle(Color(hex: "#c9d3e3"))
+                        }
                         Text("Wschód \(p?.wschod ?? "–") · zachód \(p?.zachod ?? "–")").font(.system(size: 12)).foregroundStyle(Color(hex: "#c9d3e3"))
                     }
                 }

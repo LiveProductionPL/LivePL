@@ -46,6 +46,33 @@ enum Siec {
         return try JSONSerialization.jsonObject(with: dane)
     }
 
+    /// API dla aplikacji (TVML Connect). Ładny adres /api/v1/ działa po restarcie serwera WWW, do tego czasu
+    /// tvml-app.php?route=. Aplikacja próbuje po kolei i zapamiętuje działający.
+    static let bazyApi = ["api/v1/", "tvml-app.php?route="]
+    static var dzialajacaBaza: String?
+
+    static func v1(_ trasa: String, _ parametry: [String: String] = [:]) async throws -> Any {
+        var znaki = CharacterSet.alphanumerics
+        znaki.insert(charactersIn: "-._~")
+        let zapytanie = parametry.sorted { $0.key < $1.key }
+            .map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: znaki) ?? "")" }
+            .joined(separator: "&")
+        let kolejnosc = dzialajacaBaza.map { d in [d] + bazyApi.filter { $0 != d } } ?? bazyApi
+        var ostatni: Error = URLError(.badURL)
+        for baza in kolejnosc {
+            let laczenie = baza.hasSuffix("route=") ? "&" : "?"
+            let sciezka = baza + trasa + (zapytanie.isEmpty ? "" : laczenie + zapytanie)
+            do {
+                let j = try await json(sciezka)
+                dzialajacaBaza = baza
+                return j
+            } catch {
+                ostatni = error
+            }
+        }
+        throw ostatni
+    }
+
     /// Mniejszy obraz w WebP z tego samego pośrednika co strona (img-webp-v2.php).
     static func obraz(_ adres: String, szerokosc: Int) -> URL? {
         guard !adres.isEmpty else { return nil }
@@ -99,26 +126,56 @@ struct Artykul: Identifiable, Hashable {
     let tagi: [String]
     let zrodloZdjecia: String
     let tresc: String?
+    let pilne: Bool
+    /// Gotowe rozmiary obrazu z API v1 (400, 800, 1200).
+    let warianty: [Int: String]
 
+    /// Przyjmuje artykuł z API v1 (image i category jako obiekty) albo ze starych akcji tvml-db.php.
     init(_ j: Slownik) {
-        id = j.i("id")
+        id = j["id"] != nil ? j.i("id") : j.i("articleId")
         tytul = Html.tekst(j.s("title"))
-        lead = Html.tekst(j.s("excerpt"))
-        obraz = j.s("image")
-        kategoria = Html.tekst(j.s("category"))
-        kolor = j.s("categoryColor")
-        autor = j.s("author")
-        data = Artykul.daty.date(from: j.s("date"))
-        komentarze = j.i("comments")
+        lead = Html.tekst(j["lead"] != nil ? j.s("lead") : j.s("excerpt"))
+        if let o = j["image"] as? Slownik {
+            obraz = o.s("url")
+            zrodloZdjecia = Html.tekst(o.s("source"))
+            var w: [Int: String] = [:]
+            for (k, v) in o.slownik("variants") { if let n = Int(k), let s = v as? String { w[n] = s } }
+            warianty = w
+        } else {
+            obraz = j.s("image")
+            zrodloZdjecia = Html.tekst(j.s("image_source"))
+            warianty = [:]
+        }
+        if let k = j["category"] as? Slownik {
+            kategoria = Html.tekst(k.s("name")); kolor = k.s("color")
+        } else {
+            kategoria = Html.tekst(j.s("category")); kolor = j.s("categoryColor")
+        }
+        autor = (j["author"] as? Slownik)?.s("name") ?? j.s("author")
+        if j["publishedAt"] != nil {
+            data = ISO8601DateFormatter().date(from: j.s("publishedAt"))
+        } else {
+            data = Artykul.daty.date(from: j.s("date"))
+        }
+        komentarze = j["commentsCount"] != nil ? j.i("commentsCount") : j.i("comments")
         odslony = j.i("views")
-        tagi = j.s("tags").split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        zrodloZdjecia = Html.tekst(j.s("image_source"))
-        let t = j.s("content")
+        if let t = j["tags"] as? [Slownik] {
+            tagi = t.map { $0.s("name") }.filter { !$0.isEmpty }
+        } else {
+            tagi = j.s("tags").split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        }
+        let t = j["contentHtml"] != nil ? j.s("contentHtml") : j.s("content")
         tresc = t.isEmpty ? nil : t
+        pilne = j.slownik("flags").b("urgent")
     }
 
     var link: URL { URL(string: "https://tvml.pl/artykul/\(id)")! }
-    func miniatura(_ szerokosc: Int = 600) -> URL? { Siec.obraz(obraz, szerokosc: szerokosc) }
+    func miniatura(_ szerokosc: Int = 600) -> URL? {
+        if let klucz = warianty.keys.sorted().first(where: { $0 >= szerokosc }) ?? warianty.keys.max(), let s = warianty[klucz] {
+            return URL(string: s)
+        }
+        return Siec.obraz(obraz, szerokosc: szerokosc)
+    }
     var kolorKategorii: Color { Color(hex: kolor, zapas: Barwy.zloto) }
 
     /// „1 dzień temu”, jak na stronie.
@@ -147,10 +204,10 @@ struct Film: Identifiable, Hashable {
     let obraz: URL?
     let data: String
     init(_ j: Slownik) {
-        id = j.s("id")
+        id = j.s("youtubeId").isEmpty ? j.s("id") : j.s("youtubeId")
         tytul = Html.tekst(j.s("title"))
-        obraz = URL(string: j.s("image"))
-        data = j.s("published")
+        obraz = URL(string: j.s("thumbnail").isEmpty ? j.s("image") : j.s("thumbnail"))
+        data = j.s("publishedAt").isEmpty ? j.s("published") : j.s("publishedAt")
     }
     var osadzenie: URL? { URL(string: "https://www.youtube-nocookie.com/embed/\(id)?playsinline=1&rel=0") }
 }
@@ -174,17 +231,28 @@ struct Pogoda {
     let dni: [Dzien]
     let godziny: [Godzina]
 
+    /// API v1 (state, isNight, daily, hourly w dniach) albo stare weather-full.
     init(_ j: Slownik) {
         let c = j.slownik("current")
         temperatura = c.d("temperature"); odczuwalna = c.d("feelsLike"); wilgotnosc = c.d("humidity")
         cisnienie = c.d("pressure"); wiatr = c.d("windKmh"); porywy = c.d("windGust")
-        kierunek = c.s("windDirText"); opis = c.s("description"); ikona = c.s("icon")
-        dzien = c["is_day"] == nil ? true : c.b("is_day")
+        kierunek = c.s("windDirText")
+        if j["state"] != nil {
+            ikona = j.s("state")
+            opis = j.s("description").replacingOccurrences(of: " - Noc", with: "").replacingOccurrences(of: " - Dzień", with: "")
+            dzien = !j.b("isNight")
+        } else {
+            ikona = c.s("icon"); opis = c.s("description")
+            dzien = c["is_day"] == nil ? true : c.b("is_day")
+        }
         wschod = j.s("sunrise").isEmpty ? c.s("sunrise") : j.s("sunrise")
         zachod = j.s("sunset").isEmpty ? c.s("sunset") : j.s("sunset")
-        let prognoza = j.lista("forecast").isEmpty ? c.lista("forecast") : j.lista("forecast")
-        dni = prognoza.map { Dzien(nazwa: $0.s("label"), ikona: $0.s("icon"), opis: $0.s("desc"), max: $0.d("temp"), min: $0.d("tempMin"), opad: $0.i("pop")) }
-        godziny = j.lista("hourly").map { Godzina(czas: $0.s("time"), ikona: $0.s("icon"), temp: $0.d("temp"), opad: $0.i("pop")) }
+        let prognoza = !j.lista("daily").isEmpty ? j.lista("daily") : (j.lista("forecast").isEmpty ? c.lista("forecast") : j.lista("forecast"))
+        dni = prognoza.map { d in
+            Dzien(nazwa: d.s("label"), ikona: d.s("state").isEmpty ? d.s("icon") : d.s("state"), opis: d.s("desc"), max: d.d("temp"), min: d.d("tempMin"), opad: d.i("pop"))
+        }
+        let godzinowa: [Slownik] = (j["hourly"] as? [[Slownik]])?.flatMap { $0 } ?? j.lista("hourly")
+        godziny = godzinowa.map { Godzina(czas: $0.s("time"), ikona: $0.s("icon"), temp: $0.d("temp"), opad: $0.i("pop")) }
     }
 
     static func stopnie(_ v: Double?) -> String {
@@ -205,25 +273,84 @@ final class Magazyn: ObservableObject {
     @Published var wKategorii: [String: [Artykul]] = [:]
     @Published var blad: String?
     @Published var laduje = false
-    @Published var zakladka = Zakladka.start
+    /// Zakładki z panelu (Aplikacja mobilna → Zakładki), a bez API domyślne z projektu.
+    @Published var zakladki: [ZakladkaApp] = ZakladkaApp.domyslne
+    @Published var zakladka = "home"
     /// Otwarte artykuły w każdej zakładce (NavigationStack).
-    @Published var sciezki: [Zakladka: [Artykul]] = [:]
+    @Published var sciezki: [String: [Artykul]] = [:]
+    /// Bloki ekranu Start w kolejności z panelu (layout.widgetsMobile).
+    @Published var bloki: [BlokStartu] = BlokStartu.domyslne
+    @Published var gminy: [Gmina] = []
+    @Published var kategorie: [KategoriaMenu] = KategoriaMenu.domyslne
+    @Published var dzisiaj: Dzisiaj?
+    @Published var arkuszPogody = false
+    @Published var arkuszWideo = false
     @Published var zapisane: [Int] = UserDefaults.standard.array(forKey: "tvml-zapisane") as? [Int] ?? [] {
         didSet { UserDefaults.standard.set(zapisane, forKey: "tvml-zapisane") }
     }
     private var ostatnio: Date?
 
-    /// Kategorie na górze ekranu Start (te same co w menu strony).
-    struct KategoriaMenu: Hashable { let nazwa: String; let slug: String? }
-    let kategorie: [KategoriaMenu] = [
-        .init(nazwa: "Wszystko", slug: nil), .init(nazwa: "Aktualności", slug: "aktualnosci"), .init(nazwa: "Sport", slug: "sport"),
-        .init(nazwa: "Na sygnale", slug: "na-sygnale"), .init(nazwa: "Kultura", slug: "kultura"), .init(nazwa: "Muzyka", slug: "muzyka")
-    ]
+    struct Dzisiaj: Equatable { let etykieta: String; let imieniny: [String] }
+
+    struct KategoriaMenu: Hashable {
+        let nazwa: String
+        let slug: String?
+        static let domyslne: [KategoriaMenu] = [
+            .init(nazwa: "Wszystko", slug: nil), .init(nazwa: "Aktualności", slug: "aktualnosci"), .init(nazwa: "Sport", slug: "sport"),
+            .init(nazwa: "Na sygnale", slug: "na-sygnale"), .init(nazwa: "Kultura", slug: "kultura"), .init(nazwa: "Muzyka", slug: "muzyka")
+        ]
+    }
 
     func odswiez(wymus: Bool = false) async {
         if !wymus, let ostatnio, Date().timeIntervalSince(ostatnio) < 120 { return }
         laduje = true
         defer { laduje = false }
+        if await odswiezV1() {
+            blad = nil
+            ostatnio = Date()
+            return
+        }
+        await odswiezStare()
+    }
+
+    /// Nowe API (/api/v1): config, artykuły, najczęściej czytane, wideo, pogoda.
+    private func odswiezV1() async -> Bool {
+        async let k = Siec.v1("config")
+        async let a = Siec.v1("articles", ["limit": "20"])
+        async let b = Siec.v1("articles/most-read", ["limit": "10"])
+        async let d = Siec.v1("videos", ["limit": "12"])
+        async let e = Siec.v1("weather")
+        guard let lista = (try? await a) as? Slownik, let konf = (try? await k) as? Slownik else { return false }
+        najnowsze = lista.lista("items").map(Artykul.init)
+        if let m = Motyw.zV1(konf.slownik("theme")) { motyw = m }
+        let z = konf.lista("tabs").compactMap(ZakladkaApp.init)
+        if !z.isEmpty {
+            var gotowe = Array(z.prefix(5))
+            if !gotowe.contains(where: { $0.cel == .wiecej }) {
+                if gotowe.count == 5 { gotowe.removeLast() }
+                gotowe.append(ZakladkaApp.wiecej)
+            }
+            zakladki = gotowe
+            if !gotowe.contains(where: { $0.id == zakladka }) { zakladka = gotowe[0].id }
+        }
+        let bl = konf.lista("home").compactMap(BlokStartu.init)
+        if !bl.isEmpty { bloki = bl }
+        pasek = konf.slownik("ticker").lista("items").map(Artykul.init)
+        gminy = konf.lista("counties").map(Gmina.init).sorted { $0.kolejnosc < $1.kolejnosc }
+        let sub = konf.lista("subportals").map { s in
+            KategoriaMenu(nazwa: s.s("name").replacingOccurrences(of: "TVML.pl - ", with: ""), slug: s.s("slug"))
+        }
+        if !sub.isEmpty { kategorie = [.init(nazwa: "Wszystko", slug: nil), .init(nazwa: "Aktualności", slug: "aktualnosci")] + sub }
+        let d0 = konf.slownik("today")
+        if !d0.s("label").isEmpty { dzisiaj = Dzisiaj(etykieta: d0.s("label"), imieniny: (d0["nameDays"] as? [String]) ?? []) }
+        if let j = (try? await b) as? Slownik { najczytniejsze = j.lista("items").map(Artykul.init) }
+        if let j = (try? await d) as? Slownik { filmy = j.lista("items").map(Film.init) }
+        if let j = (try? await e) as? Slownik, j["current"] != nil { pogoda = Pogoda(j) }
+        return true
+    }
+
+    /// Zapas: te same akcje co strona (tvml-db.php i tvml-portal.php).
+    private func odswiezStare() async {
         async let a = Siec.json("tvml-db.php?action=latest&limit=20")
         async let b = Siec.json("tvml-db.php?action=most-read&limit=10")
         async let c = Siec.json("tvml-db.php?action=ticker&category=aktualnosci&limit=10")
@@ -244,17 +371,33 @@ final class Magazyn: ObservableObject {
         if let j = (try? await f) as? Slownik { motyw = Motyw.wylicz(z: j) }
     }
 
-    func kategoria(_ slug: String) async {
-        guard let lista = (try? await Siec.json("tvml-db.php?action=news&category=\(slug)&limit=20")) as? [Slownik] else { return }
+    func kategoria(_ slug: String, limit: Int = 20) async {
+        if let j = (try? await Siec.v1("articles", ["category": slug, "limit": String(limit)])) as? Slownik {
+            wKategorii[slug] = j.lista("items").map(Artykul.init)
+            return
+        }
+        guard let lista = (try? await Siec.json("tvml-db.php?action=news&category=\(slug)&limit=\(limit)")) as? [Slownik] else { return }
         wKategorii[slug] = lista.map(Artykul.init)
     }
 
+    func gmina(_ g: Gmina) async -> [Artykul] {
+        guard let j = (try? await Siec.v1("articles", ["county": g.id, "limit": "20"])) as? Slownik else { return [] }
+        return j.lista("items").map(Artykul.init)
+    }
+
+    func fotorelacje(limit: Int) async {
+        guard let j = (try? await Siec.v1("articles", ["photoReport": "1", "limit": String(max(limit, 4))])) as? Slownik else { return }
+        wKategorii["_fotorelacje"] = j.lista("items").map(Artykul.init)
+    }
+
     func artykul(_ id: Int) async -> Artykul? {
+        if let j = (try? await Siec.v1("articles/\(id)")) as? Slownik, j["id"] != nil { return Artykul(j) }
         guard let j = (try? await Siec.json("tvml-db.php?action=article&id=\(id)")) as? Slownik, j["id"] != nil else { return nil }
         return Artykul(j)
     }
 
     func szukaj(_ fraza: String) async -> [Artykul] {
+        if let j = (try? await Siec.v1("search", ["q": fraza, "limit": "20"])) as? Slownik { return j.lista("items").map(Artykul.init) }
         let q = fraza.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
         guard !q.isEmpty, let lista = (try? await Siec.json("tvml-db.php?action=search&q=\(q)&limit=20")) as? [Slownik] else { return [] }
         return lista.map(Artykul.init)
@@ -263,9 +406,107 @@ final class Magazyn: ObservableObject {
     func przelaczZapis(_ a: Artykul) {
         if let i = zapisane.firstIndex(of: a.id) { zapisane.remove(at: i) } else { zapisane.insert(a.id, at: 0) }
     }
+
+    /// Pogoda i wideo: zakładka, jeśli panel ją ustawił, a jeśli nie, arkusz nad bieżącym ekranem.
+    func pokaz(_ cel: ZakladkaApp.Cel) {
+        if let z = zakladki.first(where: { $0.cel == cel }) { zakladka = z.id; return }
+        if cel == .pogoda { arkuszPogody = true }
+        if cel == .wideo { arkuszWideo = true }
+    }
+
+    func naStart() {
+        let start = zakladki.first { $0.cel == .start }?.id ?? zakladki.first?.id ?? "home"
+        zakladka = start
+        sciezki[start] = []
+    }
 }
 
-enum Zakladka: Hashable { case start, sport, wideo, pogoda, wiecej }
+/// Zakładka dolnego paska ustawiana w panelu (mobileApp.tabs).
+struct ZakladkaApp: Identifiable, Hashable {
+    enum Cel: Hashable { case start, pogoda, wideo, wiecej, kategoria(String) }
+    let id: String
+    let tytul: String
+    let ikona: String
+    let cel: Cel
+
+    static let wiecej = ZakladkaApp(id: "more", tytul: "Więcej", ikona: "square.grid.2x2", cel: .wiecej)
+    static let domyslne: [ZakladkaApp] = [
+        ZakladkaApp(id: "home", tytul: "Start", ikona: "house", cel: .start),
+        ZakladkaApp(id: "sport", tytul: "Sport", ikona: "sportscourt", cel: .kategoria("sport")),
+        ZakladkaApp(id: "video", tytul: "Wideo", ikona: "play.rectangle", cel: .wideo),
+        ZakladkaApp(id: "weather", tytul: "Pogoda", ikona: "cloud.sun", cel: .pogoda),
+        wiecej
+    ]
+
+    init(id: String, tytul: String, ikona: String, cel: Cel) {
+        self.id = id; self.tytul = tytul; self.ikona = ikona; self.cel = cel
+    }
+
+    init?(_ j: Slownik) {
+        let cel = j.s("target")
+        switch cel {
+        case "home": self.cel = .start
+        case "video": self.cel = .wideo
+        case "weather": self.cel = .pogoda
+        case "more": self.cel = .wiecej
+        default:
+            guard let i = cel.firstIndex(of: ":") else { return nil }
+            self.cel = .kategoria(String(cel[cel.index(after: i)...]))
+        }
+        id = j.s("id").isEmpty ? cel : j.s("id")
+        tytul = j.s("title")
+        let ikony = ["home": "house", "sport": "sportscourt", "video": "play.rectangle", "weather": "cloud.sun", "more": "square.grid.2x2",
+                     "news": "newspaper", "culture": "theatermasks", "music": "music.note", "alert": "light.beacon.max", "county": "map"]
+        ikona = ikony[j.s("icon")] ?? "circle.grid.2x2"
+    }
+}
+
+/// Blok ekranu Start z panelu (Page builder, wersja na telefon).
+struct BlokStartu: Identifiable, Hashable {
+    let id: String
+    let typ: String
+    let tytul: String
+    let ukryjTytul: Bool
+    let limit: Int
+    let kategoria: String?
+
+    static let domyslne: [BlokStartu] = [
+        BlokStartu(id: "hero", typ: "hero", tytul: "", ukryjTytul: true, limit: 5, kategoria: nil),
+        BlokStartu(id: "weather", typ: "weather", tytul: "Pogoda", ukryjTytul: true, limit: 0, kategoria: nil),
+        BlokStartu(id: "posts", typ: "posts", tytul: "Aktualności", ukryjTytul: false, limit: 10, kategoria: nil),
+        BlokStartu(id: "mostread", typ: "mostread", tytul: "Najczęściej czytane", ukryjTytul: false, limit: 5, kategoria: nil),
+        BlokStartu(id: "video", typ: "video", tytul: "Wideo", ukryjTytul: false, limit: 6, kategoria: nil)
+    ]
+
+    init(id: String, typ: String, tytul: String, ukryjTytul: Bool, limit: Int, kategoria: String?) {
+        self.id = id; self.typ = typ; self.tytul = tytul; self.ukryjTytul = ukryjTytul; self.limit = limit; self.kategoria = kategoria
+    }
+
+    init?(_ j: Slownik) {
+        let p = j.slownik("props")
+        let typ = j.s("type")
+        guard ["hero", "weather", "alert", "video", "posts", "mostread", "gallery", "counties", "social"].contains(typ) else { return nil }
+        self.typ = typ
+        id = j.s("id").isEmpty ? UUID().uuidString : j.s("id")
+        tytul = j.s("title")
+        ukryjTytul = p.b("hideTitle")
+        limit = p.i("limit")
+        kategoria = p.s("category").isEmpty ? nil : p.s("category")
+    }
+}
+
+struct Gmina: Identifiable, Hashable {
+    let id: String
+    let nazwa: String
+    let herb: URL?
+    let kolejnosc: Int
+    init(_ j: Slownik) {
+        id = j.s("tag").isEmpty ? j.s("id") : j.s("tag")
+        nazwa = j.s("name")
+        herb = URL(string: j.s("crest"))
+        kolejnosc = j.i("order")
+    }
+}
 
 /// Treść artykułu (HTML z edytora) jako bloki do wyświetlenia natywnie: akapity, śródtytuły, obrazy i filmy.
 enum Html {

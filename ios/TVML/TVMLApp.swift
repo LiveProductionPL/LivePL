@@ -28,32 +28,31 @@ struct Glowny: View {
         VStack(spacing: 0) {
             Baner()
             TabView(selection: $m.zakladka) {
-                zakladka(.start) { StartWidok() }
-                    .tabItem { Label("Start", systemImage: "house") }
-                    .tag(Zakladka.start)
-                zakladka(.sport) { ListaKategorii(slug: "sport", tytul: "Sport") }
-                    .tabItem { Label("Sport", systemImage: "sportscourt") }
-                    .tag(Zakladka.sport)
-                zakladka(.wideo) { WideoWidok() }
-                    .tabItem { Label("Wideo", systemImage: "play.rectangle") }
-                    .tag(Zakladka.wideo)
-                zakladka(.pogoda) { PogodaWidok() }
-                    .tabItem { Label("Pogoda", systemImage: "cloud.sun") }
-                    .tag(Zakladka.pogoda)
-                zakladka(.wiecej) { WiecejWidok() }
-                    .tabItem { Label("Więcej", systemImage: "square.grid.2x2") }
-                    .tag(Zakladka.wiecej)
+                ForEach(m.zakladki) { z in
+                    NavigationStack(path: m.sciezka(z.id)) {
+                        tresc(z)
+                            .toolbar(.hidden, for: .navigationBar)
+                            .navigationDestination(for: Artykul.self) { ArtykulWidok(poczatkowy: $0) }
+                    }
+                    .tabItem { Label(z.tytul, systemImage: z.ikona) }
+                    .tag(z.id)
+                }
             }
             .tint(m.motyw.akcent)
         }
         .background(Barwy.tlo)
+        .sheet(isPresented: $m.arkuszPogody) { NavigationStack { PogodaWidok().toolbar(.hidden, for: .navigationBar) } }
+        .sheet(isPresented: $m.arkuszWideo) { NavigationStack { WideoWidok().toolbar(.hidden, for: .navigationBar) } }
         .task {
-            if ekranStartowy == "pogoda" { m.zakladka = .pogoda }
-            if ekranStartowy == "wideo" { m.zakladka = .wideo }
-            if ekranStartowy == "wiecej" { m.zakladka = .wiecej }
             await m.odswiez(wymus: true)
             if let motywTestowy { m.motyw = motywTestowy }
-            if ekranStartowy == "artykul", let pierwszy = m.najnowsze.first { m.otworz(pierwszy) }
+            switch ekranStartowy {
+            case "pogoda": m.pokaz(.pogoda)
+            case "wideo": m.pokaz(.wideo)
+            case "wiecej": m.pokaz(.wiecej)
+            case "artykul": if let pierwszy = m.najnowsze.first { m.otworz(pierwszy) }
+            default: break
+            }
         }
         .onChange(of: faza) { _, nowa in
             guard nowa == .active else { return }
@@ -68,11 +67,13 @@ struct Glowny: View {
         }
     }
 
-    private func zakladka<Tresc: View>(_ z: Zakladka, @ViewBuilder tresc: () -> Tresc) -> some View {
-        NavigationStack(path: m.sciezka(z)) {
-            tresc()
-                .toolbar(.hidden, for: .navigationBar)
-                .navigationDestination(for: Artykul.self) { ArtykulWidok(poczatkowy: $0) }
+    @ViewBuilder private func tresc(_ z: ZakladkaApp) -> some View {
+        switch z.cel {
+        case .start: StartWidok()
+        case .wideo: WideoWidok()
+        case .pogoda: PogodaWidok()
+        case .wiecej: WiecejWidok()
+        case .kategoria(let slug): ListaKategorii(slug: slug, tytul: z.tytul)
         }
     }
 
@@ -85,7 +86,7 @@ struct Glowny: View {
 }
 
 extension Magazyn {
-    func sciezka(_ z: Zakladka) -> Binding<[Artykul]> {
+    func sciezka(_ z: String) -> Binding<[Artykul]> {
         Binding(get: { self.sciezki[z] ?? [] }, set: { self.sciezki[z] = $0 })
     }
 
@@ -107,7 +108,7 @@ struct Baner: View {
                     .background(LinearGradient(colors: motyw.tloPaska, startPoint: .top, endPoint: .bottom).ignoresSafeArea(edges: .top))
             }
             HStack(spacing: 8) {
-                Button { m.zakladka = .start; m.sciezki[.start] = [] } label: {
+                Button { m.naStart() } label: {
                     Image(motyw.logo)
                         .resizable().scaledToFit()
                         .frame(height: 40)
@@ -115,7 +116,7 @@ struct Baner: View {
                 }
                 .accessibilityLabel("Telewizja TVML, strona główna")
                 Spacer()
-                Button { m.zakladka = .pogoda } label: {
+                Button { m.pokaz(.pogoda) } label: {
                     HStack(spacing: 6) {
                         Image(systemName: ikonaPogody(m.pogoda?.ikona ?? "cloud"))
                         Text(m.pogoda.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–")

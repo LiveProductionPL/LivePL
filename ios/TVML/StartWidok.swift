@@ -5,9 +5,10 @@ import SwiftUI
 struct StartWidok: View {
     @EnvironmentObject private var m: Magazyn
     @State private var kategoria: String?
+    @State private var strona: StronaWWW?
+    @State private var film: Film?
 
     var body: some View {
-        let lista = kategoria.flatMap { m.wKategorii[$0] } ?? m.najnowsze
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -34,55 +35,206 @@ struct StartWidok: View {
                 if let blad = m.blad {
                     Text(blad).font(.system(size: 14)).foregroundStyle(Barwy.slaby)
                 }
-                if lista.isEmpty && m.laduje {
+                if m.najnowsze.isEmpty && m.laduje {
                     ProgressView().frame(maxWidth: .infinity, minHeight: 300)
                 }
-                if !lista.isEmpty {
-                    Karuzela(artykuly: Array(lista.prefix(5)))
-                }
-                if kategoria == nil {
-                    KafelPogody()
-                }
-                if lista.count > 5 {
-                    Naglowek(tytul: kategoria.flatMap { s in m.kategorie.first { $0.slug == s }?.nazwa } ?? "Aktualności")
-                    ForEach(lista.dropFirst(5)) { a in
+                if let slug = kategoria {
+                    let lista = m.wKategorii[slug] ?? []
+                    if let pierwszy = lista.first {
+                        NavigationLink(value: pierwszy) { KartaArtykulu(artykul: pierwszy, wysokosc: 260) }.buttonStyle(.plain)
+                    }
+                    ForEach(lista.dropFirst()) { a in
                         NavigationLink(value: a) { WierszArtykulu(artykul: a) }.buttonStyle(.plain)
                     }
-                }
-                if kategoria == nil && !m.najczytniejsze.isEmpty {
-                    Naglowek(tytul: "Najczęściej czytane")
-                    VStack(spacing: 0) {
-                        ForEach(Array(m.najczytniejsze.prefix(5).enumerated()), id: \.element.id) { i, a in
-                            NavigationLink(value: a) {
-                                HStack(alignment: .top, spacing: 12) {
-                                    Text("\(i + 1)").font(.system(size: 22, weight: .heavy, design: .serif)).foregroundStyle(m.motyw.akcent).frame(width: 26)
-                                    Text(a.tytul).font(.system(size: 15, weight: .semibold)).foregroundStyle(Barwy.tekst).frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                                .padding(.vertical, 10)
-                                .overlay(alignment: .bottom) { if i < 4 { Barwy.ramka.frame(height: 1) } }
-                            }
-                            .buttonStyle(.plain)
-                        }
+                } else {
+                    ForEach(m.bloki) { blok in
+                        BlokWidok(blok: blok, strona: $strona, film: $film)
                     }
-                    .padding(.horizontal, 14)
-                    .background(Barwy.karta, in: RoundedRectangle(cornerRadius: 14))
-                }
-                if kategoria == nil && !m.filmy.isEmpty {
-                    Naglowek(tytul: "Wideo")
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 12) {
-                            ForEach(m.filmy.prefix(6)) { f in
-                                Button { m.zakladka = .wideo } label: { KafelFilmu(film: f, szerokosc: 220) }.buttonStyle(.plain)
-                            }
-                        }
-                    }
-                    .scrollClipDisabled()
                 }
             }
             .padding(16)
         }
         .refreshable { await m.odswiez(wymus: true) }
         .background(Barwy.tlo)
+        .sheet(item: $strona) { s in Safari(url: URL(string: "https://tvml.pl/" + s.sciezka)!).ignoresSafeArea() }
+        .sheet(item: $film) { f in
+            if let adres = f.osadzenie { Odtwarzacz(adres: adres) }
+        }
+    }
+}
+
+/// Jeden blok ekranu Start, tak jak ustawia go redakcja w panelu (Page builder).
+struct BlokWidok: View {
+    @EnvironmentObject private var m: Magazyn
+    let blok: BlokStartu
+    @Binding var strona: StronaWWW?
+    @Binding var film: Film?
+
+    var body: some View {
+        switch blok.typ {
+        case "hero":
+            if !m.najnowsze.isEmpty {
+                Karuzela(artykuly: Array(m.najnowsze.prefix(blok.limit > 0 ? blok.limit : 5)))
+            }
+        case "weather":
+            KafelPogody()
+        case "alert":
+            Button { strona = StronaWWW(sciezka: "") } label: {
+                Label("Zgłoś zdarzenie (Alert TVML)", systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
+                    .frame(maxWidth: .infinity).frame(height: 50)
+                    .background(Color(hex: "#c8102e"), in: RoundedRectangle(cornerRadius: 14))
+            }
+            .buttonStyle(.plain)
+        case "video":
+            if blok.limit == 1, let f = m.filmy.first {
+                tytul
+                Button { film = f } label: { KafelFilmu(film: f, szerokosc: UIScreen.main.bounds.width - 32) }.buttonStyle(.plain)
+            } else if !m.filmy.isEmpty {
+                tytul
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(m.filmy.prefix(blok.limit > 0 ? blok.limit : 6)) { f in
+                            Button { film = f } label: { KafelFilmu(film: f, szerokosc: 220) }.buttonStyle(.plain)
+                        }
+                    }
+                }
+                .scrollClipDisabled()
+            }
+        case "posts":
+            let lista = listaWpisow
+            if !lista.isEmpty {
+                tytul
+                ForEach(lista) { a in
+                    NavigationLink(value: a) { WierszArtykulu(artykul: a) }.buttonStyle(.plain)
+                }
+            }
+        case "mostread":
+            if !m.najczytniejsze.isEmpty {
+                tytul
+                let lista = Array(m.najczytniejsze.prefix(blok.limit > 0 ? blok.limit : 5))
+                VStack(spacing: 0) {
+                    ForEach(Array(lista.enumerated()), id: \.element.id) { i, a in
+                        NavigationLink(value: a) {
+                            HStack(alignment: .top, spacing: 12) {
+                                Text("\(i + 1)").font(.system(size: 22, weight: .heavy, design: .serif)).foregroundStyle(m.motyw.akcent).frame(width: 30)
+                                Text(a.tytul).font(.system(size: 15, weight: .semibold)).foregroundStyle(Barwy.tekst).frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(.vertical, 10)
+                            .overlay(alignment: .bottom) { if i < lista.count - 1 { Barwy.ramka.frame(height: 1) } }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 14)
+                .background(Barwy.karta, in: RoundedRectangle(cornerRadius: 14))
+            }
+        case "gallery":
+            let lista = m.wKategorii["_fotorelacje"] ?? []
+            Group {
+                if !lista.isEmpty {
+                    tytul
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 12) {
+                            ForEach(lista) { a in
+                                NavigationLink(value: a) { KartaArtykulu(artykul: a, wysokosc: 200).frame(width: 260) }.buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    .scrollClipDisabled()
+                }
+            }
+            .task { if m.wKategorii["_fotorelacje"] == nil { await m.fotorelacje(limit: blok.limit) } }
+        case "counties":
+            if !m.gminy.isEmpty {
+                tytul
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(m.gminy) { g in
+                            NavigationLink { ListaGminy(gmina: g) } label: {
+                                HStack(spacing: 8) {
+                                    AsyncImage(url: g.herb) { $0.resizable().scaledToFit() } placeholder: { Color.clear }
+                                        .frame(width: 22, height: 26)
+                                    Text(g.nazwa).font(.system(size: 14, weight: .semibold)).foregroundStyle(Barwy.tekst)
+                                }
+                                .padding(.horizontal, 12).frame(height: 44)
+                                .background(Barwy.karta, in: Capsule())
+                                .overlay(Capsule().stroke(Barwy.ramka))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .scrollClipDisabled()
+            }
+        case "social":
+            tytul
+            HStack(spacing: 10) {
+                spolecznosc("Facebook", "https://www.facebook.com/TVMLpl")
+                spolecznosc("YouTube", "https://www.youtube.com/@TVMLlive")
+                spolecznosc("Instagram", "https://www.instagram.com/tvmlpl/")
+                spolecznosc("TikTok", "https://www.tiktok.com/@tvml.pl")
+            }
+        default:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder private var tytul: some View {
+        if !blok.ukryjTytul && !blok.tytul.isEmpty { Naglowek(tytul: blok.tytul) }
+    }
+
+    /// Wpisy bloku: z kategorii z panelu albo kolejne najnowsze po karuzeli.
+    private var listaWpisow: [Artykul] {
+        let limit = blok.limit > 0 ? blok.limit : 4
+        if let k = blok.kategoria { return Array((m.wKategorii[k] ?? []).prefix(limit)) }
+        let karuzela = m.bloki.first { $0.typ == "hero" }.map { $0.limit > 0 ? $0.limit : 5 } ?? 0
+        return Array(m.najnowsze.dropFirst(karuzela).prefix(limit))
+    }
+
+    private func spolecznosc(_ nazwa: String, _ adres: String) -> some View {
+        Link(destination: URL(string: adres)!) {
+            Text(nazwa).font(.system(size: 13, weight: .semibold)).foregroundStyle(Barwy.tekst)
+                .frame(maxWidth: .infinity).frame(height: 40)
+                .background(Barwy.karta, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Barwy.ramka))
+        }
+    }
+}
+
+/// Wiadomości z jednej gminy powiatu.
+struct ListaGminy: View {
+    @EnvironmentObject private var m: Magazyn
+    @Environment(\.dismiss) private var wroc
+    let gmina: Gmina
+    @State private var lista: [Artykul] = []
+    @State private var laduje = true
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 12) {
+                Button { wroc() } label: {
+                    HStack(spacing: 2) { Image(systemName: "chevron.left"); Text("Wróć") }
+                        .font(.system(size: 15, weight: .bold)).foregroundStyle(Barwy.tekst).frame(height: 44)
+                }
+                HStack(spacing: 10) {
+                    AsyncImage(url: gmina.herb) { $0.resizable().scaledToFit() } placeholder: { Color.clear }.frame(width: 30, height: 36)
+                    Text(gmina.nazwa).font(.system(size: 26, weight: .heavy, design: .serif)).foregroundStyle(Barwy.tekst)
+                }
+                if laduje { ProgressView().frame(maxWidth: .infinity, minHeight: 200) }
+                else if lista.isEmpty { Text("Brak wiadomości z tej gminy.").foregroundStyle(Barwy.slaby) }
+                ForEach(lista) { a in
+                    NavigationLink(value: a) { WierszArtykulu(artykul: a) }.buttonStyle(.plain)
+                }
+            }
+            .padding(16)
+        }
+        .background(Barwy.tlo)
+        .toolbar(.hidden, for: .navigationBar)
+        .task {
+            lista = await m.gmina(gmina)
+            laduje = false
+        }
     }
 }
 
@@ -251,7 +403,7 @@ struct KafelPogody: View {
     @EnvironmentObject private var m: Magazyn
 
     var body: some View {
-        Button { m.zakladka = .pogoda } label: {
+        Button { m.pokaz(.pogoda) } label: {
             ZStack(alignment: .leading) {
                 ScenaPogody(stan: StanPogody.z(ikony: m.pogoda?.ikona ?? "cloud"),
                             pora: PoraDnia.teraz(dzien: m.pogoda?.dzien ?? true),
