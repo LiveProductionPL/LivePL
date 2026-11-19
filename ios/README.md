@@ -3,9 +3,9 @@
 Aplikacja w SwiftUI z WKWebView (silnik Safari, jedyny dozwolony na iPhonie). Wygląda jak „Reżyserka”
 z LivePL na Windows:
 
-- **Reżyserka** to ekran startowy. Ma pole „Adres albo szukaj”, kafelki programów, otwarte karty, Moje strony,
-  kartę certyfikatu LivePL i przełącznik dzień/noc przy zegarze.
-- **Dolny pasek** działa jak pasek po lewej na Windows. Jest tam Reżyserka, programy (kropka oznacza, że program
+- **Start** to ekran startowy. Ma pole „Adres albo szukaj”, kafelki programów, otwarte karty, Moje strony
+  i przełącznik dzień/noc przy zegarze.
+- **Dolny pasek** działa jak pasek po lewej na Windows. Jest tam Start, programy (kropka oznacza, że program
   jest otwarty) i licznik kart. Każdy program ma jedną własną kartę, która pamięta stronę.
 - **Karta strony** ma u góry wstecz, adres z kłódką, odśwież i menu. W menu są: dalej, udostępnij,
   znajdź na stronie, dodaj do Moich stron, kopiuj adres, otwórz w Safari i zamknij.
@@ -14,6 +14,13 @@ z LivePL na Windows:
   „Udostępnij” (stamtąd np. Zachowaj w Plikach). Linki `mailto:`, `tel:` i App Store otwiera iOS.
 - **Karty wracają** po ponownym uruchomieniu, ale ładują się dopiero wtedy, gdy na nie wejdziesz.
   Logowania (ciasteczka) i Moje strony zostają w telefonie.
+- **Certyfikaty LivePL** ([NaszeCA.swift](LivePL/NaszeCA.swift)): aplikacja ufa urzędowi LivePL (LivePL Root CA R1) sama,
+  tylko dla naszych domen z [assets/ca/domeny.json](../assets/ca/domeny.json), tak jak LivePL na Windows.
+  - Sprawdza cały łańcuch zasadami SSL systemu, a publiczne certyfikaty (Let's Encrypt) działają jak zawsze.
+  - Niczego nie trzeba instalować w iPhonie.
+  - Na dole ekranu Start jest pozycja „Certyfikat LivePL dla innych aplikacji iPhone'a” dla tych, którzy chcą root
+    w całym systemie (np. Poczta Apple przy podpisanych mailach). iOS pozwala go dodać tylko przez Ustawienia
+    z pliku pobranego w Safari.
 - **Tłumacz stron** ([Tlumacz.swift](LivePL/Tlumacz.swift)) korzysta z Apple Translation, które tłumaczy
   w telefonie, bez wysyłania tekstu do nikogo.
   - Gdy strona jest w innym języku, pod adresem pojawia się propozycja „Przetłumacz”. Z niej wybierzesz
@@ -36,7 +43,7 @@ Projekt Xcode powstaje z [project.yml](project.yml) przez XcodeGen. Buduje go
 repozytorium. Każda zmiana w `ios/` wysłana na gałąź `ios` przechodzi przez te kroki:
 
 1. budowa na symulator iPhone'a;
-2. zrzuty ekranu w trybie dzień i noc (Reżyserka, Poczta, TVML, Live Production), do pobrania jako artefakt `zrzuty-N`;
+2. zrzuty ekranu w trybie dzień i noc (Start, Poczta, TVML, Live Production), do pobrania jako artefakt `zrzuty-N`;
 3. **TestFlight**, tylko gdy opis zmiany zawiera `[testflight]`: archiwum Release, podpis i wysyłka do App Store Connect.
 
 Grafiki (ikona jasna i ciemna, Wstęga, ikona Poczty) tworzy `npx electron ios/narzedzia/grafiki.js`

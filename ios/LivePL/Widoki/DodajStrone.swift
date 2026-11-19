@@ -37,7 +37,7 @@ struct DodajStrone: View {
                     if let blad {
                         Text(blad).foregroundStyle(Kolor.czerwony)
                     } else {
-                        Text("Strona pojawi się w Reżyserce, w „Moich stronach”. Lista zostaje tylko w tym telefonie.")
+                        Text("Strona pojawi się na ekranie Start, w „Moich stronach”. Lista zostaje tylko w tym telefonie.")
                     }
                 }
             }

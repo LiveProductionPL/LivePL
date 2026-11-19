@@ -49,8 +49,8 @@ zrzut() {
   echo "zrzut: $nazwa"
 }
 
-zrzut 1-rezyserka-dzien light
-zrzut 2-rezyserka-noc dark
+zrzut 1-start-dzien light
+zrzut 2-start-noc dark
 zrzut 3-poczta-dzien light -otworz poczta
 zrzut 4-tvml-noc dark -otworz tvml
 zrzut 5-liveproduction-dzien light -otworz liveproduction

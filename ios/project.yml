@@ -25,6 +25,11 @@ targets:
       # ta sama lista programów co w LivePL na Windows
       - path: ../programy.json
         buildPhase: resources
+      # urząd certyfikacji LivePL: publiczny root i nasze domeny, jak w LivePL na Windows (NaszeCA.swift)
+      - path: ../assets/ca/livepl-root-ca-r1.crt
+        buildPhase: resources
+      - path: ../assets/ca/domeny.json
+        buildPhase: resources
     info:
       path: Wsparcie/Info.plist
       properties:

@@ -41,7 +41,7 @@ struct PasekProgramow: View {
         VStack(spacing: 0) {
             Rectangle().fill(Kolor.ramka).frame(height: 0.5)
             HStack(spacing: 2) {
-                PrzyciskPaska(podpis: "Reżyserka", aktywny: p.aktywnaID == nil, otwarty: false) {
+                PrzyciskPaska(podpis: "Start", aktywny: p.aktywnaID == nil, otwarty: false) {
                     p.pokazRezyserke()
                 } tresc: {
                     Image("Wstega").resizable().scaledToFit().frame(width: 32, height: 24)

@@ -6,6 +6,7 @@ struct Rezyserka: View {
     @State private var tekst = ""
     @State private var wiecejProgramow = false
     @State private var doUsuniecia: MojaStrona?
+    @State private var pokazCertyfikat = false
     @FocusState private var fokus: Bool
 
     var body: some View {
@@ -16,8 +17,10 @@ struct Rezyserka: View {
                 programy
                 if !p.zwykleKarty.isEmpty { otwarteKarty }
                 mojeStrony
-                certyfikat
-                stopka
+                VStack(alignment: .leading, spacing: 4) {
+                    certyfikat
+                    stopka
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 10)
@@ -168,34 +171,33 @@ struct Rezyserka: View {
         }
     }
 
+    /// LivePL ufa naszym certyfikatom sam (NaszeCA.swift). Certyfikat w całym iPhonie przyda się tylko innym
+    /// aplikacjom, a iOS pozwala go dodać wyłącznie przez Ustawienia z pliku pobranego w Safari.
     private var certyfikat: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "checkmark.shield")
-                .font(.title2)
-                .foregroundStyle(Kolor.czerwony)
-                .frame(width: 34)
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Certyfikat LivePL")
-                    .font(.headline)
-                    .foregroundStyle(Kolor.tekst)
-                Text("Żeby iPhone rozpoznawał certyfikaty LivePL, np. podpisaną pocztę, zainstaluj raz certyfikat główny. Instrukcja otworzy się w Safari.")
-                    .font(.subheadline)
-                    .foregroundStyle(Kolor.slaby)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button("Jak zainstalować") {
-                    // profil konfiguracyjny iOS instaluje tylko z Safari
-                    if let url = URL(string: "https://cert.livepl.eu/instalacja#iphone") {
-                        UIApplication.shared.open(url)
-                    }
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .padding(.top, 4)
+        Button { pokazCertyfikat = true } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.shield")
+                Text("Certyfikat LivePL dla innych aplikacji iPhone'a")
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.semibold))
             }
-            Spacer(minLength: 0)
+            .font(.footnote)
+            .foregroundStyle(Kolor.slaby)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
         }
-        .padding(14)
-        .kartaLivePL()
+        .buttonStyle(.plain)
+        .alert("Certyfikat dla całego iPhone'a", isPresented: $pokazCertyfikat) {
+            Button("Pobierz w Safari") {
+                if let url = URL(string: "https://cert.livepl.eu/ca/livepl-root-ca-r1.cer") {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Anuluj", role: .cancel) {}
+        } message: {
+            Text("LivePL ufa certyfikatom LivePL sam i niczego nie trzeba instalować. Certyfikat w iPhonie przyda się tylko innym aplikacjom, np. Poczcie Apple przy podpisanych mailach.\n\niOS pozwala go dodać tylko przez Ustawienia: Safari pobierze certyfikat, potem Ustawienia → Pobrany profil → Instaluj, a na koniec Ogólne → To urządzenie → Ustawienia zaufania certyfikatów → włącz „LivePL Root CA R1”.")
+        }
     }
 
     private var stopka: some View {

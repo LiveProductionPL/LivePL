@@ -298,6 +298,11 @@ final class Karta: NSObject, ObservableObject, Identifiable, WKNavigationDelegat
         pokazBlad(error)
     }
 
+    /// Certyfikaty naszego urzędu (LivePL Root CA) są zaufane w LivePL dla naszych domen, bez instalowania w iPhonie.
+    func webView(_ webView: WKWebView, respondTo challenge: URLAuthenticationChallenge) async -> (URLSession.AuthChallengeDisposition, URLCredential?) {
+        await NaszeCA.odpowiedz(challenge)
+    }
+
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         webView.reload()
     }
