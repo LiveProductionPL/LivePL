@@ -104,7 +104,8 @@ class Tlumaczenie(private val karta: Karta, private val p: Przegladarka) {
 
     /** Strona się wczytała: sprawdzamy jej język i proponujemy (albo od razu robimy) tłumaczenie. */
     fun stronaGotowa() {
-        if (stan != null) return
+        // Poczta LivePL nie ma paska tłumaczenia
+        if (stan != null || p.dozwoloneHosty != null) return
         val nr = pokolenie
         probka { lang, tekst ->
             if (nr != pokolenie || stan != null) return@probka

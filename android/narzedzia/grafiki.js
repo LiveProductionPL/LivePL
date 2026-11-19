@@ -173,6 +173,37 @@ app.whenReady().then(async () => {
 <rect width="512" height="512" fill="#ffffff"/>
 <g transform="translate(256 259) scale(0.965) translate(-237 -256)">${logo(JASNA)}</g></svg>`, 512, 512);
 
+  // ---------- Poczta LivePL: logo poczty (L + koperta) na granacie nagłówka poczty (#071c2d), jak na iPhonie ----------
+  const POCZTA_RES = path.join(KATALOG, 'android', 'app', 'src', 'poczta', 'res');
+  const logoPoczty = poczta.replace(/<svg[^>]*>/, '').replace('</svg>', '');
+  // treść poczta.svg zajmuje ok. x 4–60, y 8–57 w siatce 64; w ikonie ok. 62% widocznej części (72 z 108 dp), lekko w prawo
+  const warstwaPoczty = (tresc, px) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="${px}" height="${px}">
+<g transform="translate(57.6 52.2) scale(0.8) translate(-32 -32.5)">${tresc}</g></svg>`;
+  // warstwa do ikon motywowych Androida 13+: sam kształt (system go koloruje)
+  const jednobarwnePoczty = logoPoczty.replace(/(fill|stroke)="url\(#[^)]+\)"/g, '$1="#ffffff"');
+  for (const [folder, px] of [['mipmap-mdpi', 108], ['mipmap-hdpi', 162], ['mipmap-xhdpi', 216], ['mipmap-xxhdpi', 324], ['mipmap-xxxhdpi', 432]]) {
+    await zapiszPng(path.join(POCZTA_RES, folder, 'poczta_pierwszy_plan.png'), warstwaPoczty(logoPoczty, px), px, px);
+    await zapiszPng(path.join(POCZTA_RES, folder, 'poczta_jednobarwna.png'), warstwaPoczty(jednobarwnePoczty, px), px, px);
+  }
+  zapisz(path.join(POCZTA_RES, 'mipmap-anydpi', 'ic_launcher.xml'), `<?xml version="1.0" encoding="utf-8"?>
+<!-- ikona adaptacyjna Poczty LivePL; warstwy tworzy android/narzedzia/grafiki.js -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ikona_tlo" />
+    <foreground android:drawable="@mipmap/poczta_pierwszy_plan" />
+    <monochrome android:drawable="@mipmap/poczta_jednobarwna" />
+</adaptive-icon>
+`);
+  const ikonaPoczty512 = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="512" height="512">
+<rect width="64" height="64" fill="#071c2d"/><g transform="translate(35.2 30.6) scale(0.7) translate(-32 -32.5)">${logoPoczty}</g></svg>`;
+  await zapiszPng(path.join(SKLEP, 'poczta-512.png'), ikonaPoczty512, 512, 512);
+
+  if (PODGLAD) {
+    const R2 = 216;
+    await zapiszPng(path.join(PODGLAD, 'poczta-kolo.png'), `<svg xmlns="http://www.w3.org/2000/svg" width="${R2}" height="${R2}" viewBox="0 0 108 108">
+<defs><clipPath id="k"><circle cx="54" cy="54" r="36"/></clipPath></defs><rect width="108" height="108" fill="#777"/>
+<g clip-path="url(#k)"><rect width="108" height="108" fill="#071c2d"/><g transform="translate(57.6 52.2) scale(0.8) translate(-32 -32.5)">${logoPoczty}</g></g></svg>`, R2, R2);
+  }
+
   if (PODGLAD) {
     // podgląd: ikona w masce koła i „squircle”, ikona motywowa, Wstęga w dzień i w nocy
     const R = 216;

@@ -21,6 +21,9 @@ data class Program(
 ) {
     val krotkaNazwa: String get() = skrot ?: nazwa
 
+    /** Na telefonie pod „Więcej programów”: schowane w programy.json i panel urzędu (YubiKey działa tylko na Windows). */
+    val schowany: Boolean get() = ukryty || tylkoZYubiKey
+
     /** Panel urzędu loguje się kluczem YubiKey przez Windows, więc na telefonie otwieramy stronę publiczną. */
     val adresNaTelefonie: String
         get() {

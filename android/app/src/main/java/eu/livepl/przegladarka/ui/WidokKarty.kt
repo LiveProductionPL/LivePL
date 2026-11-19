@@ -50,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -74,7 +75,6 @@ import eu.livepl.przegladarka.BladStrony
 import eu.livepl.przegladarka.Karta
 import eu.livepl.przegladarka.Kolor
 import eu.livepl.przegladarka.LocalPaleta
-import eu.livepl.przegladarka.MainActivity
 import eu.livepl.przegladarka.MojaStrona
 import eu.livepl.przegladarka.Przegladarka
 import eu.livepl.przegladarka.R
@@ -247,13 +247,28 @@ private fun PoleEdycji(p: Przegladarka, karta: Karta, modifier: Modifier, koniec
 private fun MenuKarty(p: Przegladarka, karta: Karta, szukaj: () -> Unit) {
     val kontekst = LocalContext.current
     var otwarte by remember { mutableStateOf(false) }
+    var przegladarka by remember { mutableStateOf(false) }
     val adres = karta.adres
 
     Box {
-        IconButton(onClick = { otwarte = true }) {
+        IconButton(onClick = {
+            przegladarka = false
+            otwarte = true
+        }) {
             Ikona(R.drawable.ic_menu, "Menu", Kolor.tekst, 22.dp)
         }
         DropdownMenu(expanded = otwarte, onDismissRequest = { otwarte = false }) {
+            if (przegladarka) {
+                // podmenu „Przeglądarka”: to samo menu co na ekranie Start
+                DropdownMenuItem(
+                    text = { Text("Przeglądarka", fontWeight = FontWeight.SemiBold) },
+                    leadingIcon = { Ikona(R.drawable.ic_wstecz, "Wróć do menu strony", Kolor.tekst, 20.dp) },
+                    onClick = { przegladarka = false },
+                )
+                HorizontalDivider(color = Kolor.ramka)
+                PozycjeMenuPrzegladarki(p) { otwarte = false }
+                return@DropdownMenu
+            }
             Pozycja("Dalej", R.drawable.ic_dalej, karta.mozeDalej) {
                 otwarte = false
                 karta.webViewJesli?.goForward()
@@ -290,6 +305,13 @@ private fun MenuKarty(p: Przegladarka, karta: Karta, szukaj: () -> Unit) {
             }
             HorizontalDivider(color = Kolor.ramka)
             DropdownMenuItem(
+                text = { Text("Przeglądarka") },
+                leadingIcon = { Ikona(R.drawable.wstega, null, Color.Unspecified, 22.dp) },
+                trailingIcon = { Ikona(R.drawable.ic_dalej, null, Kolor.slaby, 18.dp) },
+                onClick = { przegladarka = true },
+            )
+            HorizontalDivider(color = Kolor.ramka)
+            DropdownMenuItem(
                 text = { Text(if (karta.programId == null) "Zamknij kartę" else "Zamknij program", color = Kolor.czerwony) },
                 leadingIcon = { Ikona(R.drawable.ic_zamknij, null, Kolor.czerwony, 20.dp) },
                 onClick = {
@@ -324,7 +346,8 @@ private fun udostepnij(kontekst: Context, adres: String, tytul: String) {
 private fun otworzGdzieIndziej(kontekst: Context, adres: String, p: Przegladarka) {
     val widok = Intent(Intent.ACTION_VIEW, Uri.parse(adres)).addCategory(Intent.CATEGORY_BROWSABLE)
     val wybor = Intent.createChooser(widok, "Otwórz w przeglądarce").apply {
-        putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(kontekst, MainActivity::class.java)))
+        // bez samej przeglądarki LivePL (jej aktywność jest tylko w wariancie przegladarka)
+        putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(kontekst.packageName, "eu.livepl.przegladarka.MainActivity")))
     }
     try {
         kontekst.startActivity(wybor)
@@ -459,13 +482,13 @@ private fun WebWidok(karta: Karta) {
 
 /** Cienki czerwony pasek ładowania pod paskiem adresu. */
 @Composable
-private fun PasekPostepu(postep: Int) {
+internal fun PasekPostepu(postep: Int, modifier: Modifier = Modifier) {
     val ile by animateFloatAsState((postep / 100f).coerceIn(0.08f, 1f), tween(250), label = "postep")
-    Box(Modifier.fillMaxWidth(ile).height(2.dp).background(Kolor.czerwony))
+    Box(modifier.fillMaxWidth(ile).height(2.dp).background(Kolor.czerwony))
 }
 
 @Composable
-private fun WidokBledu(blad: BladStrony, ponow: () -> Unit) {
+internal fun WidokBledu(blad: BladStrony, ponow: () -> Unit) {
     Box(
         Modifier.fillMaxSize().background(Kolor.tlo).verticalScroll(rememberScrollState()),
         contentAlignment = Alignment.Center,

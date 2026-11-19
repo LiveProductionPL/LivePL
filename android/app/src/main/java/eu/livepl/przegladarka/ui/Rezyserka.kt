@@ -105,12 +105,11 @@ fun Rezyserka(p: Przegladarka) {
                     .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 20.dp),
                 verticalArrangement = Arrangement.spacedBy(26.dp),
             ) {
-                Naglowek()
+                Naglowek(p)
                 PoleAdresu(p)
                 Programy(p)
                 if (p.zwykleKarty.isNotEmpty()) OtwarteKarty(p)
                 MojeStrony(p) { doUsuniecia = it }
-                Certyfikat(p)
                 Stopka(p)
             }
         }
@@ -127,7 +126,7 @@ fun Rezyserka(p: Przegladarka) {
         AlertDialog(
             onDismissRequest = { doUsuniecia = null },
             title = { Text("Usunąć stronę z Moich stron?") },
-            text = { Text("„${strona.wyswietlanaNazwa}” zniknie z Reżyserki.") },
+            text = { Text("„${strona.wyswietlanaNazwa}” zniknie z ekranu Start.") },
             confirmButton = {
                 TextButton(onClick = {
                     p.usunStrone(strona)
@@ -142,25 +141,24 @@ fun Rezyserka(p: Przegladarka) {
 // MARK: - Części ekranu
 
 @Composable
-private fun Naglowek() {
-    Row(
-        Modifier.padding(top = 6.dp).semantics(mergeDescendants = true) {},
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+private fun Naglowek(p: Przegladarka) {
+    Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Image(painterResource(R.drawable.wstega), contentDescription = null, modifier = Modifier.size(46.dp, 34.dp))
         Spacer(Modifier.width(12.dp))
-        Column {
+        Column(Modifier.weight(1f).semantics(mergeDescendants = true) {}) {
             Text(
                 buildAnnotatedString {
                     withStyle(SpanStyle(color = Kolor.tekst)) { append("Live") }
                     withStyle(SpanStyle(color = Kolor.czerwony)) { append("PL") }
                 },
-                fontSize = 25.sp,
-                lineHeight = 28.sp,
+                // razem z podpisem nie wyżej niż logo (34 dp)
+                fontSize = 18.sp,
+                lineHeight = 20.sp,
                 fontWeight = FontWeight.Bold,
             )
-            Text("Przeglądarka Live Production", fontSize = 13.sp, color = Kolor.slaby)
+            Text("Przeglądarka", fontSize = 11.sp, lineHeight = 13.sp, color = Kolor.slaby)
         }
+        PrzyciskMenuPrzegladarki(p)
     }
 }
 
@@ -432,28 +430,6 @@ fun kopiuj(kontekst: android.content.Context, adres: String, p: Przegladarka) {
     kontekst.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("Adres", adres))
     // Android 13 i nowszy sam pokazuje, że coś skopiowano
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) p.komunikat("Skopiowano adres")
-}
-
-@Composable
-private fun Certyfikat(p: Przegladarka) {
-    Row(Modifier.fillMaxWidth().kartaLivePL().padding(14.dp), verticalAlignment = Alignment.Top) {
-        Box(Modifier.width(34.dp), contentAlignment = Alignment.Center) {
-            Ikona(R.drawable.ic_tarcza, null, Kolor.czerwony, 28.dp)
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("Certyfikat LivePL", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Kolor.tekst)
-            Text(
-                "Żeby telefon rozpoznawał certyfikaty LivePL, np. podpisaną pocztę, zainstaluj raz certyfikat główny. Instrukcja otworzy się w nowej karcie.",
-                fontSize = 15.sp,
-                lineHeight = 20.sp,
-                color = Kolor.slaby,
-            )
-            MalyPrzycisk("Jak zainstalować", modifier = Modifier.padding(top = 4.dp)) {
-                p.otworz("https://cert.livepl.eu/instalacja#android")
-            }
-        }
-    }
 }
 
 @Composable

@@ -15,7 +15,9 @@ import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.WebStorage
 import android.webkit.WebView
+import android.webkit.WebViewDatabase
 import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -59,12 +61,27 @@ class Przegladarka private constructor(kontekstAplikacji: Context) {
     /** Okienka stron (alert, confirm, prompt, zgody) czekające w kolejce. */
     val okna = mutableStateListOf<Okno>()
     var pelnyEkran by mutableStateOf<PelnyEkran?>(null)
+    // okna z menu przeglądarki
+    var pokazCertyfikat by mutableStateOf(false)
+    var pokazInformacje by mutableStateOf(false)
+    var pokazCzyszczenie by mutableStateOf(false)
+    var pokazUrzadzenie by mutableStateOf(false)
 
-    var aktywnosc: MainActivity? = null
+    var aktywnosc: AktywnoscLivePL? = null
         private set
     private var uruchomiona = false
     /** Zgody na aparat, mikrofon i lokalizację, dane w tym uruchomieniu (host|zasoby). */
     private val zgody = mutableSetOf<String>()
+    /** Poczta LivePL: jedyne strony, które otwierają się w aplikacji; null = przeglądarka (wszystkie). */
+    var dozwoloneHosty: Set<String>? = null
+
+    /** Czy kliknięty adres może się otworzyć tutaj (w Poczcie LivePL tylko poczta.livepl.eu). */
+    fun dozwolony(uri: Uri): Boolean {
+        val dozwolone = dozwoloneHosty ?: return true
+        if (uri.scheme?.lowercase() !in setOf("http", "https")) return true
+        return uri.host?.lowercase() in dozwolone
+    }
+
     /** Serwisy, w których użytkownik zamknął propozycję tłumaczenia (do końca uruchomienia). */
     val bezPropozycjiTlumaczenia = mutableSetOf<String>()
 
@@ -83,11 +100,11 @@ class Przegladarka private constructor(kontekstAplikacji: Context) {
 
     val aktywna: Karta? get() = aktywnaId?.let { id -> karty.firstOrNull { it.id == id } }
 
-    val widoczneProgramy: List<Program> get() = programy.filter { !it.ukryty }
-    val pozostaleProgramy: List<Program> get() = programy.filter { it.ukryty }
+    val widoczneProgramy: List<Program> get() = programy.filter { !it.schowany }
+    val pozostaleProgramy: List<Program> get() = programy.filter { it.schowany }
 
     /** Na dolnym pasku: widoczne programy zawsze, schowane tylko wtedy, gdy są otwarte. */
-    val programyNaPasku: List<Program> get() = programy.filter { !it.ukryty || karta(it.id) != null }
+    val programyNaPasku: List<Program> get() = programy.filter { !it.schowany || karta(it.id) != null }
 
     val kartyProgramow: List<Karta> get() = karty.filter { it.programId != null }
     val zwykleKarty: List<Karta> get() = karty.filter { it.programId == null }
@@ -403,6 +420,29 @@ class Przegladarka private constructor(kontekstAplikacji: Context) {
         ustawienia.edit().putString(KLUCZ_STRONY, lista.toString()).apply()
     }
 
+    /**
+     * „Wyczyść dane przeglądania”: zamyka karty i usuwa ciasteczka, dane stron, pamięć podręczną,
+     * hasła HTTP i zgody stron. Moje strony, wygląd i słowniki tłumacza zostają.
+     */
+    fun wyczyscDane() {
+        zamknijWszystkie()
+        zgody.clear()
+        bezPropozycjiTlumaczenia.clear()
+        CookieManager.getInstance().removeAllCookies(null)
+        CookieManager.getInstance().flush()
+        WebStorage.getInstance().deleteAllData()
+        GeolocationPermissions.getInstance().clearAll()
+        @Suppress("DEPRECATION")
+        WebViewDatabase.getInstance(aplikacja).clearHttpAuthUsernamePassword()
+        // pamięć podręczna jest wspólna dla wszystkich kart, ale czyści ją tylko WebView
+        WebView(kontekst).apply {
+            clearCache(true)
+            clearFormData()
+            destroy()
+        }
+        komunikat("Wyczyszczono dane przeglądania.")
+    }
+
     // MARK: - Tryb dzień i noc
 
     /** Zapisuje tryb i odtwarza aktywność w nowym motywie; karty i ich strony zostają. */
@@ -414,7 +454,7 @@ class Przegladarka private constructor(kontekstAplikacji: Context) {
 
     // MARK: - Aktywność
 
-    fun dolacz(a: MainActivity) {
+    fun dolacz(a: AktywnoscLivePL) {
         aktywnosc = a
         kontekst.baseContext = a
         motyw = Motyw.zapisany(ustawienia)
@@ -422,7 +462,7 @@ class Przegladarka private constructor(kontekstAplikacji: Context) {
         karty.forEach { it.odswiezMotyw() }
     }
 
-    fun odlacz(a: MainActivity, koniec: Boolean) {
+    fun odlacz(a: AktywnoscLivePL, koniec: Boolean) {
         if (aktywnosc !== a) return
         aktywnosc = null
         kontekst.baseContext = aplikacja
@@ -450,7 +490,8 @@ class Przegladarka private constructor(kontekstAplikacji: Context) {
     fun uruchom() {
         if (uruchomiona) return
         uruchomiona = true
-        przywrocSesje()
+        // Poczta LivePL ma tylko kartę poczty; przeglądarka przywraca karty z poprzedniego uruchomienia
+        if (dozwoloneHosty == null) przywrocSesje()
     }
 
     /** Link z innej aplikacji albo (do zrzutów ekranu) --es otworz poczta / --es otworz https://… */

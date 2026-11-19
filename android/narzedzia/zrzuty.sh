@@ -1,11 +1,12 @@
 #!/bin/bash
 # Zrzuty ekranu LivePL z emulatora Androida (na GitHubie albo lokalnie, gdy emulator już działa).
-#   android/narzedzia/zrzuty.sh <plik APK> <folder na zrzuty>
+#   android/narzedzia/zrzuty.sh <APK przeglądarki> <folder na zrzuty> [APK Poczty LivePL]
 # CZEKAJ=<sekundy> zmienia czas na załadowanie strony (domyślnie 15).
 set -euo pipefail
 
 APK="$1"
 WYJSCIE="$2"
+APK_POCZTY="${3:-}"
 CZEKAJ="${CZEKAJ:-15}"
 mkdir -p "$WYJSCIE"
 
@@ -28,25 +29,39 @@ adb shell am broadcast -a com.android.systemui.demo -e command notifications -e 
 
 # nazwa, tryb nocny Androida (yes/no), dodatkowe argumenty dla am start
 zrzut() {
-  local nazwa="$1" noc="$2"
-  shift 2
+  zrzutAplikacji "$ID" MainActivity "$@"
+}
+
+# pakiet, aktywność, nazwa, tryb nocny Androida, dodatkowe argumenty
+zrzutAplikacji() {
+  local id="$1" aktywnosc="$2" nazwa="$3" noc="$4"
+  shift 4
   adb shell cmd uimode night "$noc" > /dev/null
-  adb shell am force-stop "$ID"
-  adb shell pm clear "$ID" > /dev/null
+  adb shell am force-stop "$id"
+  adb shell pm clear "$id" > /dev/null
   # aplikacja po polsku, jak u użytkowników: strony (np. Poczta) dostają Accept-Language: pl
-  adb shell cmd locale set-app-locales "$ID" --locales pl-PL > /dev/null 2>&1 || true
-  adb shell am start -W -n "$ID/eu.livepl.przegladarka.MainActivity" "$@" > /dev/null
+  adb shell cmd locale set-app-locales "$id" --locales pl-PL > /dev/null 2>&1 || true
+  adb shell am start -W -n "$id/eu.livepl.przegladarka.$aktywnosc" "$@" > /dev/null
   sleep "$CZEKAJ"
   adb exec-out screencap -p > "$WYJSCIE/$nazwa.png"
   echo "zrzut: $nazwa"
 }
 
-zrzut 1-rezyserka-dzien no
-zrzut 2-rezyserka-noc yes
+zrzut 1-start-dzien no
+zrzut 2-start-noc yes
 zrzut 3-poczta-dzien no --es otworz poczta
 zrzut 4-poczta-noc yes --es otworz poczta
 zrzut 5-tvml-dzien no --es otworz tvml
 zrzut 6-tvml-noc yes --es otworz tvml
+
+# Poczta LivePL: osobna aplikacja, poczta na cały ekran
+if [ -n "$APK_POCZTY" ]; then
+  adb install -r "$APK_POCZTY"
+  ID_POCZTY=$(adb shell pm list packages eu.livepl.poczta | sed 's/^package://' | tr -d '\r' | head -1)
+  echo "aplikacja: $ID_POCZTY"
+  zrzutAplikacji "$ID_POCZTY" PocztaActivity 7-poczta-livepl-dzien no
+  zrzutAplikacji "$ID_POCZTY" PocztaActivity 8-poczta-livepl-noc yes
+fi
 
 adb shell cmd uimode night no > /dev/null
 # dziennik aplikacji (błędy WebView, Compose)

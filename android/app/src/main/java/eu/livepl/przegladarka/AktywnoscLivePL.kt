@@ -6,27 +6,21 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
-import android.graphics.Color
 import android.net.Uri
-import android.os.Bundle
 import android.provider.MediaStore
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient.FileChooserParams
 import androidx.activity.ComponentActivity
-import androidx.activity.SystemBarStyle
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
-import eu.livepl.przegladarka.ui.Glowny
 import java.io.File
 
 /**
- * Jedyna aktywność LivePL. Ustawia dzień albo noc według przełącznika przy zegarze,
- * a resztę oddaje widokom (Glowny) i stanowi przeglądarki (Przegladarka).
+ * Wspólna aktywność przeglądarki LivePL i Poczty LivePL: dzień albo noc według przełącznika LivePL,
+ * uprawnienia Androida, wybór plików do formularzy i rejestracja urządzenia w urzędzie LivePL.
  */
-class MainActivity : ComponentActivity() {
-    private lateinit var p: Przegladarka
+abstract class AktywnoscLivePL : ComponentActivity() {
+    protected lateinit var p: Przegladarka
 
     private val wyborPlikow = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { wynik ->
         val zwrot = p.plikiZwrot ?: return@registerForActivityResult
@@ -59,37 +53,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
+    /** Przygotowanie wspólnego stanu; wywołują je aktywności przed super.onCreate. */
+    protected fun dolaczPrzegladarke() {
         p = Przegladarka.dla(this)
         p.dolacz(this)
-        super.onCreate(savedInstanceState)
-
-        val noc = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { noc },
-            navigationBarStyle = SystemBarStyle.auto(
-                Color.argb(0xe6, 0xff, 0xff, 0xff),
-                Color.argb(0x80, 0x1b, 0x1b, 0x1b),
-            ) { noc },
-        )
-        setContent {
-            LivePLMotyw { Glowny(p) }
-        }
-
-        p.uruchom()
-        val zHistorii = (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0
-        if (savedInstanceState == null && !zHistorii) p.obsluz(intent)
     }
 
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        p.obsluz(intent)
-    }
+    protected val noc: Boolean
+        get() = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
     override fun onStart() {
         super.onStart()
         p.wznow()
+        // certyfikat „Urządzenie LivePL” zakłada się sam, bez pytania (jak w LivePL na Windows i iPhonie)
+        Urzadzenie.dla(this).przyStarcie()
     }
 
     override fun onStop() {

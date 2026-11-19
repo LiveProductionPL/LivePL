@@ -16,17 +16,36 @@ val aliasKlucza = providers.environmentVariable("LIVEPL_KLUCZ_ALIAS").orNull ?: 
 // waży ok. 7 MB na każdą architekturę). AAB do Google Play ma wszystkie, a Sklep sam wybiera właściwą.
 val tylkoTelefony = providers.gradleProperty("livepl.tylkoTelefony").isPresent
 
+// Tylko do testów budowy debug: -Plivepl.adresUrzedu=http://localhost:8766 (próbny urząd zamiast cert.livepl.eu).
+val adresUrzeduTestowy = providers.gradleProperty("livepl.adresUrzedu").orNull
+
 android {
     namespace = "eu.livepl.przegladarka"
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "eu.livepl.przegladarka"
         minSdk = 26
         targetSdk = 36
         versionCode = numerBudowy
         versionName = "0.1.0"
         if (tylkoTelefony) ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+        buildConfigField("String", "ADRES_URZEDU", "\"https://cert.livepl.eu\"")
+        buildConfigField("boolean", "URZAD_TESTOWY", "false")
+    }
+
+    // Dwie aplikacje z tego samego kodu: przeglądarka LivePL i Poczta LivePL (poczta.livepl.eu na cały ekran).
+    flavorDimensions += "aplikacja"
+    productFlavors {
+        create("przegladarka") {
+            dimension = "aplikacja"
+            applicationId = "eu.livepl.przegladarka"
+            buildConfigField("boolean", "POCZTA", "false")
+        }
+        create("poczta") {
+            dimension = "aplikacja"
+            applicationId = "eu.livepl.poczta"
+            buildConfigField("boolean", "POCZTA", "true")
+        }
     }
 
     signingConfigs {
@@ -50,6 +69,10 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+            if (adresUrzeduTestowy != null) {
+                buildConfigField("String", "ADRES_URZEDU", "\"$adresUrzeduTestowy\"")
+                buildConfigField("boolean", "URZAD_TESTOWY", "true")
+            }
         }
     }
 
@@ -70,10 +93,23 @@ android {
     }
 }
 
-// Ta sama lista programów co w LivePL na Windows i iPhonie: ../programy.json trafia do assets.
-abstract class KopiujProgramy : DefaultTask() {
+/**
+ * Wspólne pliki z LivePL na Windows i iPhonie trafiają do assets: ../programy.json oraz certyfikaty
+ * urzędu z ../assets/ca (root i pośrednie), którymi aplikacja sprawdza swój certyfikat „Urządzenie LivePL”.
+ */
+abstract class KopiujZasoby : DefaultTask() {
     @get:InputFile
-    abstract val zrodlo: RegularFileProperty
+    abstract val programy: RegularFileProperty
+
+    @get:InputDirectory
+    abstract val katalogCA: DirectoryProperty
+
+    @get:Optional
+    @get:InputFile
+    abstract val testowyRoot: RegularFileProperty
+
+    @get:Input
+    abstract val testoweDomeny: ListProperty<String>
 
     @get:OutputDirectory
     abstract val wyjscie: DirectoryProperty
@@ -81,18 +117,119 @@ abstract class KopiujProgramy : DefaultTask() {
     @TaskAction
     fun kopiuj() {
         val cel = wyjscie.get().asFile
+        cel.deleteRecursively()
         cel.mkdirs()
-        zrodlo.get().asFile.copyTo(cel.resolve("programy.json"), overwrite = true)
+        programy.get().asFile.copyTo(cel.resolve("programy.json"), overwrite = true)
+        val ca = katalogCA.get().asFile
+        val certyfikaty = { katalog: File -> katalog.listFiles { f -> f.isFile && f.extension.lowercase() in setOf("crt", "pem") } ?: emptyArray() }
+        certyfikaty(ca).forEach { it.copyTo(cel.resolve("ca/${it.name}"), overwrite = true) }
+        certyfikaty(ca.resolve("posrednie")).forEach { it.copyTo(cel.resolve("ca/posrednie/${it.name}"), overwrite = true) }
+        if (testoweDomeny.get().isEmpty()) {
+            ca.resolve("domeny.json").copyTo(cel.resolve("ca/domeny.json"), overwrite = true)
+        } else {
+            @Suppress("UNCHECKED_CAST")
+            val domeny = ((groovy.json.JsonSlurper().parse(ca.resolve("domeny.json")) as Map<String, Any?>)["domeny"] as? List<String>).orEmpty()
+            val wszystkie = (domeny + testoweDomeny.get()).joinToString(", ") { "\"${it.trim()}\"" }
+            cel.resolve("ca/domeny.json").writeText("{ \"domeny\": [$wszystkie] }\n")
+        }
+        testowyRoot.orNull?.asFile?.copyTo(cel.resolve("ca/testowy-root.crt"), overwrite = true)
     }
 }
 
-val kopiujProgramy = tasks.register<KopiujProgramy>("kopiujProgramy") {
-    zrodlo.set(rootProject.layout.projectDirectory.file("../programy.json"))
+/**
+ * Zaufanie do urzędu certyfikacji LivePL, jak src/nasze-ca.js na Windows i NaszeCA.swift na iPhonie:
+ * roota z ../assets/ca (*.crt) Android przyjmuje tylko dla domen z ../assets/ca/domeny.json,
+ * a wszędzie indziej obowiązują wyłącznie certyfikaty systemowe. Powstaje res/xml/siec.xml
+ * (network security config, którego używa też WebView) i res/raw z certyfikatami.
+ * Do testów: -Plivepl.testowyRoot=<plik .crt> i -Plivepl.testoweDomeny=a.pl,b.pl (tylko budowa debug).
+ */
+abstract class ZaufanieLivePL : DefaultTask() {
+    @get:InputDirectory
+    abstract val katalogCA: DirectoryProperty
+
+    @get:Optional
+    @get:InputFile
+    abstract val testowyRoot: RegularFileProperty
+
+    @get:Input
+    abstract val testoweDomeny: ListProperty<String>
+
+    @get:OutputDirectory
+    abstract val wyjscie: DirectoryProperty
+
+    @TaskAction
+    fun zrob() {
+        val ca = katalogCA.get().asFile
+        val cel = wyjscie.get().asFile
+        cel.deleteRecursively()
+        val raw = cel.resolve("raw").apply { mkdirs() }
+        val xml = cel.resolve("xml").apply { mkdirs() }
+
+        val rooty = (ca.listFiles { f -> f.isFile && f.extension.lowercase() in setOf("crt", "pem") }?.sortedBy { it.name }
+            ?: emptyList()) + listOfNotNull(testowyRoot.orNull?.asFile)
+        val zasoby = rooty.mapIndexed { i, plik ->
+            val nazwa = "livepl_ca_$i"
+            plik.copyTo(raw.resolve("$nazwa.pem"), overwrite = true)
+            nazwa
+        }
+        @Suppress("UNCHECKED_CAST")
+        val zPliku = (groovy.json.JsonSlurper().parse(ca.resolve("domeny.json")) as Map<String, Any?>)["domeny"] as? List<String>
+        val domeny = ((zPliku ?: emptyList()) + testoweDomeny.get())
+            .map { it.trim().lowercase() }
+            .filter { Regex("""^[a-z0-9.-]+$""").matches(it) }
+            .distinct()
+
+        val wpisyDomen = domeny.joinToString("\n") { "        <domain includeSubdomains=\"true\">$it</domain>" }
+        val wpisyCA = zasoby.joinToString("\n") { "            <certificates src=\"@raw/$it\" />" }
+        xml.resolve("siec.xml").writeText(
+            """
+            |<?xml version="1.0" encoding="utf-8"?>
+            |<!-- Plik tworzy zadanie zaufanieLivePL w app/build.gradle.kts z ../assets/ca. Nie edytuj ręcznie. -->
+            |<network-security-config>
+            |    <!-- przeglądarka otwiera też zwykłe http (z ostrzeżeniem przy adresie) -->
+            |    <base-config cleartextTrafficPermitted="true">
+            |        <trust-anchors>
+            |            <certificates src="system" />
+            |        </trust-anchors>
+            |    </base-config>
+            |    <!-- nasze domeny: certyfikaty systemowe (np. Let's Encrypt) i urząd LivePL -->
+            |    <domain-config cleartextTrafficPermitted="true">
+            |$wpisyDomen
+            |        <trust-anchors>
+            |            <certificates src="system" />
+            |$wpisyCA
+            |        </trust-anchors>
+            |    </domain-config>
+            |</network-security-config>
+            |""".trimMargin(),
+        )
+    }
 }
 
 androidComponents {
     onVariants { wariant ->
-        wariant.sources.assets?.addGeneratedSourceDirectory(kopiujProgramy, KopiujProgramy::wyjscie)
+        val nazwa = wariant.name.replaceFirstChar { it.uppercase() }
+        val testy = wariant.buildType == "debug"
+        val testowyRoot = if (testy) providers.gradleProperty("livepl.testowyRoot").orNull else null
+
+        val zasoby = tasks.register<KopiujZasoby>("kopiujZasoby$nazwa") {
+            programy.set(rootProject.layout.projectDirectory.file("../programy.json"))
+            katalogCA.set(rootProject.layout.projectDirectory.dir("../assets/ca"))
+            testowyRoot?.let { this.testowyRoot.set(file(it)) }
+            testoweDomeny.set(
+                if (testy) providers.gradleProperty("livepl.testoweDomeny").orNull?.split(',') ?: emptyList() else emptyList(),
+            )
+        }
+        wariant.sources.assets?.addGeneratedSourceDirectory(zasoby, KopiujZasoby::wyjscie)
+
+        val zaufanie = tasks.register<ZaufanieLivePL>("zaufanieLivePL$nazwa") {
+            katalogCA.set(rootProject.layout.projectDirectory.dir("../assets/ca"))
+            testowyRoot?.let { this.testowyRoot.set(file(it)) }
+            testoweDomeny.set(
+                if (testy) providers.gradleProperty("livepl.testoweDomeny").orNull?.split(',') ?: emptyList() else emptyList(),
+            )
+        }
+        wariant.sources.res?.addGeneratedSourceDirectory(zaufanie, ZaufanieLivePL::wyjscie)
     }
 }
 

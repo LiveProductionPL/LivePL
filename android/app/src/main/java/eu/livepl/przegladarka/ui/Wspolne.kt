@@ -59,15 +59,15 @@ fun Literka(tekst: String) {
     }
 }
 
-/** Grafika programu (Poczta, Live Production, TVML) albo ikona. */
+/** Grafika programu (Poczta, Live Production, TVML) albo ikona; szerokie logotypy mają [szerokie] × wysokość. */
 @Composable
-fun IkonaProgramu(program: Program, rozmiar: Dp = 24.dp) {
+fun IkonaProgramu(program: Program, rozmiar: Dp = 24.dp, szerokie: Float = 2f) {
     val obrazek = program.obrazek
     if (obrazek != null) {
         Image(
             painterResource(obrazek),
             contentDescription = null,
-            modifier = Modifier.size(width = if (program.szeroki) rozmiar * 2 else rozmiar, height = rozmiar),
+            modifier = Modifier.size(width = if (program.szeroki) rozmiar * szerokie else rozmiar, height = rozmiar),
             contentScale = ContentScale.Fit,
         )
     } else {

@@ -95,7 +95,7 @@ fun DodajStrone(p: Przegladarka, strona: MojaStrona) {
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    blad ?: "Strona pojawi się w Reżyserce, w „Moich stronach”. Lista zostaje tylko w tym telefonie.",
+                    blad ?: "Strona pojawi się na ekranie Start, w „Moich stronach”. Lista zostaje tylko w tym telefonie.",
                     fontSize = 13.sp,
                     lineHeight = 18.sp,
                     color = if (blad != null) Kolor.czerwony else Kolor.slaby,

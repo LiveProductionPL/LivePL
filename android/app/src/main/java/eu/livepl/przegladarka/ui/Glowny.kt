@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,7 +25,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +32,15 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.rememberTooltipState
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -86,11 +93,15 @@ fun Glowny(p: Przegladarka) {
         if (p.pokazListeKart) ListaKart(p)
         p.dodawanaStrona?.let { DodajStrone(p, it) }
         p.okna.firstOrNull()?.let { key(it) { OknoStrony(p, it) } }
+        OknaMenuPrzegladarki(p)
         p.pelnyEkran?.let { PelnyEkranWidok(p, it) }
     }
 }
 
-/** Dolny pasek: Reżyserka, programy (z kropką, gdy są otwarte) i licznik kart. */
+/**
+ * Dolny pasek z samymi ikonami: Start (Wstęga), programy (z kropką, gdy są otwarte) i licznik kart.
+ * Nazwy zna czytnik ekranu, a przytrzymanie ikony pokazuje dymek z nazwą.
+ */
 @Composable
 fun PasekProgramow(p: Przegladarka) {
     Column(
@@ -101,11 +112,11 @@ fun PasekProgramow(p: Przegladarka) {
     ) {
         Box(Modifier.fillMaxWidth().height(0.5.dp).background(Kolor.ramka))
         Row(
-            Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 5.dp, bottom = 3.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PrzyciskPaska("Reżyserka", aktywny = p.aktywnaId == null, otwarty = false, onClick = { p.pokazRezyserke() }) {
-                Image(painterResource(R.drawable.wstega), contentDescription = null, modifier = Modifier.size(32.dp, 24.dp))
+            PrzyciskPaska("Start", aktywny = p.aktywnaId == null, otwarty = false, onClick = { p.pokazRezyserke() }) {
+                Image(painterResource(R.drawable.wstega), contentDescription = null, modifier = Modifier.size(36.dp, 26.dp))
             }
             Kreska()
             Row(
@@ -122,9 +133,10 @@ fun PasekProgramow(p: Przegladarka) {
                                 aktywny = karta != null && karta.id == p.aktywnaId,
                                 otwarty = karta != null,
                                 onClick = { p.otworz(program) },
+                                // otwarty program: przytrzymanie daje menu z nazwą i „Zamknij”
                                 onLongClick = if (karta != null) ({ menu = true }) else null,
                             ) {
-                                IkonaProgramu(program, 24.dp)
+                                IkonaProgramu(program, 26.dp, szerokie = 1.9f)
                             }
                             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                                 DropdownMenuItem(
@@ -150,13 +162,17 @@ fun PasekProgramow(p: Przegladarka) {
 
 @Composable
 private fun Kreska() {
-    Box(Modifier.width(0.5.dp).height(34.dp).background(Kolor.ramka))
+    Box(Modifier.width(0.5.dp).height(30.dp).background(Kolor.ramka))
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+/**
+ * Przycisk paska: sama ikona, co najmniej 52×48 dp. Aktywny ma tło, otwarty program czerwoną kropkę.
+ * Przytrzymanie robi [onLongClick] albo, gdy go nie ma, pokazuje dymek z nazwą.
+ */
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun PrzyciskPaska(
-    podpis: String,
+    nazwa: String,
     aktywny: Boolean,
     otwarty: Boolean,
     onClick: () -> Unit,
@@ -165,46 +181,52 @@ fun PrzyciskPaska(
 ) {
     val czerwony = Kolor.czerwony
     val kropka = otwarty && !aktywny
-    Column(
-        Modifier
-            .widthIn(min = 58.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (aktywny) Kolor.wcisniety else Color.Transparent)
-            .combinedClickable(role = Role.Tab, onClick = onClick, onLongClick = onLongClick)
-            .semantics {
-                contentDescription = if (kropka) "$podpis, otwarty" else podpis
-                selected = aktywny
-            }
-            .drawWithContent {
-                drawContent()
-                if (kropka) drawCircle(czerwony, radius = 3.dp.toPx(), center = Offset(size.width - 11.dp.toPx(), 7.dp.toPx()))
-            }
-            .padding(horizontal = 4.dp, vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+    val dymek = rememberTooltipState()
+    val zakres = rememberCoroutineScope()
+    val pokazNazwe: () -> Unit = { zakres.launch { dymek.show() } }
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
+        tooltip = { PlainTooltip { Text(nazwa) } },
+        state = dymek,
+        focusable = false,
+        enableUserInput = false,
     ) {
-        Box(Modifier.height(26.dp), contentAlignment = Alignment.Center) { tresc() }
-        Spacer(Modifier.height(3.dp))
-        Text(
-            podpis,
-            fontSize = 10.sp,
-            lineHeight = 12.sp,
-            fontWeight = if (aktywny) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (aktywny) Kolor.tekst else Kolor.slaby,
-            maxLines = 1,
-        )
+        Box(
+            Modifier
+                .defaultMinSize(minWidth = 52.dp, minHeight = 48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(if (aktywny) Kolor.wcisniety else Color.Transparent)
+                .combinedClickable(
+                    role = Role.Tab,
+                    onClick = onClick,
+                    onLongClick = onLongClick ?: pokazNazwe,
+                )
+                .semantics {
+                    contentDescription = if (kropka) "$nazwa, otwarty" else nazwa
+                    selected = aktywny
+                }
+                .drawWithContent {
+                    drawContent()
+                    if (kropka) drawCircle(czerwony, radius = 3.dp.toPx(), center = Offset(size.width - 9.dp.toPx(), 8.dp.toPx()))
+                }
+                .padding(horizontal = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            tresc()
+        }
     }
 }
 
 @Composable
 fun LicznikKart(liczba: Int) {
     Box(
-        Modifier.size(22.dp).border(1.6.dp, Kolor.tekst, RoundedCornerShape(5.dp)),
+        Modifier.size(24.dp).border(1.7.dp, Kolor.tekst, RoundedCornerShape(6.dp)),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             if (liczba > 99) "∞" else "$liczba",
-            fontSize = 11.sp,
-            lineHeight = 11.sp,
+            fontSize = 12.sp,
+            lineHeight = 12.sp,
             fontWeight = FontWeight.Bold,
             color = Kolor.tekst,
         )

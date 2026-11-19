@@ -8,6 +8,7 @@ import android.os.Message
 import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.ClientCertRequest
 import android.webkit.CookieManager
 import android.webkit.GeolocationPermissions
 import android.webkit.JsPromptResult
@@ -215,10 +216,11 @@ class Karta(val programId: String?, private val p: Przegladarka) {
             displayZoomControls = false
             allowFileAccess = false
             allowContentAccess = false
-            // jak Chrome na tym telefonie, żeby strony nie dawały okrojonej wersji dla aplikacji
+            // jak Chrome na tym telefonie, żeby strony nie dawały okrojonej wersji dla aplikacji;
+            // „LivePL/…” na końcu: nasze strony wiedzą, że są w aplikacji LivePL (np. poczta nie proponuje dodania do ekranu)
             userAgentString = userAgentString
                 .replace("; wv)", ")")
-                .replace(Regex("""\sVersion/[\d.]+"""), "")
+                .replace(Regex("""\sVersion/[\d.]+"""), "") + " LivePL/${BuildConfig.VERSION_NAME}"
         }
         // strony dostają prefers-color-scheme z motywu LivePL; bez sztucznego przyciemniania, jak na Windows
         if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
@@ -357,8 +359,20 @@ class Karta(val programId: String?, private val p: Przegladarka) {
                 if (otwierajaca != null && view.copyBackForwardList().size == 0) p.zamknij(this@Karta)
                 return true
             }
+            // Poczta LivePL: kliknięty link do innej strony otwiera się w przeglądarce, a nie w aplikacji poczty
+            if (request.hasGesture() && !p.dozwolony(uri)) {
+                p.otworzWSystemie(uri, view)
+                if (otwierajaca != null && view.copyBackForwardList().size == 0) p.zamknij(this@Karta)
+                return true
+            }
             docelowy = uri.toString()
             return false
+        }
+
+        override fun onReceivedClientCertRequest(view: WebView, request: ClientCertRequest) {
+            // certyfikat „Urządzenie LivePL” tylko dla naszych domen (jak w LivePL na Windows)
+            val tozsamosc = if (NaszeCA.naszaDomena(p.kontekst, request.host)) Urzadzenie.dla(p.kontekst).tozsamosc() else null
+            if (tozsamosc != null) request.proceed(tozsamosc.first, tozsamosc.second) else request.cancel()
         }
 
         override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
@@ -422,6 +436,15 @@ class Karta(val programId: String?, private val p: Przegladarka) {
         }
 
         override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
+            // Poczta LivePL: link do innej strony z target=_blank też idzie do przeglądarki
+            val wynik = view.hitTestResult
+            val link = wynik.extra?.takeIf {
+                wynik.type == WebView.HitTestResult.SRC_ANCHOR_TYPE || wynik.type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
+            }
+            if (link != null && !p.dozwolony(Uri.parse(link))) {
+                p.otworzWSystemie(Uri.parse(link), view)
+                return false
+            }
             val nowa = p.dodajKarte(this@Karta)
             (resultMsg.obj as WebView.WebViewTransport).webView = nowa.webView
             resultMsg.sendToTarget()

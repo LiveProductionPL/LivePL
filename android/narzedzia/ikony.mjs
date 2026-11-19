@@ -41,6 +41,11 @@ const IKONY = {
   w_gore: ['keyboard_arrow_up', 'default'],
   w_dol: ['keyboard_arrow_down', 'default'],
   tlumacz: ['translate', 'default'],
+  nowa_karta: ['add_box', 'default'],
+  karty: ['tab', 'default'],
+  informacje: ['info', 'default'],
+  kod: ['code', 'default'],
+  telefon: ['smartphone', 'default'],
 };
 
 fs.mkdirSync(KATALOG, { recursive: true });

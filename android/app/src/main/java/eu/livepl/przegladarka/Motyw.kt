@@ -6,10 +6,10 @@ import android.content.res.Configuration
 import androidx.annotation.DrawableRes
 
 /** Tryb dzień i noc przy zegarze: auto → dzień → noc → auto, jak w LivePL na Windows. */
-enum class Motyw(val klucz: String, @DrawableRes val ikona: Int, val opis: String) {
-    AUTO("auto", R.drawable.ic_auto, "automatycznie, jak telefon"),
-    DZIEN("dzien", R.drawable.ic_dzien, "dzień"),
-    NOC("noc", R.drawable.ic_noc, "noc");
+enum class Motyw(val klucz: String, @DrawableRes val ikona: Int, val opis: String, val nazwa: String) {
+    AUTO("auto", R.drawable.ic_auto, "automatycznie, jak telefon", "Automatycznie, jak telefon"),
+    DZIEN("dzien", R.drawable.ic_dzien, "dzień", "Dzień"),
+    NOC("noc", R.drawable.ic_noc, "noc", "Noc");
 
     val nastepny: Motyw
         get() = when (this) {

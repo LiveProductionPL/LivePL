@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ikona adaptacyjna Poczty LivePL; warstwy tworzy android/narzedzia/grafiki.js -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ikona_tlo" />
+    <foreground android:drawable="@mipmap/poczta_pierwszy_plan" />
+    <monochrome android:drawable="@mipmap/poczta_jednobarwna" />
+</adaptive-icon>
