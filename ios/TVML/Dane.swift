@@ -289,6 +289,8 @@ final class Magazyn: ObservableObject {
     @Published var dzisiaj: Dzisiaj?
     /// Komunikat redakcji z panelu (config.message) i prośba o aktualizację (config.minAppVersion.ios), od API 1.2.
     @Published var komunikat: Komunikat?
+    /// Kategoria artykułów subportalu z panelu (config.subportals[].category, pusta = slug), np. muzyka → muzyka-tvml.
+    private var kategoriePortali: [String: String] = [:]
     /// Ogłoszenia drobne zatwierdzone w panelu (/api/v1/classifieds, API 1.4).
     @Published var ogloszenia: [Ogloszenie] = []
     @Published var wymaganaAktualizacja = false
@@ -371,6 +373,9 @@ final class Magazyn: ObservableObject {
         if !bl.isEmpty { bloki = bl }
         pasek = konf.slownik("ticker").lista("items").map(Artykul.init)
         gminy = konf.lista("counties").map(Gmina.init).sorted { $0.kolejnosc < $1.kolejnosc }
+        for s in konf.lista("subportals") where !s.s("slug").isEmpty {
+            kategoriePortali[s.s("slug")] = s.s("category").isEmpty ? s.s("slug") : s.s("category")
+        }
         let sub = konf.lista("subportals").map { s in
             KategoriaMenu(nazwa: s.s("name").replacingOccurrences(of: "TVML.pl - ", with: ""), slug: s.s("slug"))
         }
@@ -425,11 +430,13 @@ final class Magazyn: ObservableObject {
     }
 
     func kategoria(_ slug: String, limit: Int = 20) async {
-        if let j = (try? await Siec.v1("articles", ["category": slug, "limit": String(limit)])) as? Slownik {
+        // subportal ma w panelu własną kategorię artykułów (Muzyka: muzyka-tvml); lista zostaje pod slugiem
+        let kat = kategoriePortali[slug] ?? slug
+        if let j = (try? await Siec.v1("articles", ["category": kat, "limit": String(limit)])) as? Slownik {
             wKategorii[slug] = j.lista("items").map(Artykul.init)
             return
         }
-        guard let lista = (try? await Siec.json("tvml-db.php?action=news&category=\(slug)&limit=\(limit)")) as? [Slownik] else { return }
+        guard let lista = (try? await Siec.json("tvml-db.php?action=news&category=\(kat)&limit=\(limit)")) as? [Slownik] else { return }
         wKategorii[slug] = lista.map(Artykul.init)
     }
 
