@@ -69,6 +69,7 @@ struct BlokWidok: View {
     let blok: BlokStartu
     @Binding var strona: StronaWWW?
     @Binding var film: Film?
+    @State private var ogloszenie: Ogloszenie?
 
     var body: some View {
         switch blok.typ {
@@ -145,6 +146,21 @@ struct BlokWidok: View {
                 }
             }
             .task { if m.wKategorii["_fotorelacje"] == nil { await m.fotorelacje(limit: blok.limit) } }
+        case "classifieds":
+            if !m.ogloszenia.isEmpty {
+                Naglowek(tytul: blok.tytul.isEmpty ? "Ogłoszenia drobne" : blok.tytul)
+                VStack(spacing: 0) {
+                    ForEach(Array(m.ogloszenia.prefix(blok.limit > 0 ? blok.limit : 4).enumerated()), id: \.element.id) { i, o in
+                        Button { ogloszenie = o } label: { WierszOgloszenia(ogloszenie: o) }.buttonStyle(.plain)
+                        if i < min(m.ogloszenia.count, blok.limit > 0 ? blok.limit : 4) - 1 { Barwy.ramka.frame(height: 1) }
+                    }
+                }
+                .background(Barwy.karta, in: RoundedRectangle(cornerRadius: 14))
+                .sheet(item: $ogloszenie) { OgloszenieWidok(ogloszenie: $0) }
+                Button { strona = StronaWWW(sciezka: "lista/ogloszenia") } label: {
+                    Text("Wszystkie ogłoszenia na tvml.pl").font(.system(size: 14, weight: .semibold))
+                }
+            }
         case "counties":
             if !m.gminy.isEmpty {
                 tytul
@@ -405,6 +421,68 @@ struct WierszArtykulu: View {
 }
 
 /// Obrazek z sieci; w trybie żałobnym w odcieniach szarości.
+struct WierszOgloszenia: View {
+    let ogloszenie: Ogloszenie
+    var body: some View {
+        HStack(spacing: 12) {
+            if let z = ogloszenie.zdjecia.first {
+                Obraz(url: z).frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text(ogloszenie.tytul).font(.system(size: 15, weight: .semibold)).foregroundStyle(Barwy.tekst).lineLimit(2)
+                Text([ogloszenie.kategoria, ogloszenie.cena].filter { !$0.isEmpty }.joined(separator: " · "))
+                    .font(.system(size: 13)).foregroundStyle(Barwy.slaby)
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Barwy.slaby)
+        }
+        .padding(12)
+        .contentShape(Rectangle())
+    }
+}
+
+/// Szczegóły ogłoszenia: zdjęcia, cena, treść i kontakt (do zaznaczenia i skopiowania).
+struct OgloszenieWidok: View {
+    @Environment(\.dismiss) private var zamknij
+    let ogloszenie: Ogloszenie
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    if !ogloszenie.zdjecia.isEmpty {
+                        TabView {
+                            ForEach(ogloszenie.zdjecia, id: \.self) { Obraz(url: $0).clipped() }
+                        }
+                        .tabViewStyle(.page)
+                        .frame(height: 260)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                    if !ogloszenie.kategoria.isEmpty {
+                        Text(ogloszenie.kategoria.uppercased()).font(.system(size: 11, weight: .heavy)).kerning(1).foregroundStyle(Barwy.slaby)
+                    }
+                    Text(ogloszenie.tytul).font(.system(size: 22, weight: .bold, design: .serif)).foregroundStyle(Barwy.tekst)
+                    if !ogloszenie.cena.isEmpty { Text(ogloszenie.cena).font(.system(size: 18, weight: .bold)).foregroundStyle(Barwy.tekst) }
+                    if !ogloszenie.tekst.isEmpty { Text(ogloszenie.tekst).font(.system(size: 16)).foregroundStyle(Barwy.tekst) }
+                    if !ogloszenie.kontakt.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Kontakt").font(.system(size: 13, weight: .bold)).foregroundStyle(Barwy.slaby)
+                            Text(ogloszenie.kontakt).font(.system(size: 16)).foregroundStyle(Barwy.tekst).textSelection(.enabled)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Barwy.karta, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                }
+                .padding(16)
+            }
+            .background(Barwy.tlo)
+            .navigationTitle("Ogłoszenie")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Gotowe") { zamknij() } } }
+        }
+    }
+}
+
 struct Obraz: View {
     @EnvironmentObject private var m: Magazyn
     let url: URL?

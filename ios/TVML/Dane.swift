@@ -289,6 +289,8 @@ final class Magazyn: ObservableObject {
     @Published var dzisiaj: Dzisiaj?
     /// Komunikat redakcji z panelu (config.message) i prośba o aktualizację (config.minAppVersion.ios), od API 1.2.
     @Published var komunikat: Komunikat?
+    /// Ogłoszenia drobne zatwierdzone w panelu (/api/v1/classifieds, API 1.4).
+    @Published var ogloszenia: [Ogloszenie] = []
     @Published var wymaganaAktualizacja = false
     @Published var zamknieteKomunikaty: [String] = UserDefaults.standard.stringArray(forKey: "tvml-zamkniete-komunikaty") ?? [] {
         didSet { UserDefaults.standard.set(Array(zamknieteKomunikaty.suffix(50)), forKey: "tvml-zamkniete-komunikaty") }
@@ -343,7 +345,13 @@ final class Magazyn: ObservableObject {
             zakladki = gotowe
             if !gotowe.contains(where: { $0.id == zakladka }) { zakladka = gotowe[0].id }
         }
-        let bl = konf.lista("home").compactMap(BlokStartu.init)
+        // drugi blok ogłoszeń (np. „popularne”) pokazywałby tę samą listę, więc zostaje pierwszy
+        var bylyOgloszenia = false
+        let bl = konf.lista("home").compactMap(BlokStartu.init).filter { b in
+            guard b.typ == "classifieds" else { return true }
+            defer { bylyOgloszenia = true }
+            return !bylyOgloszenia
+        }
         if !bl.isEmpty { bloki = bl }
         pasek = konf.slownik("ticker").lista("items").map(Artykul.init)
         gminy = konf.lista("counties").map(Gmina.init).sorted { $0.kolejnosc < $1.kolejnosc }
@@ -362,6 +370,10 @@ final class Magazyn: ObservableObject {
         // listy bloków Start z kategorią albo flagą i fotorelacje, odświeżane razem z resztą
         for b in bloki where b.typ == "posts" { await wpisy(b) }
         if let g = bloki.first(where: { $0.typ == "gallery" }) { await fotorelacje(limit: g.limit) }
+        if let o = bloki.first(where: { $0.typ == "classifieds" }),
+           let j = (try? await Siec.v1("classifieds", ["limit": String(o.limit > 0 ? o.limit : 4)])) as? Slownik {
+            ogloszenia = j.lista("items").map(Ogloszenie.init)
+        }
         return true
     }
 
@@ -507,6 +519,37 @@ struct Komunikat: Equatable {
     var pilny: Bool { poziom == "urgent" }
 }
 
+/// Ogłoszenie drobne z /api/v1/classifieds: tytuł, kategoria, cena, treść, kontakt i zdjęcia.
+struct Ogloszenie: Identifiable, Hashable {
+    let id: Int
+    let tytul: String
+    let kategoria: String
+    let cena: String
+    let tekst: String
+    let kontakt: String
+    let zdjecia: [URL]
+    let data: Date?
+
+    init(_ j: Slownik) {
+        id = j.i("id")
+        tytul = Html.tekst(j.s("title"))
+        kategoria = Html.tekst((j["category"] as? Slownik)?.s("name") ?? j.s("category"))
+        let c = j.s("price")
+        cena = c.isEmpty ? "" : (Double(c) != nil ? c.replacingOccurrences(of: ".", with: ",") + " zł" : c)
+        tekst = Html.tekst(j.s("text"), zachowajAkapity: true)
+        if let k = j["contact"] as? Slownik {
+            kontakt = ["name", "phone", "email"].map { k.s($0) }.filter { !$0.isEmpty }.joined(separator: "\n")
+        } else {
+            kontakt = j.s("contact")
+        }
+        zdjecia = j.lista("photos").compactMap { o in
+            let w = o.slownik("variants")
+            return URL(string: (w["800"] as? String) ?? (w["400"] as? String) ?? o.s("url"))
+        }
+        data = ISO8601DateFormatter().date(from: j.s("publishedAt"))
+    }
+}
+
 /// Porównanie wersji aplikacji („2.0” < „2.0.1” < „2.1”).
 enum Wersja {
     static var biezaca: String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0" }
@@ -547,7 +590,7 @@ struct BlokStartu: Identifiable, Hashable {
     init?(_ j: Slownik) {
         let p = j.slownik("props")
         let typ = j.s("type")
-        guard ["hero", "weather", "alert", "video", "posts", "mostread", "gallery", "counties", "social", "sponsored"].contains(typ) else { return nil }
+        guard ["hero", "weather", "alert", "video", "posts", "mostread", "gallery", "counties", "social", "sponsored", "classifieds"].contains(typ) else { return nil }
         // „sponsored” z kreatora to lista artykułów sponsorowanych, rysowana jak posts
         self.typ = typ == "sponsored" ? "posts" : typ
         id = j.s("id").isEmpty ? UUID().uuidString : j.s("id")
