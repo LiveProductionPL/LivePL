@@ -1,6 +1,7 @@
 import SwiftUI
 import WebKit
 import Combine
+import Translation
 
 /// Błąd otwierania strony, pokazywany zamiast pustego ekranu.
 struct BladStrony: Equatable {
@@ -27,6 +28,17 @@ final class Karta: NSObject, ObservableObject, Identifiable, WKNavigationDelegat
     @Published private(set) var tylkoBezpieczne = true
     @Published private(set) var blad: BladStrony?
 
+    // tłumaczenie strony (Tlumacz.swift)
+    /// Kod języka strony, gdy nie jest po polsku (np. „en”).
+    @Published private(set) var jezykStrony: String?
+    @Published var pokazPropozycje = false
+    @Published private(set) var tlumaczy = false
+    @Published private(set) var przetlumaczona = false
+    @Published var bladTlumaczenia: String?
+    @Published private(set) var prosbaOTlumaczenie = 0
+    private(set) var tlumaczenieWlaczone = false
+    private var noweTeksty: AsyncStream<[FragmentTekstu]>.Continuation?
+
     /// Adres karty przywróconej po ponownym uruchomieniu, ładowany dopiero po wejściu na kartę.
     private(set) var odlozona: URL?
     private var pobierane: [WKDownload: URL] = [:]
@@ -39,6 +51,7 @@ final class Karta: NSObject, ObservableObject, Identifiable, WKNavigationDelegat
 
         webView.navigationDelegate = self
         webView.uiDelegate = self
+        PosrednikTlumacza.wspolny.podlacz(self)
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsLinkPreview = true
         webView.isFindInteractionEnabled = true
@@ -118,6 +131,125 @@ final class Karta: NSObject, ObservableObject, Identifiable, WKNavigationDelegat
         webView.scrollView.refreshControl?.endRefreshing()
     }
 
+    // MARK: - Tłumaczenie strony (Apple Translation, w telefonie)
+
+    /// Po załadowaniu strony: jaki to język i czy zaproponować tłumaczenie.
+    /// Programy z paska (Poczta, Urząd…) to nasze polskie strony, więc tam LivePL sam nie proponuje.
+    private func wykryjJezyk() async {
+        let wynik = try? await webView.callAsyncJavaScript(
+            "return window.__liveplTlumacz ? window.__liveplTlumacz.probka() : null",
+            contentWorld: .defaultClient)
+        guard let probka = wynik as? [String: Any] else { return }
+        guard let kod = Tlumacz.jezyk(lang: probka["lang"] as? String ?? "", tekst: probka["tekst"] as? String ?? "") else {
+            jezykStrony = nil
+            return
+        }
+        let stan = await LanguageAvailability().status(from: Locale.Language(identifier: kod), to: Locale.Language(identifier: "pl"))
+        guard stan != .unsupported else {
+            jezykStrony = nil
+            return
+        }
+        jezykStrony = kod
+        guard programID == nil, !tlumaczenieWlaczone else { return }
+        if let host = adres?.host, Tlumacz.nigdyNa.contains(host) { return }
+        if Tlumacz.zawszeZ.contains(kod) {
+            tlumacz()
+        } else {
+            pokazPropozycje = true
+        }
+    }
+
+    func tlumacz() {
+        tlumaczenieWlaczone = true
+        pokazPropozycje = false
+        bladTlumaczenia = nil
+        prosbaOTlumaczenie += 1
+    }
+
+    func zawszeTlumacz() {
+        if let kod = jezykStrony { Tlumacz.zawszeZ.insert(kod) }
+        tlumacz()
+    }
+
+    func nigdyNaTejStronie() {
+        if let host = adres?.host { Tlumacz.nigdyNa.insert(host) }
+        pokazPropozycje = false
+    }
+
+    func pokazOryginal() {
+        zakonczTlumaczenie()
+        Task {
+            _ = try? await webView.callAsyncJavaScript(
+                "if (window.__liveplTlumacz) window.__liveplTlumacz.przywroc(); return true;",
+                contentWorld: .defaultClient)
+        }
+    }
+
+    private func zakonczTlumaczenie() {
+        tlumaczenieWlaczone = false
+        przetlumaczona = false
+        tlumaczy = false
+        pokazPropozycje = false
+        noweTeksty?.finish()
+        noweTeksty = nil
+    }
+
+    /// Treść dopisana przez stronę po przetłumaczeniu (z PosrednikTlumacza).
+    func noweFragmenty(_ fragmenty: [FragmentTekstu]) {
+        guard tlumaczenieWlaczone, !fragmenty.isEmpty else { return }
+        noweTeksty?.yield(fragmenty)
+    }
+
+    /// Wywołuje TlumaczKarty (translationTask): tłumaczy całą stronę, potem treść dopisywaną, dopóki karta jest widoczna.
+    func wykonajTlumaczenie(_ sesja: TranslationSession) async {
+        guard tlumaczenieWlaczone else { return }
+        let (strumien, kontynuacja) = AsyncStream.makeStream(of: [FragmentTekstu].self)
+        noweTeksty?.finish()
+        noweTeksty = kontynuacja
+        tlumaczy = true
+        do {
+            try await sesja.prepareTranslation()
+            let wynik = try await webView.callAsyncJavaScript(
+                "return window.__liveplTlumacz ? window.__liveplTlumacz.zbierz() : []",
+                contentWorld: .defaultClient)
+            try await przetlumacz(Tlumacz.fragmenty(wynik), sesja)
+            tlumaczy = false
+            przetlumaczona = tlumaczenieWlaczone
+            for await nowe in strumien {
+                try await przetlumacz(nowe, sesja)
+            }
+        } catch is CancellationError {
+            tlumaczy = false
+        } catch {
+            tlumaczy = false
+            if tlumaczenieWlaczone {
+                zakonczTlumaczenie()
+                bladTlumaczenia = "Nie udało się przetłumaczyć strony. \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func przetlumacz(_ fragmenty: [FragmentTekstu], _ sesja: TranslationSession) async throws {
+        var od = 0
+        while od < fragmenty.count {
+            try Task.checkCancellation()
+            guard tlumaczenieWlaczone else { return }
+            let czesc = fragmenty[od..<min(od + 80, fragmenty.count)]
+            od += 80
+            let prosby = czesc.map { TranslationSession.Request(sourceText: $0.tekst, clientIdentifier: $0.id) }
+            let odpowiedzi = try await sesja.translations(from: prosby)
+            let pary: [[String]] = odpowiedzi.compactMap { odp in
+                guard let id = odp.clientIdentifier else { return nil }
+                return [id, odp.targetText]
+            }
+            guard tlumaczenieWlaczone else { return }
+            _ = try? await webView.callAsyncJavaScript(
+                "if (window.__liveplTlumacz) window.__liveplTlumacz.wstaw(pary); return true;",
+                arguments: ["pary": pary],
+                contentWorld: .defaultClient)
+        }
+    }
+
     // MARK: - WKNavigationDelegate
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
@@ -147,10 +279,13 @@ final class Karta: NSObject, ObservableObject, Identifiable, WKNavigationDelegat
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         blad = nil
+        zakonczTlumaczenie()
+        jezykStrony = nil
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         koniecOdswiezania()
+        Task { await wykryjJezyk() }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {

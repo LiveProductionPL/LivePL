@@ -54,6 +54,7 @@ zrzut 2-rezyserka-noc dark
 zrzut 3-poczta-dzien light -otworz poczta
 zrzut 4-tvml-noc dark -otworz tvml
 zrzut 5-liveproduction-dzien light -otworz liveproduction
+zrzut 6-tlumacz-dzien light -otworz https://en.wikipedia.org/wiki/Poland
 
 # dziennik aplikacji z ostatnich minut (błędy WebKit, SwiftUI)
 xcrun simctl spawn "$UDID" log show --last 3m --style compact \

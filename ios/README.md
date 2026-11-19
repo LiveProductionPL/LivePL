@@ -14,6 +14,16 @@ z LivePL na Windows:
   „Udostępnij” (stamtąd np. Zachowaj w Plikach). Linki `mailto:`, `tel:` i App Store otwiera iOS.
 - **Karty wracają** po ponownym uruchomieniu, ale ładują się dopiero wtedy, gdy na nie wejdziesz.
   Logowania (ciasteczka) i Moje strony zostają w telefonie.
+- **Tłumacz stron** ([Tlumacz.swift](LivePL/Tlumacz.swift)) korzysta z Apple Translation, które tłumaczy
+  w telefonie, bez wysyłania tekstu do nikogo.
+  - Gdy strona jest w innym języku, pod adresem pojawia się propozycja „Przetłumacz”. Z niej wybierzesz
+    też „Zawsze tłumacz: …” albo „Nigdy na …”. Ręcznie: menu → „Przetłumacz na polski” / „Pokaż oryginał”.
+  - Treść dopisywaną później przez stronę też tłumaczy.
+  - Podmienia tylko tekst, nigdy pola formularzy, hasła ani kod.
+  - Przy programach z paska (nasze polskie strony) sam niczego nie proponuje.
+  - Języki pobiera iOS przy pierwszym użyciu.
+
+Wymagany iOS 18 (Apple Translation).
 
 Lista programów to ten sam [programy.json](../programy.json) co na Windows. Programy z `"ukryty": true` są
 pod „Więcej programów”. Panel urzędu (`tylkoZYubiKey`) otwiera na telefonie stronę publiczną

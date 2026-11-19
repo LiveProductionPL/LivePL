@@ -12,6 +12,7 @@ struct WidokKarty: View {
     var body: some View {
         VStack(spacing: 0) {
             gornyPasek
+            PasekTlumaczenia(karta: karta)
             ZStack(alignment: .top) {
                 WebWidok(webView: karta.webView)
                 if let blad = karta.blad {
@@ -23,6 +24,9 @@ struct WidokKarty: View {
             }
         }
         .background(Kolor.tlo)
+        .tlumaczenieStron(karta)
+        .animation(.snappy, value: karta.pokazPropozycje)
+        .animation(.snappy, value: karta.przetlumaczona)
         .onChange(of: fokus) { _, jest in
             if !jest { edycja = false }
         }
@@ -144,6 +148,16 @@ struct WidokKarty: View {
                 karta.webView.findInteraction?.presentFindNavigator(showingReplace: false)
             } label: {
                 Label("Znajdź na stronie", systemImage: "doc.text.magnifyingglass")
+            }
+            if karta.przetlumaczona || karta.tlumaczy {
+                Button { karta.pokazOryginal() } label: {
+                    Label("Pokaż oryginał", systemImage: "arrow.uturn.backward")
+                }
+            } else {
+                Button { karta.tlumacz() } label: {
+                    Label("Przetłumacz na polski", systemImage: "translate")
+                }
+                .disabled(karta.adres == nil)
             }
             Divider()
             Button {

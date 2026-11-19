@@ -105,8 +105,8 @@ struct PrzyciskPaska<Tresc: View>: View {
                     .foregroundStyle(aktywny ? Kolor.tekst : Kolor.slaby)
                     .lineLimit(1)
             }
-            .frame(minWidth: 58)
-            .padding(.horizontal, 4)
+            .frame(minWidth: 48)
+            .padding(.horizontal, 3)
             .padding(.vertical, 4)
             .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(aktywny ? Kolor.wcisniety : Color.clear))
             .overlay(alignment: .topTrailing) {
@@ -147,7 +147,7 @@ struct IkonaProgramu: View {
             Image(obrazek)
                 .resizable()
                 .scaledToFit()
-                .frame(width: program.szeroki == true ? rozmiar * 2 : rozmiar, height: rozmiar)
+                .frame(width: program.szeroki == true ? rozmiar * 1.9 : rozmiar, height: rozmiar)
         } else {
             Image(systemName: program.symbol)
                 .font(.system(size: rozmiar * 0.8))
