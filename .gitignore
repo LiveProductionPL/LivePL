@@ -20,3 +20,10 @@ dist/
 # publiczne certyfikaty urzędu LivePL są częścią programu
 !assets/ca/*.crt
 !assets/ca/posrednie/*.crt
+
+# iOS: projekt Xcode i Info.plist tworzy XcodeGen, klucze Apple zostają w LivePL-klucze
+ios/LivePL.xcodeproj/
+ios/Wsparcie/
+ios/build/
+*.p8
+*.mobileprovision

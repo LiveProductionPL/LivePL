@@ -1,0 +1,146 @@
+# LivePL na iPhone'a: budowa na Macach GitHuba, zrzuty z symulatora i (na życzenie) wysyłka do TestFlight.
+# TestFlight rusza tylko wtedy, gdy opis zmiany zawiera [testflight] i są ustawione sekrety Apple (ios/README.md).
+name: LivePL iOS
+
+on:
+  push:
+    branches: [ios]
+    paths:
+      - "ios/**"
+      - "programy.json"
+      - "assets/programy/**"
+      - ".github/workflows/ios.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  symulator:
+    name: Budowa i zrzuty z symulatora
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Najnowszy Xcode
+        run: |
+          ls -d /Applications/Xcode*.app
+          XCODE=$(ls -d /Applications/Xcode_*.app | grep -v -i beta | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
+      - name: Projekt Xcode z project.yml
+        run: |
+          brew install xcodegen
+          cd ios && xcodegen generate
+
+      - name: Budowa na symulator
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/LivePL.xcodeproj -scheme LivePL -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build 2>&1 | tee build.log | grep -E "error:|warning:|BUILD" || true
+          grep -q "BUILD SUCCEEDED" build.log
+
+      - name: Ostrzeżenia kompilatora
+        if: always()
+        run: |
+          grep -E "(error|warning): " build.log | grep "/ios/" | sort -u || echo "brak"
+
+      - name: Zrzuty ekranu
+        run: bash ios/narzedzia/zrzuty.sh build/Build/Products/Debug-iphonesimulator/LivePL.app zrzuty
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zrzuty-${{ github.run_number }}
+          path: |
+            zrzuty/
+            build.log
+          retention-days: 14
+
+  testflight:
+    name: Wysyłka do TestFlight
+    needs: symulator
+    if: contains(github.event.head_commit.message, '[testflight]')
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      APPLE_CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
+      APPLE_CERT_HASLO: ${{ secrets.APPLE_CERT_HASLO }}
+      APPLE_PROFIL: ${{ secrets.APPLE_PROFIL }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sekrety Apple
+        run: |
+          brak=0
+          for s in APPLE_CERT_P12 APPLE_CERT_HASLO APPLE_PROFIL ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
+            if [ -z "${!s}" ]; then echo "::error::Brak sekretu $s (instrukcja w ios/README.md)"; brak=1; fi
+          done
+          exit $brak
+
+      - name: Najnowszy Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app | grep -v -i beta | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
+      - name: Projekt Xcode z project.yml
+        run: |
+          brew install xcodegen
+          cd ios && xcodegen generate
+
+      - name: Certyfikat i profil do podpisu
+        run: |
+          KC="$RUNNER_TEMP/livepl.keychain-db"
+          KCH=$(openssl rand -hex 24)
+          security create-keychain -p "$KCH" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KCH" "$KC"
+          printf '%s' "$APPLE_CERT_P12" | base64 --decode > "$RUNNER_TEMP/podpis.p12"
+          security import "$RUNNER_TEMP/podpis.p12" -P "$APPLE_CERT_HASLO" -A -t cert -f pkcs12 -k "$KC"
+          rm -f "$RUNNER_TEMP/podpis.p12"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KCH" "$KC" > /dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          security find-identity -v -p codesigning "$KC"
+          for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$d"
+            printf '%s' "$APPLE_PROFIL" | base64 --decode > "$d/livepl-app-store.mobileprovision"
+          done
+
+      - name: Archiwum (Release)
+        run: |
+          set -o pipefail
+          xcodebuild -project ios/LivePL.xcodeproj -scheme LivePL -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/LivePL.xcarchive" \
+            CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=WHKQ7CW48T \
+            CODE_SIGN_IDENTITY="Apple Distribution" PROVISIONING_PROFILE_SPECIFIER="LivePL App Store" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            archive 2>&1 | tee archive.log | grep -E "error:|ARCHIVE" || true
+          grep -q "ARCHIVE SUCCEEDED" archive.log
+
+      - name: Wysyłka do App Store Connect
+        run: |
+          mkdir -p "$RUNNER_TEMP/asc"
+          KLUCZ="$RUNNER_TEMP/asc/AuthKey_$ASC_KEY_ID.p8"
+          printf '%s' "$ASC_KEY_P8" > "$KLUCZ"
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/LivePL.xcarchive" \
+            -exportOptionsPlist ios/ExportOptions.plist -exportPath "$RUNNER_TEMP/eksport" \
+            -authenticationKeyPath "$KLUCZ" -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          echo "Wysłano budowę ${{ github.run_number }}. Po przetworzeniu przez Apple (zwykle 5–20 minut) pojawi się w TestFlight."
+
+      - name: Sprzątanie
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/livepl.keychain-db" 2>/dev/null || true
+          rm -rf "$RUNNER_TEMP/asc" "$HOME/Library/MobileDevice/Provisioning Profiles/livepl-app-store.mobileprovision" \
+            "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles/livepl-app-store.mobileprovision"

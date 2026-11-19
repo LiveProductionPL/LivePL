@@ -1,0 +1,78 @@
+# Projekt Xcode aplikacji LivePL na iPhone'a i iPada.
+# Plik .xcodeproj nie leży w repozytorium: tworzy go XcodeGen (`xcodegen generate` w tym folderze),
+# na Macach GitHuba robi to .github/workflows/ios.yml.
+name: LivePL
+options:
+  bundleIdPrefix: eu.livepl
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: pl
+  createIntermediateGroups: true
+
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: WHKQ7CW48T
+    SWIFT_VERSION: "5.0"
+
+targets:
+  LivePL:
+    type: application
+    platform: iOS
+    sources:
+      - path: LivePL
+      # ta sama lista programów co w LivePL na Windows
+      - path: ../programy.json
+        buildPhase: resources
+    info:
+      path: Wsparcie/Info.plist
+      properties:
+        CFBundleDisplayName: LivePL
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleDevelopmentRegion: pl
+        CFBundleLocalizations: [pl]
+        LSRequiresIPhoneOS: true
+        LSApplicationCategoryType: public.app-category.productivity
+        # tylko HTTPS z systemu: zwolnione z deklaracji eksportowej
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen:
+          UIColorName: TloStartu
+          UIImageName: Wstega
+          UIImageRespectsSafeAreaInsets: true
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # strony mogą prosić o zdjęcie, wideorozmowę albo lokalizację; iOS zawsze pyta o zgodę
+        NSCameraUsageDescription: "Strona otwarta w LivePL prosi o aparat, np. do zdjęcia w formularzu albo wideorozmowy."
+        NSMicrophoneUsageDescription: "Strona otwarta w LivePL prosi o mikrofon, np. do rozmowy albo nagrania."
+        NSPhotoLibraryAddUsageDescription: "LivePL zapisze w Zdjęciach obrazek, który sam zapiszesz ze strony."
+        NSLocationWhenInUseUsageDescription: "Strona otwarta w LivePL prosi o Twoją lokalizację. Dostanie ją tylko po Twojej zgodzie."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: eu.livepl.przegladarka
+        PRODUCT_NAME: LivePL
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SUPPORTS_MACCATALYST: false
+        CODE_SIGN_STYLE: Automatic
+
+schemes:
+  LivePL:
+    build:
+      targets:
+        LivePL: all
+    run:
+      config: Debug
+    archive:
+      config: Release
