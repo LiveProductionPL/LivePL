@@ -153,7 +153,9 @@ targets:
     info:
       path: Wsparcie/Connect-Info.plist
       properties:
-        CFBundleDisplayName: Connect
+        # samo „Connect” Apple odrzucił jako zajętą nazwę (ITMS-90129), więc pod ikoną i w paczce: LivePL Connect
+        CFBundleDisplayName: LivePL Connect
+        CFBundleName: LivePL Connect
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDevelopmentRegion: pl
