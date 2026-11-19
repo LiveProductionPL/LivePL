@@ -20,6 +20,9 @@ typ() {
   xcrun simctl list devicetypes -j | python3 -c "
 import json, re, sys
 t = [d for d in json.load(sys.stdin)['devicetypes'] if re.search(sys.argv[1], d['name'])]
+# najnowszy model (największy numer w nazwie), np. iPhone 17 Pro Max zamiast iPhone 11 Pro Max
+num = lambda d: [int(x) for x in re.findall(r'\d+', d['name'])] or [0]
+t.sort(key=num)
 print(t[-1]['identifier'] if t else '')
 " "$1"
 }

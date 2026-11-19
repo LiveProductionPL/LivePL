@@ -32,6 +32,14 @@ async function api(metoda, sciezka, cialo) {
 
 const APLIKACJE = { 'eu.livepl.przegladarka': 'livepl-', 'eu.livepl.poczta': 'poczta-', 'eu.livepl.connect': 'connect-' };
 const URZADZENIA = { 'iphone-69': 'APP_IPHONE_67', 'ipad-13': 'APP_IPAD_PRO_3GEN_129' };
+// rodzaj ekranu w App Store Connect według rozmiaru pliku (symulator nie zawsze jest najnowszym modelem);
+// Apple przyjmuje iPhone 6,9″ albo 6,5″ jako wymagany zestaw
+const WEDLUG_ROZMIARU = {
+  '1320x2868': 'APP_IPHONE_67', '1290x2796': 'APP_IPHONE_67',
+  '1284x2778': 'APP_IPHONE_65', '1242x2688': 'APP_IPHONE_65',
+  '2064x2752': 'APP_IPAD_PRO_3GEN_129', '2048x2732': 'APP_IPAD_PRO_3GEN_129'
+};
+const rozmiar = (dane) => `${dane.readUInt32BE(16)}x${dane.readUInt32BE(20)}`;
 
 for (const [bundle, przedrostek] of Object.entries(APLIKACJE)) {
   const app = (await api('GET', `/v1/apps?filter[bundleId]=${bundle}`)).data[0];
@@ -40,11 +48,12 @@ for (const [bundle, przedrostek] of Object.entries(APLIKACJE)) {
   if (!wersja) { console.log(`${bundle}: brak wersji w przygotowaniu`); continue; }
   const lok = (await api('GET', `/v1/appStoreVersions/${wersja.id}/appStoreVersionLocalizations`)).data.find((l) => l.attributes.locale.startsWith('pl'));
   const zestawy = (await api('GET', `/v1/appStoreVersionLocalizations/${lok.id}/appScreenshotSets`)).data;
-  for (const [katalog, typ] of Object.entries(URZADZENIA)) {
+  for (const [katalog, domyslny] of Object.entries(URZADZENIA)) {
     const dir = path.join(folder, katalog);
     if (!fs.existsSync(dir)) continue;
     const pliki = fs.readdirSync(dir).filter((f) => f.startsWith(przedrostek) && f.endsWith('.png')).sort();
     if (!pliki.length) continue;
+    const typ = WEDLUG_ROZMIARU[rozmiar(fs.readFileSync(path.join(dir, pliki[0])))] || domyslny;
     let zestaw = zestawy.find((z) => z.attributes.screenshotDisplayType === typ);
     if (!zestaw) {
       zestaw = (await api('POST', '/v1/appScreenshotSets', { data: { type: 'appScreenshotSets', attributes: { screenshotDisplayType: typ },
