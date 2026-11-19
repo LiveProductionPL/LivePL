@@ -5,11 +5,27 @@ import SwiftUI
 enum AplikacjaPoczty {
     /// Schemat adresu, który rejestruje Poczta LivePL (project.yml, CFBundleURLTypes).
     static let otworz = URL(string: "livepl-poczta://")!
-    /// Na razie TestFlight (zaproszeni testerzy); po wydaniu w App Store: https://apps.apple.com/app/id6836741669
-    static let instaluj = URL(string: "https://beta.itunes.apple.com/v1/app/6836741669")!
+    /// Strona Poczty LivePL w App Store.
+    static let instaluj = URL(string: "https://apps.apple.com/app/id6836741669")!
     private static let kluczOdrzucenia = "livepl-poczta-aplikacja-odrzucona"
 
     static var zainstalowana: Bool { UIApplication.shared.canOpenURL(otworz) }
+
+    /// Czy Poczta LivePL jest już w App Store. Dopóki nie jest, propozycja się nie pokazuje.
+    /// Odpowiedź „jest” zostaje zapamiętana, „nie ma” sprawdzamy znowu po godzinie.
+    private static var wSklepie = false
+    private static var sprawdzonoBrak: Date?
+
+    static func jestWSklepie() async -> Bool {
+        if wSklepie { return true }
+        if let kiedy = sprawdzonoBrak, Date().timeIntervalSince(kiedy) < 3600 { return false }
+        guard let adres = URL(string: "https://itunes.apple.com/lookup?bundleId=eu.livepl.poczta&country=pl"),
+              let odp = try? await URLSession.shared.data(from: adres),
+              let j = (try? JSONSerialization.jsonObject(with: odp.0)) as? [String: Any],
+              let ile = j["resultCount"] as? Int else { return false }
+        if ile > 0 { wSklepie = true } else { sprawdzonoBrak = Date() }
+        return ile > 0
+    }
 
     /// „×” chowa propozycję na 30 dni.
     static var odrzuconaNiedawno: Bool {
@@ -72,11 +88,18 @@ struct PropozycjaPoczty: View {
             }
         }
         .onAppear(perform: sprawdz)
-        // po powrocie z TestFlight / App Store: aplikacja może już być zainstalowana
+        // po powrocie z App Store: aplikacja może już być zainstalowana
         .onChange(of: faza) { _, nowa in if nowa == .active { sprawdz() } }
     }
 
     private func sprawdz() {
-        pokaz = karta.programID == "poczta" && !AplikacjaPoczty.zainstalowana && !AplikacjaPoczty.odrzuconaNiedawno
+        guard karta.programID == "poczta", !AplikacjaPoczty.zainstalowana, !AplikacjaPoczty.odrzuconaNiedawno else {
+            pokaz = false
+            return
+        }
+        Task {
+            let jest = await AplikacjaPoczty.jestWSklepie()
+            pokaz = jest && karta.programID == "poczta"
+        }
     }
 }
