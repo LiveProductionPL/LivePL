@@ -46,7 +46,7 @@ z LivePL na Windows:
 Wymagany iOS 18 (Apple Translation).
 
 Lista programów to ten sam [programy.json](../programy.json) co na Windows. Programy z `"ukryty": true` są
-pod „Więcej programów”, a nie na dolnym pasku. Tak samo panel urzędu (`tylkoZYubiKey`): na telefonie otwiera
+pod „Więcej programów” i nigdy na dolnym pasku (otwarte są w liście kart). Tak samo panel urzędu (`tylkoZYubiKey`): na telefonie otwiera
 tylko stronę publiczną cert.livepl.eu, bo logowanie YubiKey działa tylko w LivePL na Windows.
 
 ## Budowanie bez Maca

@@ -101,9 +101,10 @@ final class Przegladarka: ObservableObject {
     var widoczneProgramy: [Program] { programy.filter { !$0.schowany } }
     var pozostaleProgramy: [Program] { programy.filter { $0.schowany } }
 
-    /// Na dolnym pasku: widoczne programy zawsze, schowane tylko wtedy, gdy są otwarte.
+    /// Na dolnym pasku tylko główne programy. Schowane (np. Urząd) są pod „Więcej programów”,
+    /// a gdy są otwarte, wraca się do nich z listy kart.
     var programyNaPasku: [Program] {
-        programy.filter { program in !program.schowany || karta(programu: program.id) != nil }
+        programy.filter { !$0.schowany }
     }
 
     var kartyProgramow: [Karta] { karty.filter { $0.programID != nil } }
