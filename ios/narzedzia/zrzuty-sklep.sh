@@ -1,6 +1,6 @@
 #!/bin/bash
 # Zrzuty do App Store w wymaganych rozmiarach: iPhone 6,9" (1320×2868) i iPad 13" (2064×2752).
-#   ios/narzedzia/zrzuty-sklep.sh <LivePL.app> <Poczta.app> <folder> [Connect.app]
+#   ios/narzedzia/zrzuty-sklep.sh <LivePL.app> <Poczta.app> <folder> [Connect.app] [TVML.app]
 # Na Macach GitHuba, gdy opis zmiany zawiera [zrzuty-sklep]. Wgrywa je ios/narzedzia/sklep-zrzuty.mjs.
 set -euo pipefail
 
@@ -8,6 +8,7 @@ LIVEPL="$1"
 POCZTA="$2"
 WYJSCIE="$3"
 CONNECT="${4:-}"
+TVML="${5:-}"
 mkdir -p "$WYJSCIE"
 
 RUNTIME=$(xcrun simctl list runtimes -j | python3 -c '
@@ -41,6 +42,7 @@ zrob() {
   xcrun simctl install "$UDID" "$LIVEPL"
   xcrun simctl install "$UDID" "$POCZTA"
   if [ -n "$CONNECT" ]; then xcrun simctl install "$UDID" "$CONNECT"; fi
+  if [ -n "$TVML" ]; then xcrun simctl install "$UDID" "$TVML"; fi
 
   ujecie() {
     local plik="$1" id="$2" wyglad="$3"
@@ -65,6 +67,16 @@ zrob() {
     xcrun simctl terminate "$UDID" eu.livepl.poczta 2>/dev/null || true
     ujecie connect-1-dzien eu.livepl.connect light
     ujecie connect-2-noc eu.livepl.connect dark
+  fi
+  if [ -n "$TVML" ]; then
+    # TVML pobiera wiadomości, pogodę i wygląd z tvml.pl (wersja z panelu); -motyw pokazuje wydanie świąteczne
+    xcrun simctl terminate "$UDID" eu.livepl.connect 2>/dev/null || true
+    ujecie tvml-1-start com.LiveProduction.TVML light
+    ujecie tvml-2-artykul com.LiveProduction.TVML light -ekran artykul
+    ujecie tvml-3-pogoda com.LiveProduction.TVML light -ekran pogoda
+    ujecie tvml-4-swieta com.LiveProduction.TVML light -motyw swieta
+    ujecie tvml-5-noc com.LiveProduction.TVML dark
+    ujecie tvml-6-wideo com.LiveProduction.TVML dark -ekran wideo
   fi
 
   xcrun simctl shutdown "$UDID" || true

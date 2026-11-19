@@ -1,4 +1,4 @@
-# LivePL, Poczta LivePL i LivePL Connect na iPhone'a: budowa na Macach GitHuba, zrzuty z symulatora i (na życzenie) wysyłka do TestFlight.
+# LivePL, Poczta LivePL, LivePL Connect i TVML na iPhone'a: budowa na Macach GitHuba, zrzuty z symulatora i (na życzenie) wysyłka do TestFlight.
 # TestFlight rusza tylko wtedy, gdy opis zmiany zawiera [testflight] i są ustawione sekrety Apple (ios/README.md).
 # Zmiana musi dotykać plików z listy niżej (pusta zmiana nie uruchomi budowy). Gdy workflow trafi na main,
 # można go też uruchomić ręcznie: Actions → LivePL iOS → Run workflow (z zaznaczonym „TestFlight”).
@@ -113,7 +113,7 @@ jobs:
       - name: Zrzuty (${{ matrix.urzadzenie }})
         run: |
           P=build/Build/Products/Debug-iphonesimulator
-          URZADZENIE=${{ matrix.urzadzenie }} bash ios/narzedzia/zrzuty-sklep.sh $P/LivePL.app $P/Poczta.app sklep $P/Connect.app
+          URZADZENIE=${{ matrix.urzadzenie }} bash ios/narzedzia/zrzuty-sklep.sh $P/LivePL.app $P/Poczta.app sklep $P/Connect.app $P/TVML.app
 
       - uses: actions/upload-artifact@v4
         with:

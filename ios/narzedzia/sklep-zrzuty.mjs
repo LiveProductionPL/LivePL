@@ -1,16 +1,17 @@
-// Wgrywa zrzuty z zrzuty-sklep.sh (artefakt „sklep-N” z GitHuba) do App Store Connect, wersja 1.0, język polski.
-// Zastępuje zrzuty, które już tam są.
+// Wgrywa zrzuty z zrzuty-sklep.sh (artefakt „sklep-N” z GitHuba) do App Store Connect, wersja w przygotowaniu, język polski.
+// Zastępuje zrzuty, które już tam są, a przy TVML usuwa też stare zestawy z 2019 (inne rozmiary iPhone'a i iPada).
 //
-//   node ios/narzedzia/sklep-zrzuty.mjs <AuthKey klucza Admin> <Issuer ID> <folder ze zrzutami>
+//   node ios/narzedzia/sklep-zrzuty.mjs <AuthKey klucza Admin> <Issuer ID> <folder ze zrzutami> [przedrostek …]
 //
 // W folderze: iphone-69/*.png (1320×2868) i ipad-13/*.png (2064×2752); pliki livepl-* idą do LivePL, poczta-* do Poczty LivePL,
-// connect-* do LivePL Connect. Aplikację bez zrzutów w folderze pomija (jej zrzuty w App Store zostają).
+// connect-* do LivePL Connect, tvml-* do TVML. Aplikację bez zrzutów w folderze pomija (jej zrzuty w App Store zostają).
+// Z przedrostkami (np. tvml-) wgrywa tylko te aplikacje.
 
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
-const [plikKlucza, issuerId, folder] = process.argv.slice(2);
+const [plikKlucza, issuerId, folder, ...wybrane] = process.argv.slice(2);
 if (!plikKlucza || !issuerId || !folder) { console.error('Użycie: node ios/narzedzia/sklep-zrzuty.mjs <AuthKey_XXXX.p8> <Issuer ID> <folder>'); process.exit(2); }
 const keyId = path.basename(plikKlucza).replace(/^AuthKey_/, '').replace(/\.p8$/, '');
 const kluczApi = fs.readFileSync(plikKlucza, 'utf8');
@@ -30,7 +31,7 @@ async function api(metoda, sciezka, cialo) {
   return j;
 }
 
-const APLIKACJE = { 'eu.livepl.przegladarka': 'livepl-', 'eu.livepl.poczta': 'poczta-', 'eu.livepl.connect': 'connect-' };
+const APLIKACJE = { 'eu.livepl.przegladarka': 'livepl-', 'eu.livepl.poczta': 'poczta-', 'eu.livepl.connect': 'connect-', 'com.LiveProduction.TVML': 'tvml-' };
 const URZADZENIA = { 'iphone-69': 'APP_IPHONE_67', 'ipad-13': 'APP_IPAD_PRO_3GEN_129' };
 // rodzaj ekranu w App Store Connect według rozmiaru pliku (symulator nie zawsze jest najnowszym modelem);
 // Apple przyjmuje iPhone 6,9″ albo 6,5″ jako wymagany zestaw
@@ -41,7 +42,10 @@ const WEDLUG_ROZMIARU = {
 };
 const rozmiar = (dane) => `${dane.readUInt32BE(16)}x${dane.readUInt32BE(20)}`;
 
+const rodzina = (typ) => (typ.includes('IPAD') ? 'ipad' : typ.includes('IPHONE') ? 'iphone' : typ);
+
 for (const [bundle, przedrostek] of Object.entries(APLIKACJE)) {
+  if (wybrane.length && !wybrane.includes(przedrostek)) continue;
   const app = (await api('GET', `/v1/apps?filter[bundleId]=${bundle}`)).data[0];
   if (!app) { console.log(`${bundle}: brak aplikacji w App Store Connect`); continue; }
   const wersja = (await api('GET', `/v1/apps/${app.id}/appStoreVersions?filter[platform]=IOS`)).data.find((v) => v.attributes.appStoreState === 'PREPARE_FOR_SUBMISSION');
@@ -54,6 +58,13 @@ for (const [bundle, przedrostek] of Object.entries(APLIKACJE)) {
     const pliki = fs.readdirSync(dir).filter((f) => f.startsWith(przedrostek) && f.endsWith('.png')).sort();
     if (!pliki.length) continue;
     const typ = WEDLUG_ROZMIARU[rozmiar(fs.readFileSync(path.join(dir, pliki[0])))] || domyslny;
+    // stare zestawy tej samej rodziny (np. iPhone 5,5″ i iPad Pro 2. generacji z poprzedniej wersji) znikają,
+    // żeby w sklepie zostały tylko nowe zrzuty
+    for (const z of zestawy.filter((z) => z.attributes.screenshotDisplayType !== typ && rodzina(z.attributes.screenshotDisplayType) === rodzina(typ))) {
+      for (const stary of (await api('GET', `/v1/appScreenshotSets/${z.id}/appScreenshots`)).data) await api('DELETE', `/v1/appScreenshots/${stary.id}`);
+      await api('DELETE', `/v1/appScreenshotSets/${z.id}`).catch(() => {});
+      console.log(`${bundle}: usunięte stare zrzuty ${z.attributes.screenshotDisplayType}`);
+    }
     let zestaw = zestawy.find((z) => z.attributes.screenshotDisplayType === typ);
     if (!zestaw) {
       zestaw = (await api('POST', '/v1/appScreenshotSets', { data: { type: 'appScreenshotSets', attributes: { screenshotDisplayType: typ },

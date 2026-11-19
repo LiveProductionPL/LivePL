@@ -1,6 +1,6 @@
-# LivePL, Poczta LivePL i LivePL Connect na iPhone'a i iPada
+# LivePL, Poczta LivePL, LivePL Connect i TVML na iPhone'a i iPada
 
-Trzy aplikacje z jednego projektu ([project.yml](project.yml)), ze wspólnym kodem w [Wspolne](Wspolne):
+Cztery aplikacje z jednego projektu ([project.yml](project.yml)), ze wspólnym kodem w [Wspolne](Wspolne):
 
 - **LivePL** (`eu.livepl.przegladarka`, folder [LivePL](LivePL)) to przeglądarka z ekranem Start, kartami i menu.
 - **Poczta LivePL** (`eu.livepl.poczta`, folder [Poczta](Poczta)) to sama poczta.livepl.eu na cały ekran.
@@ -15,6 +15,11 @@ Trzy aplikacje z jednego projektu ([project.yml](project.yml)), ze wspólnym kod
     blokadę wygaszania ekranu w trakcie sesji (`navigator.wakeLock`), wibrację przy przytrzymaniu (`navigator.vibrate`)
     i pełny ekran (`requestFullscreen`, chowa pasek stanu i kreskę na dole). Strona na serwerze się nie zmienia.
   - Rejestruje się w urzędzie osobno („iPhone-… Connect”).
+- **TVML** (`com.LiveProduction.TVML`, folder [TVML](TVML)) to natywna aplikacja serwisu tvml.pl (wersja 2.0, zastępuje aplikację z 2019).
+  - Treści z API serwisu (`https://tvml.pl/api/v1/`, zapas `tvml-app.php?route=`): zakładki, bloki ekranu Start,
+    pasek „NA ŻYWO”, wydanie okolicznościowe z kolorami i ikoną. Wszystkim zarządza redakcja w panelu tvml.pl ([Dane.swift](TVML/Dane.swift), [Motyw.swift](TVML/Motyw.swift)).
+  - Pogoda ze sceną Ratusza zależną od stanu, pory dnia i wydania ([PogodaWidok.swift](TVML/PogodaWidok.swift)).
+  - Nie używa wspólnego kodu przeglądarki ani urzędu certyfikacji. Komentarze tylko do odczytu, ze zgłaszaniem do redakcji.
 
 Wszystkie dopisują „LivePL/<wersja>” do identyfikatora przeglądarki. Dzięki temu poczta wie, że jest w aplikacji,
 i nie proponuje „Dodaj do ekranu” w Safari (livepl-settings.js na serwerze poczty).
@@ -77,18 +82,19 @@ Projekt Xcode powstaje z [project.yml](project.yml) przez XcodeGen. Buduje go
 [.github/workflows/ios.yml](../.github/workflows/ios.yml) na Macach GitHuba, bez opłat dla publicznego
 repozytorium. Każda zmiana w `ios/` wysłana na gałąź `ios` przechodzi przez te kroki:
 
-1. budowa trzech aplikacji na symulator iPhone'a;
+1. budowa czterech aplikacji na symulator iPhone'a;
 2. zrzuty ekranu w trybie dzień i noc (Start, Poczta, TVML, Live Production, Poczta LivePL, Connect),
    do pobrania jako artefakt `zrzuty-N`;
 3. **zrzuty do App Store**, tylko gdy opis zmiany zawiera `[zrzuty-sklep]`: iPhone 6,9″ i iPad 13″ równolegle,
    w osobnych zadaniach (pierwszy rozruch symulatora trwa kilkanaście minut), artefakty `sklep-N-iphone-69` i `sklep-N-ipad-13`.
-   Do App Store Connect wgrywa je `node ios/narzedzia/sklep-zrzuty.mjs <AuthKey Admin> <Issuer ID> <folder>`
-   (w folderze podfoldery `iphone-69` i `ipad-13`);
+   Do App Store Connect wgrywa je `node ios/narzedzia/sklep-zrzuty.mjs <AuthKey Admin> <Issuer ID> <folder> [tvml- …]`
+   (w folderze podfoldery `iphone-69` i `ipad-13`; z przedrostkiem tylko ta aplikacja);
 4. **TestFlight**, tylko gdy opis zmiany zawiera `[testflight]`: archiwum Release, podpis i wysyłka do App Store Connect.
    Budowy nadają się i do TestFlight, i do wysłania do App Store (bez „tylko testy wewnętrzne”).
 
 Teksty do App Store (nazwy, opisy, słowa kluczowe, kategorie, ocena wiekowa) są w [sklep/metadane.json](sklep/metadane.json),
-a wpisuje je `node ios/narzedzia/sklep-metadane.mjs <AuthKey Admin> <Issuer ID>`.
+a wpisuje je `node ios/narzedzia/sklep-metadane.mjs <AuthKey Admin> <Issuer ID> [--tylko <bundle id>]`.
+TVML ma własne adresy (polityka prywatności i kontakt na tvml.pl) i „Co nowego”, bo 2.0 to aktualizacja.
 
 Grafiki (ikona jasna i ciemna, Wstęga, ikony Poczty i Connect, ekrany startowe) tworzy
 `npx electron ios/narzedzia/grafiki.js` z wektorowej Wstęgi w [narzedzia/logo.js](narzedzia/logo.js) i znaku Connect.

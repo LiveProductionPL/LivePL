@@ -1,5 +1,5 @@
 {
-  "_opis": "Teksty i ustawienia App Store dla trzech aplikacji (język polski). Wgrywa je ios/narzedzia/sklep-metadane.mjs. Te same opisy są wzorem dla Google Play.",
+  "_opis": "Teksty i ustawienia App Store dla czterech aplikacji (język polski). Wgrywa je ios/narzedzia/sklep-metadane.mjs. Te same opisy są wzorem dla Google Play. Pola privacyPolicyUrl, supportUrl i marketingUrl w aplikacji zastępują wspólne.",
   "wspolne": {
     "copyright": "2026 Live Production Karol Kowalski",
     "supportUrl": "https://livepl.eu/",
@@ -45,12 +45,34 @@
         "unrestrictedWebAccess": false,
         "_dlaczego": "łączy tylko z komputerem po ID i haśle, sama nie otwiera stron"
       }
+    },
+    "com.LiveProduction.TVML": {
+      "name": "TVML",
+      "subtitle": "Wiadomości z Leszna i regionu",
+      "primaryCategory": "NEWS",
+      "secondaryCategory": null,
+      "privacyPolicyUrl": "https://tvml.pl/strona/polityka-prywatnosci",
+      "supportUrl": "https://tvml.pl/strona/kontakt",
+      "marketingUrl": "https://tvml.pl/",
+      "promotionalText": "Nowe TVML: wiadomości z Leszna i powiatu, wideo i pogoda z Ratuszem, która zmienia się razem z niebem. Zimą i w święta aplikacja przebiera się razem z tvml.pl.",
+      "keywords": "leszno,wiadomości,telewizja,pogoda,powiat leszczyński,sport,wideo,lokalne,rydzyna,osieczna,region",
+      "whatsNew": "Zupełnie nowa aplikacja TVML: wiadomości z Leszna i powiatu, pilne komunikaty, wideo, pogoda na 14 dni ze sceną leszczyńskiego Ratusza, odsłuchiwanie artykułów i wydania okolicznościowe, takie jak na tvml.pl.",
+      "description": "TVML to aplikacja Telewizji TVML i serwisu tvml.pl. Najświeższe wiadomości z Leszna i powiatu leszczyńskiego, materiały wideo i pogoda masz zawsze pod ręką.\n\nSTART\n• Najważniejsze tematy dnia i pilne komunikaty redakcji.\n• Pasek „NA ŻYWO” z najnowszymi wiadomościami.\n• Najnowsze, najczęściej czytane i fotorelacje, w kolejności ustalonej przez redakcję.\n• Wiadomości z gmin powiatu leszczyńskiego i działy: sport, kultura i inne.\n\nARTYKUŁY\n• Wygodne czytanie, trzy rozmiary tekstu.\n• „Odsłuchaj”: telefon przeczyta artykuł na głos.\n• Zapisz na później, udostępnij znajomym, przeczytaj komentarze.\n• Szukaj w artykułach tvml.pl.\n\nWIDEO\n• Najnowsze materiały Telewizji TVML, odtwarzane w aplikacji.\n\nPOGODA\n• Pogoda dla Leszna: teraz, godzina po godzinie i na 14 dni.\n• Scena z leszczyńskim Ratuszem zmienia się razem z pogodą, porą dnia i porą roku: słońce, deszcz, śnieg, burza, mgła, a nocą gwiazdy.\n• Imieniny na każdy dzień.\n\nWYDANIA OKOLICZNOŚCIOWE\n• Zimą, w Boże Narodzenie, w Sylwestra, w Nowy Rok i 11 Listopada aplikacja zmienia wygląd razem z tvml.pl.\n• Zimą i w święta zmienia się też ikona aplikacji.\n\nWYGODA\n• Tryb dzień, noc albo jak w telefonie.\n• Alert TVML: zgłoś redakcji zdarzenie z okolicy.\n• Bez logowania i bez śledzenia.",
+      "ageRating": {
+        "unrestrictedWebAccess": false,
+        "odpowiedzi": {
+          "violenceRealistic": "INFREQUENT_OR_MILD",
+          "userGeneratedContent": true
+        },
+        "_dlaczego": "serwis informacyjny: wiadomości o wypadkach i przestępstwach (rzadkie, łagodne opisy przemocy) i komentarze czytelników (tylko do odczytu, każdy można zgłosić redakcji); strony otwierają się w Safari"
+      }
     }
   },
   "przegladApple": {
     "_opis": "Dane dla zespołu App Review. Imię, telefon, konto demonstracyjne poczty i komputer testowy Connect (ID i stałe hasło) wpisuje Karol sam w App Store Connect.",
     "notatkaPoczta": "Poczta LivePL to klient poczty firmowej Live Production (poczta.livepl.eu). Do zalogowania podajemy konto demonstracyjne w polach logowania. Aplikacja dodaje liczbę nieprzeczytanych na ikonie, zapamiętuje logowanie, obsługuje załączniki (Pliki, udostępnianie) i rejestruje urządzenie w naszym urzędzie certyfikacji kluczem w Secure Enclave.",
     "notatkaLivePL": "LivePL to przeglądarka firmy Live Production (WKWebView). Nie wymaga logowania: strony programów są publiczne, a poczta ma własny ekran logowania. Tłumacz stron korzysta z Apple Translation na urządzeniu.",
-    "notatkaConnect": "LivePL Connect to klient zdalnego pulpitu Live Production (connect.livepl.eu). Łączy się z komputerem z programem LivePL Connect (Windows) po ID i haśle; obraz i sterowanie płyną przez WebRTC. Do testu podajemy ID i stałe hasło komputera testowego, który jest włączony w czasie przeglądu. Aplikacja na iPhonie: pełny ekran, blokada wygaszania ekranu w trakcie sesji, wibracja przy przytrzymaniu, rejestracja urządzenia w naszym urzędzie certyfikacji kluczem w Secure Enclave."
+    "notatkaConnect": "LivePL Connect to klient zdalnego pulpitu Live Production (connect.livepl.eu). Łączy się z komputerem z programem LivePL Connect (Windows) po ID i haśle; obraz i sterowanie płyną przez WebRTC. Do testu podajemy ID i stałe hasło komputera testowego, który jest włączony w czasie przeglądu. Aplikacja na iPhonie: pełny ekran, blokada wygaszania ekranu w trakcie sesji, wibracja przy przytrzymaniu, rejestracja urządzenia w naszym urzędzie certyfikacji kluczem w Secure Enclave.",
+    "notatkaTVML": "TVML to aplikacja serwisu informacyjnego tvml.pl (Telewizja TVML, Leszno). Nie wymaga logowania. Wszystkie treści (artykuły, wideo z YouTube, pogoda, kolejność ekranu Start, wydania okolicznościowe) pochodzą z API serwisu (https://tvml.pl/api/v1/), którym zarządza redakcja w panelu tvml.pl. Komentarze są tylko do odczytu i moderuje je redakcja; każdy komentarz można zgłosić ikoną chorągiewki (wiadomość do redakcja@tvml.pl). W wydaniu zimowym i świątecznym aplikacja zmienia wygląd i ikonę, tak jak tvml.pl. Wydawcą serwisu jest Stowarzyszenie Leszczyńskie Media; aplikację przygotowuje i publikuje Live Production."
   }
 }

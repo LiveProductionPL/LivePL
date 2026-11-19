@@ -239,9 +239,11 @@ final class Lektor: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
 /// Komentarze czytelników (zatwierdzone przez redakcję). Dodawanie z aplikacji przyjdzie z nowym API.
 struct KomentarzeWidok: View {
     @Environment(\.dismiss) private var zamknij
+    @Environment(\.openURL) private var otworzAdres
     let artykul: Artykul
     @State private var lista: [Slownik] = []
     @State private var laduje = true
+    @State private var bezPoczty = false
 
     var body: some View {
         NavigationStack {
@@ -250,15 +252,30 @@ struct KomentarzeWidok: View {
                 else if lista.isEmpty { Text("Nie ma jeszcze komentarzy.").foregroundStyle(Barwy.slaby) }
                 ForEach(Array(lista.enumerated()), id: \.offset) { _, k in
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(k.s("author_name").isEmpty ? k.s("author") : k.s("author_name")).font(.system(size: 14, weight: .bold))
-                        Text(Html.tekst(k.s("content").isEmpty ? k.s("text") : k.s("content"))).font(.system(size: 15))
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(autor(k)).font(.system(size: 14, weight: .bold))
+                            Spacer()
+                            // zgłoszenie nieodpowiedniego komentarza trafia do redakcji, która moderuje komentarze w panelu
+                            Button { zglos(k) } label: { Image(systemName: "flag").font(.system(size: 13)) }
+                                .buttonStyle(.borderless)
+                                .foregroundStyle(Barwy.slaby)
+                                .accessibilityLabel("Zgłoś komentarz")
+                        }
+                        Text(tresc(k)).font(.system(size: 15))
                         Text(k.s("created_at").isEmpty ? k.s("date") : k.s("created_at")).font(.system(size: 12)).foregroundStyle(Barwy.slaby)
                     }
                     .padding(.vertical, 4)
                 }
                 Section {
                     Link("Dodaj komentarz na tvml.pl", destination: artykul.link)
+                } footer: {
+                    if !lista.isEmpty { Text("Komentarz łamie zasady? Stuknij chorągiewkę, a zgłoszenie trafi do redakcji TVML.") }
                 }
+            }
+            .alert("Zgłoś komentarz", isPresented: $bezPoczty) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Napisz do redakcji: redakcja@tvml.pl")
             }
             .navigationTitle("Komentarze")
             .navigationBarTitleDisplayMode(.inline)
@@ -270,6 +287,22 @@ struct KomentarzeWidok: View {
                 laduje = false
             }
         }
+    }
+
+    private func autor(_ k: Slownik) -> String { k.s("author_name").isEmpty ? k.s("author") : k.s("author_name") }
+    private func tresc(_ k: Slownik) -> String { Html.tekst(k.s("content").isEmpty ? k.s("text") : k.s("content")) }
+
+    private func zglos(_ k: Slownik) {
+        let id = k.s("id")
+        var c = URLComponents()
+        c.scheme = "mailto"
+        c.path = "redakcja@tvml.pl"
+        c.queryItems = [
+            URLQueryItem(name: "subject", value: "Zgłoszenie komentarza" + (id.isEmpty ? "" : " nr \(id)")),
+            URLQueryItem(name: "body", value: "Artykuł: \(artykul.tytul)\n\(artykul.link.absoluteString)\n\nKomentarz (\(autor(k))):\n\(tresc(k))\n\nDlaczego zgłaszam:\n")
+        ]
+        guard let adres = c.url else { bezPoczty = true; return }
+        otworzAdres(adres) { otwarte in if !otwarte { bezPoczty = true } }
     }
 }
 

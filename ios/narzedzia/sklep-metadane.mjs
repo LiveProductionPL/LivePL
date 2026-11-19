@@ -1,10 +1,11 @@
-// Wpisuje do App Store Connect teksty i ustawienia z ios/sklep/metadane.json (obie aplikacje, wersja 1.0, język polski):
-// nazwę, podtytuł, politykę prywatności, kategorie, copyright, opis, słowa kluczowe, tekst promocyjny, adresy
-// i odpowiedzi do oceny wiekowej. Niczego nie wysyła do recenzji.
+// Wpisuje do App Store Connect teksty i ustawienia z ios/sklep/metadane.json (wersja w przygotowaniu, język polski):
+// nazwę, podtytuł, politykę prywatności, kategorie, copyright, opis, słowa kluczowe, tekst promocyjny, adresy,
+// „Co nowego” (przy aktualizacji), odpowiedzi do oceny wiekowej i notatkę dla App Review. Niczego nie wysyła do recenzji.
+// Imię, telefon i e-mail osoby kontaktowej dla App Review wpisuje Karol sam.
 //
-//   node ios/narzedzia/sklep-metadane.mjs <AuthKey klucza Admin> <Issuer ID> [--sprawdz]
+//   node ios/narzedzia/sklep-metadane.mjs <AuthKey klucza Admin> <Issuer ID> [--sprawdz] [--tylko <bundle id>]
 //
-// --sprawdz: tylko pokazuje, co jest teraz w App Store Connect.
+// --sprawdz: tylko pokazuje, co jest teraz w App Store Connect. --tylko: jedna aplikacja, np. com.LiveProduction.TVML.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -13,6 +14,9 @@ import { fileURLToPath } from 'node:url';
 
 const [plikKlucza, issuerId] = process.argv.slice(2);
 const tylkoSprawdz = process.argv.includes('--sprawdz');
+const tylko = process.argv.includes('--tylko') ? process.argv[process.argv.indexOf('--tylko') + 1] : null;
+// notatka dla App Review według bundle id
+const NOTATKI = { 'eu.livepl.przegladarka': 'notatkaLivePL', 'eu.livepl.poczta': 'notatkaPoczta', 'eu.livepl.connect': 'notatkaConnect', 'com.LiveProduction.TVML': 'notatkaTVML' };
 if (!plikKlucza || !issuerId) { console.error('Użycie: node ios/narzedzia/sklep-metadane.mjs <AuthKey_XXXX.p8> <Issuer ID> [--sprawdz]'); process.exit(2); }
 const keyId = path.basename(plikKlucza).replace(/^AuthKey_/, '').replace(/\.p8$/, '');
 const kluczApi = fs.readFileSync(plikKlucza, 'utf8');
@@ -44,6 +48,7 @@ const ENUMY = ['alcoholTobaccoOrDrugUseOrReferences', 'contests', 'gamblingSimul
 const LOGICZNE = ['gambling', 'lootBox', 'advertising', 'ageAssurance', 'healthOrWellnessTopics', 'parentalControls', 'userGeneratedContent', 'messagingAndChat', 'socialMedia'];
 
 for (const [bundle, a] of Object.entries(META.aplikacje)) {
+  if (tylko && bundle !== tylko) continue;
   const app = (await api('GET', `/v1/apps?filter[bundleId]=${bundle}`)).data[0];
   if (!app) { console.log(`${bundle}: brak aplikacji w App Store Connect`); continue; }
   console.log(`\n== ${a.name} (${bundle}, ${app.id})`);
@@ -60,20 +65,22 @@ for (const [bundle, a] of Object.entries(META.aplikacje)) {
     console.log('info:', JSON.stringify(infoLok?.attributes));
     console.log('opis:', (wersjaLok?.attributes.description || '').slice(0, 60), '… słowa:', wersjaLok?.attributes.keywords);
     console.log('wiek:', JSON.stringify(wiek.attributes));
+    console.log('co nowego:', wersjaLok?.attributes.whatsNew);
     continue;
   }
 
-  await patch('appInfoLocalizations', infoLok.id, { name: a.name, subtitle: a.subtitle, privacyPolicyUrl: META.wspolne.privacyPolicyUrl });
+  await patch('appInfoLocalizations', infoLok.id, { name: a.name, subtitle: a.subtitle, privacyPolicyUrl: a.privacyPolicyUrl || META.wspolne.privacyPolicyUrl });
   console.log('nazwa, podtytuł, polityka prywatności: zapisane');
   await patch('appInfos', info.id, null, {
     primaryCategory: { data: { type: 'appCategories', id: a.primaryCategory } },
-    secondaryCategory: { data: { type: 'appCategories', id: a.secondaryCategory } }
+    secondaryCategory: { data: a.secondaryCategory ? { type: 'appCategories', id: a.secondaryCategory } : null }
   });
-  console.log(`kategorie: ${a.primaryCategory}, ${a.secondaryCategory}`);
+  console.log(`kategorie: ${a.primaryCategory}, ${a.secondaryCategory || 'bez drugiej'}`);
   await patch('appStoreVersions', wersja.id, { copyright: META.wspolne.copyright });
   await patch('appStoreVersionLocalizations', wersjaLok.id, {
     description: a.description, keywords: a.keywords, promotionalText: a.promotionalText,
-    supportUrl: META.wspolne.supportUrl, marketingUrl: META.wspolne.marketingUrl
+    supportUrl: a.supportUrl || META.wspolne.supportUrl, marketingUrl: a.marketingUrl || META.wspolne.marketingUrl,
+    ...(a.whatsNew && wersja.attributes.versionString !== '1.0' ? { whatsNew: a.whatsNew } : {})
   });
   console.log('opis, słowa kluczowe, tekst promocyjny, adresy: zapisane');
 
@@ -82,11 +89,21 @@ for (const [bundle, a] of Object.entries(META.aplikacje)) {
   for (const k of LOGICZNE) if (k in wiek.attributes) odpowiedzi[k] = false;
   odpowiedzi.unrestrictedWebAccess = !!a.ageRating.unrestrictedWebAccess;
   if ('messagingAndChat' in wiek.attributes) odpowiedzi.messagingAndChat = bundle === 'eu.livepl.poczta';
+  Object.assign(odpowiedzi, a.ageRating.odpowiedzi || {});
   const nieznane = Object.keys(wiek.attributes).filter((k) => !(k in odpowiedzi) && !['kidsAgeBand', 'ageRatingOverride', 'ageRatingOverrideV2', 'koreaAgeRatingOverride', 'developerAgeRatingInfoUrl', 'gracRatingClassificationNumber', 'socialMediaAgeRestricted'].includes(k));
   try {
     await patch('ageRatingDeclarations', wiek.id, odpowiedzi);
     console.log('ocena wiekowa: zapisana', nieznane.length ? `(bez odpowiedzi: ${nieznane.join(', ')})` : '');
   } catch (e) {
     console.log('ocena wiekowa: NIE zapisana –', e.message);
+  }
+
+  const notatka = META.przegladApple[NOTATKI[bundle]];
+  if (notatka) {
+    const rev = await api('GET', `/v1/appStoreVersions/${wersja.id}/appStoreReviewDetail`).catch(() => null);
+    if (rev?.data) await patch('appStoreReviewDetails', rev.data.id, { notes: notatka });
+    else await api('POST', '/v1/appStoreReviewDetails', { data: { type: 'appStoreReviewDetails', attributes: { notes: notatka },
+      relationships: { appStoreVersion: { data: { type: 'appStoreVersions', id: wersja.id } } } } });
+    console.log('notatka dla App Review: zapisana');
   }
 }
