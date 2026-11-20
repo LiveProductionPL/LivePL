@@ -93,8 +93,9 @@ jobs:
           LIVEPL_DANE="$RUNNER_TEMP/livepl-dane" "$RUNNER_TEMP/dmg/LivePL.app/Contents/MacOS/LivePL" > wydanie/proba/dziennik.txt 2>&1 &
           PID=$!
           sleep 30
-          screencapture -x wydanie/proba/ekran.png || echo "screencapture nie zadziałał" >> wydanie/proba/dziennik.txt
-          if kill -0 $PID 2>/dev/null; then echo "== LivePL działał po 30 s" >> wydanie/proba/dziennik.txt; else echo "== LivePL ZAKOŃCZYŁ SIĘ przed zrzutem" >> wydanie/proba/dziennik.txt; fi
+          screencapture -x wydanie/proba/ekran.png || echo "screencapture nie zadziałał" > wydanie/proba/zrzut-blad.txt
+          if kill -0 $PID 2>/dev/null; then echo "LivePL działał po 30 s" > wydanie/proba/stan.txt; else echo "LivePL ZAKOŃCZYŁ SIĘ przed zrzutem" > wydanie/proba/stan.txt; fi
+          cat wydanie/proba/stan.txt
           kill $PID 2>/dev/null || true
           sleep 3
           kill -9 $PID 2>/dev/null || true
