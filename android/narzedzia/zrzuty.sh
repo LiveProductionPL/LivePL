@@ -53,8 +53,6 @@ zrzut 1-start-dzien no
 zrzut 2-start-noc yes
 zrzut 3-poczta-dzien no --es otworz poczta
 zrzut 4-poczta-noc yes --es otworz poczta
-zrzut 5-tvml-dzien no --es otworz tvml
-zrzut 6-tvml-noc yes --es otworz tvml
 
 # Poczta LivePL: osobna aplikacja, poczta na cały ekran
 if [ -n "$APK_POCZTY" ]; then
@@ -98,6 +96,22 @@ if [ -n "$APK_TVML" ]; then
   zrzutTvml 16-tvml-noc yes --es motyw wigilia
 fi
 
-adb shell cmd uimode night no > /dev/null
-# dziennik aplikacji (błędy WebView, Compose)
-adb logcat -d -v time > "$WYJSCIE/dziennik.txt" || true
+# tvml.pl w przeglądarce na końcu i bez przerywania: strona z animowaną pogodą potrafi zabić emulator GitHuba
+# (przebiegi 44592791704 i 44601060232), a wtedy wszystkie wcześniejsze zrzuty i tak już są.
+# Limit czasu, bo zawieszony emulator nie odpowiada na adb.
+export -f zrzut zrzutAplikacji
+export ID WYJSCIE CZEKAJ
+timeout 240 bash -c 'zrzut 5-tvml-dzien no --es otworz tvml && zrzut 6-tvml-noc yes --es otworz tvml' || true
+
+if timeout 20 adb shell true > /dev/null 2>&1; then
+  adb shell cmd uimode night no > /dev/null || true
+  # dziennik aplikacji (błędy WebView, Compose)
+  timeout 60 adb logcat -d -v time > "$WYJSCIE/dziennik.txt" || true
+else
+  echo "::warning::Emulator przestał odpowiadać przy zrzutach tvml.pl w przeglądarce; pozostałe zrzuty są."
+  # puste pliki po nieudanych zrzutach
+  find "$WYJSCIE" -name '*.png' -size 0 -delete || true
+  # przyczyna: brak pamięci (OOM) albo awaria procesu emulatora
+  free -m 2> /dev/null || true
+  { sudo -n dmesg -T 2> /dev/null || dmesg -T 2> /dev/null; } | grep -i -E "out of memory|oom|killed process|segfault|qemu|emulator" | tail -20 || true
+fi
