@@ -1,0 +1,125 @@
+# LivePL na Maca: buduje LivePL-<wersja>.dmg (Intel i Apple Silicon) na Macu GitHuba.
+# Z sekretami MAC_CERT_P12 i MAC_CERT_HASLO (certyfikat „Developer ID Application”, narzedzia/mac/developer-id.mjs)
+# oraz ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8 (klucz App Store Connect, ten sam co dla iPhone'a) plik jest podpisany
+# i sprawdzony przez Apple (notaryzacja). Bez certyfikatu powstaje tylko wersja próbna do testów.
+# Gotowy plik leży w artefakcie przebiegu („livepl-mac-<wersja>”); na serwer trafia dopiero po sprawdzeniu.
+name: LivePL na Maca
+
+on:
+  push:
+    branches: [mac]
+    paths:
+      - 'src/**'
+      - 'ui/**'
+      - 'assets/**'
+      - 'programy.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'narzedzia/zrob-mac.mjs'
+      - 'narzedzia/mac/**'
+      - '.github/workflows/mac.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mac-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dmg:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Zależności
+        run: npm ci --no-audit --no-fund
+
+      - name: Certyfikat Developer ID (jeśli jest)
+        env:
+          MAC_CERT_P12: ${{ secrets.MAC_CERT_P12 }}
+          MAC_CERT_HASLO: ${{ secrets.MAC_CERT_HASLO }}
+        run: |
+          if [ -z "$MAC_CERT_P12" ]; then
+            echo "Brak sekretu MAC_CERT_P12: wersja próbna bez podpisu Apple."
+            exit 0
+          fi
+          KC="$RUNNER_TEMP/livepl.keychain-db"
+          KCH="$(openssl rand -base64 24)"
+          security create-keychain -p "$KCH" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KCH" "$KC"
+          printf '%s' "$MAC_CERT_P12" | base64 --decode > "$RUNNER_TEMP/developer-id.p12"
+          security import "$RUNNER_TEMP/developer-id.p12" -P "$MAC_CERT_HASLO" -A -t cert -f pkcs12 -k "$KC"
+          rm -f "$RUNNER_TEMP/developer-id.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KCH" "$KC" > /dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          security find-identity -v -p codesigning "$KC" | grep -c "Developer ID Application" > /dev/null
+
+      - name: Klucz App Store Connect do notaryzacji
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          if [ -n "$ASC_KEY_P8" ]; then
+            printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+            echo "ASC_KEY_PLIK=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+          fi
+
+      - name: Budowa LivePL.app i .dmg
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: node narzedzia/zrob-mac.mjs
+
+      - name: Wersja
+        id: wersja
+        run: echo "wersja=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Próbne uruchomienie gotowego pliku .dmg na tym Macu: zrzut ekranu po 30 s i dziennik programu
+      # (osobny folder danych). Pokazuje, czy LivePL startuje i jak wygląda, zanim ktoś go zainstaluje.
+      - name: Próbne uruchomienie (zrzut ekranu)
+        continue-on-error: true
+        run: |
+          DMG="$(ls wydanie/mac/*.dmg | head -1)"
+          mkdir -p wydanie/proba
+          hdiutil attach -nobrowse -readonly -mountpoint "$RUNNER_TEMP/dmg" "$DMG"
+          LIVEPL_DANE="$RUNNER_TEMP/livepl-dane" "$RUNNER_TEMP/dmg/LivePL.app/Contents/MacOS/LivePL" > wydanie/proba/dziennik.txt 2>&1 &
+          PID=$!
+          sleep 30
+          screencapture -x wydanie/proba/ekran.png || echo "screencapture nie zadziałał" >> wydanie/proba/dziennik.txt
+          if kill -0 $PID 2>/dev/null; then echo "== LivePL działał po 30 s" >> wydanie/proba/dziennik.txt; else echo "== LivePL ZAKOŃCZYŁ SIĘ przed zrzutem" >> wydanie/proba/dziennik.txt; fi
+          kill $PID 2>/dev/null || true
+          sleep 3
+          kill -9 $PID 2>/dev/null || true
+          hdiutil detach "$RUNNER_TEMP/dmg" || true
+          tail -40 wydanie/proba/dziennik.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: livepl-mac-proba-${{ steps.wersja.outputs.wersja }}
+          path: wydanie/proba
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: livepl-mac-${{ steps.wersja.outputs.wersja }}
+          path: |
+            wydanie/mac/*.dmg
+            wydanie/mac/*.sha256
+          retention-days: 30
+          compression-level: 0
+
+      - name: Sprzątanie pęku kluczy i klucza
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/AuthKey.p8"
+          security delete-keychain "$RUNNER_TEMP/livepl.keychain-db" 2>/dev/null || true

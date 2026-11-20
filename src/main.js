@@ -24,6 +24,11 @@ const bezpiecznyDns = require('./bezpieczny-dns');
 const fs = require('fs');
 
 const ID_APLIKACJI = 'pl.livepl.przegladarka';
+// macOS: Dock zamiast zasobnika, menu Maca, przyciski okna po lewej; część funkcji jest tylko w Windows
+const MAC = process.platform === 'darwin';
+const WIN = process.platform === 'win32';
+// przyciski okna Maca (zamknij, minimalizuj, pełny ekran) w lewym górnym rogu, nad logo w pasku bocznym
+const PRZYCISKI_MACA = { x: 10, y: 14 };
 // Układ „Reżyserka”: kanały po lewej, strona jak monitor w ramce, pasek wiadomości na dole.
 const PASEK_BOCZNY = 72;
 const PASEK_GORNY = 38;
@@ -46,7 +51,7 @@ const KOLORY = {
 const POWIEKSZENIA = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 const STARTUJ_W_TLE = process.argv.includes('--w-tle');
 
-app.setAppUserModelId(ID_APLIKACJI);
+if (WIN) app.setAppUserModelId(ID_APLIKACJI);
 app.setName('LivePL');
 
 if (!app.hasSingleInstanceLock() && !app.requestSingleInstanceLock()) {
@@ -1596,7 +1601,15 @@ function akcjaPanelu(nazwa, arg) {
       break;
     }
     case 'aktualizacje-sprawdz': aktualizacje.sprawdz(); break;
-    case 'aktualizacje-pobierz': aktualizacje.pobierz(); break;
+    case 'aktualizacje-pobierz':
+      if (MAC) {
+        const a = aktualizacje.stan();
+        if (a.adresMac && win && !win.isDestroyed()) {
+          win.webContents.downloadURL(a.adresMac);
+          dodajWiadomosc(`Pobieram LivePL ${a.wersja}. Otwórz plik z Pobranych i przeciągnij LivePL do Programów`, {}, 60 * 1000);
+        } else aktualizacje.sprawdz();
+      } else aktualizacje.pobierz();
+      break;
     case 'aktualizacje-pozniej': break; // okienko się zamyka; zapytamy przy następnym uruchomieniu
     case 'aktualizacje-uruchom': uruchomPonownie(); break;
     case 'aktualizacje-przywroc': if (aktualizacje.zaplanujPowrot()) uruchomPonownie(); break;
@@ -1655,6 +1668,7 @@ function argumentyAutostartu() {
 
 function czyAutostart() {
   try {
+    if (MAC) return app.getLoginItemSettings().openAtLogin;
     return app.getLoginItemSettings({ path: process.execPath, args: argumentyAutostartu() }).openAtLogin;
   } catch {
     return false;
@@ -1662,7 +1676,8 @@ function czyAutostart() {
 }
 
 function ustawAutostart(wl) {
-  app.setLoginItemSettings({ openAtLogin: wl, path: process.execPath, args: argumentyAutostartu() });
+  if (MAC) app.setLoginItemSettings({ openAtLogin: wl });
+  else app.setLoginItemSettings({ openAtLogin: wl, path: process.execPath, args: argumentyAutostartu() });
 }
 
 function pokazOkno() {
@@ -1721,6 +1736,7 @@ let ostatniTooltip = '';
 let ostatnieMenuZasobnika = '';
 
 function odswiezZasobnik() {
+  if (MAC) return odswiezDock();
   if (!tray) return;
   const suma = programy.reduce((s, p) => s + ((karty.get(p.id) || {}).licznik || 0), 0);
   const tooltip = suma ? `LivePL – nieprzeczytane: ${suma}` : 'LivePL';
@@ -1743,6 +1759,22 @@ function odswiezZasobnik() {
   ]));
 }
 
+// macOS: liczba nieprzeczytanych na ikonie w Docku, a w menu ikony (prawy przycisk) programy LivePL.
+// „Zakończ” i „Pokaż wszystkie okna” macOS dodaje do tego menu sam.
+let ostatniDock = '';
+function odswiezDock() {
+  if (!app.dock) return;
+  const suma = programy.reduce((s, p) => s + ((karty.get(p.id) || {}).licznik || 0), 0);
+  const klucz = suma + '#' + programy.filter(widoczny).map(p => p.id + ':' + ((karty.get(p.id) || {}).licznik || 0)).join('|');
+  if (klucz === ostatniDock) return;
+  ostatniDock = klucz;
+  app.dock.setBadge(suma ? (suma > 99 ? '99+' : String(suma)) : '');
+  app.dock.setMenu(Menu.buildFromTemplate(programy.filter(widoczny).map(p => {
+    const ile = (karty.get(p.id) || {}).licznik || 0;
+    return { label: ile ? `${p.nazwa} (${ile})` : p.nazwa, click: () => { pokazOkno(); przejdzDo(p.id); } };
+  })));
+}
+
 // Pasek zadań i zasobnik mają w Windows własny tryb („tryb systemu”),
 // niezależny od trybu aplikacji, więc czytamy go z rejestru.
 const KLUCZ_MOTYWU = 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize';
@@ -1753,6 +1785,7 @@ function czyPasekCiemny(wyjscie) {
 }
 
 function ustawIkony(ciemny) {
+  if (!WIN) return;
   IKONA = ciemny ? IKONA_CIEMNA : IKONA_JASNA;
   const obraz = nativeImage.createFromPath(IKONA);
   if (win && !win.isDestroyed()) win.setIcon(obraz);
@@ -1763,6 +1796,7 @@ function ustawIkony(ciemny) {
 // Skrót LivePL na pulpicie dostaje ikonę według trybu. Zmieniamy tylko nasz
 // skrót (prowadzący do tego programu) i tylko wtedy, gdy ikona jest inna.
 function odswiezSkrot() {
+  if (!WIN) return;
   try {
     const lnk = path.join(app.getPath('desktop'), 'LivePL.lnk');
     if (!fs.existsSync(lnk)) return;
@@ -1775,6 +1809,7 @@ function odswiezSkrot() {
 }
 
 function ikonyWedlugTrybuOdRazu() {
+  if (!WIN) return;
   try {
     const wynik = execFileSync('reg', ['query', KLUCZ_MOTYWU, '/v', 'SystemUsesLightTheme'], { windowsHide: true, encoding: 'utf8' });
     IKONA = czyPasekCiemny(wynik) ? IKONA_CIEMNA : IKONA_JASNA;
@@ -1784,12 +1819,14 @@ function ikonyWedlugTrybuOdRazu() {
 }
 
 function ikonyWedlugTrybu() {
+  if (!WIN) return;
   execFile('reg', ['query', KLUCZ_MOTYWU, '/v', 'SystemUsesLightTheme'], { windowsHide: true }, (blad, wynik) => {
     ustawIkony(blad ? nativeTheme.shouldUseDarkColors : czyPasekCiemny(wynik));
   });
 }
 
 function utworzZasobnik() {
+  if (MAC) return odswiezDock();
   tray = new Tray(nativeImage.createFromPath(IKONA));
   tray.setToolTip('LivePL');
   tray.on('click', pokazOkno);
@@ -1827,7 +1864,9 @@ function utworzOkno() {
     icon: IKONA,
     backgroundColor: kol.tlo,
     titleBarStyle: 'hidden',
-    titleBarOverlay: { color: kol.tlo, symbolColor: kol.symbole, height: WYSOKOSC_PRZYCISKOW_OKNA },
+    ...(MAC
+      ? { trafficLightPosition: PRZYCISKI_MACA }
+      : { titleBarOverlay: { color: kol.tlo, symbolColor: kol.symbole, height: WYSOKOSC_PRZYCISKOW_OKNA } }),
     webPreferences: {
       preload: path.join(__dirname, 'preload-powloka.js'),
       contextIsolation: true,
@@ -1866,6 +1905,15 @@ function utworzOkno() {
 
   win.on('close', (e) => {
     zapamietajOkno();
+    if (!wychodzimy && MAC) {
+      // jak w programach Maca: czerwony przycisk chowa okno, LivePL działa dalej (ikona w Docku je przywraca)
+      e.preventDefault();
+      if (win.isFullScreen()) {
+        win.once('leave-full-screen', () => win.hide());
+        win.setFullScreen(false);
+      } else win.hide();
+      return;
+    }
     if (!wychodzimy && ustawienia.chowajDoZasobnika) {
       e.preventDefault();
       win.hide();
@@ -1889,7 +1937,7 @@ function utworzOkno() {
   nativeTheme.on('updated', () => {
     const k = kolory();
     if (!win || win.isDestroyed()) return;
-    win.setTitleBarOverlay({ color: k.tlo, symbolColor: k.symbole, height: WYSOKOSC_PRZYCISKOW_OKNA });
+    if (!MAC) win.setTitleBarOverlay({ color: k.tlo, symbolColor: k.symbole, height: WYSOKOSC_PRZYCISKOW_OKNA });
     win.setBackgroundColor(k.tlo);
     ikonyWedlugTrybu();
     wyslijStan(); // obrazki programów w wersji dziennej albo nocnej
@@ -2238,14 +2286,63 @@ function idzDo(tekst, wNowej) {
 }
 
 function ustawNakladke(dataUrl, opis) {
-  if (!win || win.isDestroyed()) return;
+  if (!WIN || !win || win.isDestroyed()) return;
   if (!dataUrl) return win.setOverlayIcon(null, '');
   win.setOverlayIcon(nativeImage.createFromDataURL(dataUrl), opis || '');
+}
+
+// ---------------------------------------------------------------- menu Maca
+
+// Na Macu menu na górze ekranu musi być: bez „Edycji” nie działają ⌘C, ⌘V i ⌘A w polach stron.
+// Skróty kart (⌘T, ⌘W, ⌘R, ⌘L, ⌘0…) obsługuje skrot(), więc w menu ich nie ma.
+function menuMaca() {
+  return Menu.buildFromTemplate([
+    {
+      label: 'LivePL',
+      submenu: [
+        { label: 'O programie LivePL', click: () => { pokazOkno(); pokazPanel('menu', { srodek: true }); } },
+        { type: 'separator' },
+        { role: 'services', label: 'Usługi' },
+        { type: 'separator' },
+        { role: 'hide', label: 'Ukryj LivePL' },
+        { role: 'hideOthers', label: 'Ukryj pozostałe' },
+        { role: 'unhide', label: 'Pokaż wszystkie' },
+        { type: 'separator' },
+        { label: 'Zakończ LivePL', accelerator: 'Command+Q', click: zakoncz }
+      ]
+    },
+    {
+      label: 'Edycja',
+      submenu: [
+        { role: 'undo', label: 'Cofnij' },
+        { role: 'redo', label: 'Przywróć' },
+        { type: 'separator' },
+        { role: 'cut', label: 'Wytnij' },
+        { role: 'copy', label: 'Kopiuj' },
+        { role: 'paste', label: 'Wklej' },
+        { role: 'pasteAndMatchStyle', label: 'Wklej i dopasuj styl' },
+        { role: 'delete', label: 'Usuń' },
+        { role: 'selectAll', label: 'Zaznacz wszystko' }
+      ]
+    },
+    {
+      label: 'Okno',
+      role: 'windowMenu',
+      submenu: [
+        { role: 'minimize', label: 'Minimalizuj' },
+        { role: 'zoom', label: 'Powiększ' },
+        { role: 'togglefullscreen', label: 'Pełny ekran' },
+        { type: 'separator' },
+        { role: 'front', label: 'Wszystko na wierzch' }
+      ]
+    }
+  ]);
 }
 
 // ---------------------------------------------------------------- start
 
 app.on('second-instance', pokazOkno);
+app.on('activate', pokazOkno);
 app.on('before-quit', () => {
   wychodzimy = true;
   zapiszUstawieniaTeraz();
@@ -2284,7 +2381,7 @@ app.whenReady().then(() => {
   app.on('certificate-error', wyjatki.bladCertyfikatu);
   bezpiecznyDns.zastosuj(ustawienia);
 
-  Menu.setApplicationMenu(null);
+  Menu.setApplicationMenu(MAC ? menuMaca() : null);
   ikonyWedlugTrybuOdRazu();
   utworzOkno();
   utworzZasobnik();
@@ -2319,7 +2416,7 @@ app.whenReady().then(() => {
     }
     pokazPanel(rodzaj, { srodek: true });
   };
-  setTimeout(async () => {
+  if (WIN) setTimeout(async () => {
     try {
       const s = await zaufanie.stan().catch(() => null);
       if (urzadzenie.ostatniStan().stan === 'brak') {

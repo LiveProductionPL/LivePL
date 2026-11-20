@@ -14,6 +14,10 @@ const { KLUCZ_PUBLICZNY } = require('./klucz-aktualizacji');
 const { porownaj, dozwolonaSciezka } = require('./aktualizacja-wgraj');
 
 const ADRES = (process.env.LIVEPL_AKTUALIZACJE || 'https://aktualizacje.livepl.eu/livepl/').replace(/\/?$/, '/');
+// macOS: pliki w podpisanej aplikacji (LivePL.app) nie mogą się zmieniać, bo podpis Apple przestałby się zgadzać.
+// Aktualizacją jest więc cały nowy LivePL w pliku .dmg (podpisany Developer ID i sprawdzony przez Apple), opisany
+// w tym samym podpisanym manifeście w polu „mac”: { wersja, plik, rozmiar, notatki }. Bez tego pola nic nie proponujemy.
+const MAC = process.platform === 'darwin';
 
 let stan = { stan: 'nieznany', wersja: null, blad: null, notatki: '', sprawdzono: null };
 let sluchacz = () => {};
@@ -65,6 +69,7 @@ async function sprawdz(opcje = {}) {
     if (!crypto.verify(null, manifest, KLUCZ_PUBLICZNY, podpis)) throw new Error('podpis aktualizacji się nie zgadza');
     const m = JSON.parse(manifest.toString('utf8'));
     if (m.produkt !== 'LivePL' || !m.wersja || !m.plik || !m.sha256) throw new Error('to nie jest aktualizacja LivePL');
+    if (MAC) return wersjaNaMaca(m);
 
     const obecna = app.getVersion();
     if (porownaj(m.wersja, obecna) <= 0) {
@@ -121,6 +126,21 @@ async function sprawdz(opcje = {}) {
   return stan;
 }
 
+function wersjaNaMaca(m) {
+  const obecna = app.getVersion();
+  const mm = m.mac;
+  if (!mm || !mm.wersja || !mm.plik || porownaj(mm.wersja, obecna) <= 0) {
+    ustaw({ stan: 'aktualna', wersja: obecna, notatki: '', adresMac: null, sprawdzono: Date.now() });
+    return stan;
+  }
+  const adres = new URL(mm.plik, ADRES);
+  if (adres.protocol !== 'https:' || !/(^|\.)livepl\.eu$/i.test(adres.hostname) || !/\.dmg$/i.test(adres.pathname)) {
+    throw new Error('niedozwolony adres wersji na Maca');
+  }
+  ustaw({ stan: 'dostepna', wersja: mm.wersja, notatki: mm.notatki || m.notatki || '', rozmiar: Number(mm.rozmiar) || 0, adresMac: adres.href, sprawdzono: Date.now() });
+  return stan;
+}
+
 // powrót do poprzedniej wersji robi start.js przy następnym uruchomieniu
 function zaplanujPowrot() {
   if (!kopia()) return false;
@@ -139,7 +159,7 @@ function start(fn) {
 module.exports = {
   ADRES,
   sprawdz,
-  pobierz: () => sprawdz({ pobierz: true }),
+  pobierz: () => sprawdz({ pobierz: !MAC }),
   start,
   stan: () => stan,
   kopia,

@@ -17,9 +17,11 @@
     "exe": "node narzedzia/zrob-exe.mjs",
     "klucze": "node narzedzia/klucze-wydan.mjs",
     "wydanie": "node narzedzia/wydanie.mjs",
-    "instalator": "node narzedzia/zrob-instalator.mjs"
+    "instalator": "node narzedzia/zrob-instalator.mjs",
+    "mac": "node narzedzia/zrob-mac.mjs"
   },
   "devDependencies": {
+    "@electron/packager": "20.3.0",
     "electron": "^45.3.2",
     "rcedit": "^5.0.2"
   }

@@ -23,7 +23,8 @@ if (trybInstalatora) {
   app.quit();
 } else {
   let podmieniono = null;
-  try {
+  // na Macu nie podmieniamy plików w podpisanej aplikacji (aktualizacja to nowy .dmg, zob. aktualizacje.js)
+  if (process.platform !== 'darwin') try {
     podmieniono = require('./aktualizacja-wgraj').przedStartem(path.join(__dirname, '..'), app.getPath('userData'));
   } catch (e) {
     console.error('Aktualizacja LivePL:', e);

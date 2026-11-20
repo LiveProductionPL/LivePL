@@ -6,6 +6,8 @@
 const $ = (s) => document.querySelector(s);
 const parametry = new URLSearchParams(location.search);
 let dane = { naPasku: [], wiecej: [] };
+// macOS: skróty z ⌘ (LivePL na Macu przyjmuje Ctrl i ⌘)
+if (/Mac/.test(navigator.platform)) for (const k of document.querySelectorAll('kbd')) if (k.textContent === 'Ctrl') k.textContent = '⌘';
 try {
   const d = JSON.parse(parametry.get('programy') || '{}');
   dane = Array.isArray(d) ? { naPasku: d, wiecej: [] } : { naPasku: d.naPasku || [], wiecej: d.wiecej || [] };
@@ -95,7 +97,7 @@ function kafel(p, nr) {
   if (nr <= 8) {
     const k = document.createElement('kbd');
     k.className = 'skrot';
-    k.textContent = 'Ctrl+' + nr;
+    k.textContent = (/Mac/.test(navigator.platform) ? '⌘' : 'Ctrl+') + nr;
     a.appendChild(k);
   }
   return a;

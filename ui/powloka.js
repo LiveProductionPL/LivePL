@@ -4,6 +4,16 @@
 // pasek wiadomości, pole adresu (Ctrl+K), pobrane pliki, menu i zegar.
 
 const api = window.livepl;
+// macOS: skróty z ⌘ zamiast Ctrl (LivePL na Macu przyjmuje oba, a pokazuje te z Maca)
+const NA_MACU = /Mac/.test(navigator.platform);
+const klaw = (t) => (NA_MACU ? String(t)
+  .replace(/Ctrl\+Shift\+/g, '⇧⌘').replace(/Ctrl\s?\+\s?/g, '⌘').replace(/Ctrl /g, '⌘ ')
+  .replace(/\(F5\)/g, '(⌘R)').replace(/^F12$/, '⇧⌘I') : t);
+if (NA_MACU) {
+  document.documentElement.classList.add('mac');
+  for (const e of document.querySelectorAll('[title]')) e.title = klaw(e.title);
+  for (const e of document.querySelectorAll('kbd')) e.textContent = klaw(e.textContent);
+}
 const $ = (s) => document.querySelector(s);
 
 let S = null;
@@ -77,7 +87,7 @@ function rysujProgramy() {
     ustawIkoneProgramu(el, p);
     el.classList.toggle('wlasny', !!p.wlasny);
     // bez podpisów pod ikonami: nazwa jest w podpowiedzi i dla czytników ekranu
-    el.title = p.nazwa + (idx < 8 ? ` (Ctrl+${idx + 1})` : '');
+    el.title = p.nazwa + (idx < 8 ? klaw(` (Ctrl+${idx + 1})`) : '');
     el.setAttribute('aria-label', p.nazwa);
     el.classList.toggle('aktywny', !!S.aktywna && S.aktywna.id === p.id);
     el.classList.toggle('otwarty', p.otwarty);
@@ -130,7 +140,7 @@ function rysujKarty() {
       el.className = 'karta';
       el.dataset.id = k.id;
       el.draggable = true;
-      el.innerHTML = '<span class="ikonka"></span><span class="x" title="Zamknij kartę (Ctrl+W)">' + ikona('zamknij') + '</span>';
+      el.innerHTML = '<span class="ikonka"></span><span class="x" title="' + klaw('Zamknij kartę (Ctrl+W)') + '">' + ikona('zamknij') + '</span>';
       el.addEventListener('click', (e) => {
         if (e.target.closest('.x')) api.wyslij('zamknij', k.id);
         else api.wyslij('karta', k.id);
@@ -303,7 +313,7 @@ function rysujDol() {
   if (odswiez.dataset.tryb !== String(laduje)) {
     odswiez.dataset.tryb = String(laduje);
     odswiez.innerHTML = ikona(laduje ? 'stop' : 'odswiez');
-    odswiez.title = laduje ? 'Zatrzymaj' : 'Odśwież (F5)';
+    odswiez.title = laduje ? 'Zatrzymaj' : klaw('Odśwież (F5)');
     odswiez.setAttribute('aria-label', laduje ? 'Zatrzymaj' : 'Odśwież');
   }
   $('#ladowanie').classList.toggle('tak', laduje);
@@ -570,7 +580,7 @@ setInterval(zegar, 10000);
 // klik: auto → dzień → noc → auto; LivePL zapamiętuje wybór
 
 const MOTYWY = {
-  auto: { ikona: 'automat', nazwa: 'automatycznie, jak Windows', dalej: 'dzien' },
+  auto: { ikona: 'automat', nazwa: NA_MACU ? 'automatycznie, jak macOS' : 'automatycznie, jak Windows', dalej: 'dzien' },
   dzien: { ikona: 'slonce', nazwa: 'dzień', dalej: 'noc' },
   noc: { ikona: 'ksiezyc', nazwa: 'noc', dalej: 'auto' }
 };
