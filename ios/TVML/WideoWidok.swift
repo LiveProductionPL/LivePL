@@ -11,7 +11,7 @@ struct WideoWidok: View {
                 HStack {
                     Text("Wideo").font(Czcionka.naglowek(26))
                     Spacer()
-                    Label("YouTube @TVMLlive", systemImage: "play.rectangle").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color(hex: "#a8b3c8"))
+                    Label("YouTube @TVMLlive", systemImage: "play.rectangle").czcionka(12, .semibold).foregroundStyle(Color(hex: "#a8b3c8"))
                 }
                 .foregroundStyle(.white)
                 if m.filmy.isEmpty { ProgressView().tint(.white).frame(maxWidth: .infinity, minHeight: 240) }
@@ -21,15 +21,15 @@ struct WideoWidok: View {
                             ZStack(alignment: .topLeading) {
                                 AsyncImage(url: pierwszy.obraz) { $0.resizable().scaledToFill() } placeholder: { Color(hex: "#1c2840") }
                                     .frame(height: 200).frame(maxWidth: .infinity).clipped()
-                                Text("WYRÓŻNIONE").font(.system(size: 11, weight: .heavy)).kerning(1).foregroundStyle(.white)
+                                Text("WYRÓŻNIONE").czcionka(11, .heavy).kerning(1).foregroundStyle(.white)
                                     .padding(.horizontal, 8).padding(.vertical, 4).background(Color(hex: "#c8102e"), in: RoundedRectangle(cornerRadius: 6)).padding(12)
                                 Image(systemName: "play.circle.fill").font(.system(size: 60)).foregroundStyle(Color(hex: "#1d1400"), Barwy.zloto)
                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                             }
                             .frame(height: 200)
                             .clipShape(RoundedRectangle(cornerRadius: 16))
-                            Text(pierwszy.tytul).font(.system(size: 18, weight: .bold)).foregroundStyle(.white).multilineTextAlignment(.leading)
-                            Text(Film.data(pierwszy.data)).font(.system(size: 12)).foregroundStyle(Color(hex: "#a8b3c8"))
+                            Text(pierwszy.tytul).czcionka(18, .bold).foregroundStyle(.white).multilineTextAlignment(.leading)
+                            Text(Film.data(pierwszy.data)).czcionka(12).foregroundStyle(Color(hex: "#a8b3c8"))
                         }
                     }
                     .buttonStyle(.plain)
@@ -39,8 +39,8 @@ struct WideoWidok: View {
                         HStack(spacing: 12) {
                             KafelFilmu(film: f, szerokosc: 150, zPodpisem: false)
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(f.tytul).font(.system(size: 14, weight: .bold)).foregroundStyle(.white).multilineTextAlignment(.leading).lineLimit(3)
-                                Text(Film.data(f.data)).font(.system(size: 12)).foregroundStyle(Color(hex: "#a8b3c8"))
+                                Text(f.tytul).czcionka(14, .bold).foregroundStyle(.white).multilineTextAlignment(.leading).lineLimit(3)
+                                Text(Film.data(f.data)).czcionka(12).foregroundStyle(Color(hex: "#a8b3c8"))
                             }
                             Spacer(minLength: 0)
                         }
@@ -73,7 +73,7 @@ struct KafelFilmu: View {
             .frame(width: szerokosc, height: szerokosc * 9 / 16)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             if zPodpisem {
-                Text(film.tytul).font(.system(size: 13, weight: .semibold)).foregroundStyle(Barwy.tekst).lineLimit(2).frame(width: szerokosc, alignment: .leading)
+                Text(film.tytul).czcionka(13, .semibold).foregroundStyle(Barwy.tekst).lineLimit(2).frame(width: szerokosc, alignment: .leading)
             }
         }
         .accessibilityElement(children: .combine)

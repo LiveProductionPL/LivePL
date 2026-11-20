@@ -83,6 +83,12 @@ if [ -n "${5:-}" ] && [ -d "$5" ]; then
   zrzut 12-tvml-noc dark
   zrzut 13-tvml-pogoda light -ekran pogoda
   zrzut 14-tvml-artykul light -ekran artykul
+  # „Większy tekst” na poziomie AX3 (górna granica w aplikacji)
+  xcrun simctl ui "$UDID" content_size accessibility-extra-large || true
+  zrzut 15-tvml-duzy-tekst light
+  zrzut 16-tvml-artykul-duzy-tekst light -ekran artykul
+  zrzut 17-tvml-pogoda-duzy-tekst dark -ekran pogoda
+  xcrun simctl ui "$UDID" content_size large || true
 fi
 
 # dziennik aplikacji z ostatnich minut (błędy WebKit, SwiftUI)

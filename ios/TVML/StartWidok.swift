@@ -20,8 +20,8 @@ struct StartWidok: View {
                                 if let slug = k.slug { Task { await m.kategoria(slug) } }
                             } label: {
                                 Text(k.nazwa)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .padding(.horizontal, 14).frame(height: 34)
+                                    .czcionka(13, .semibold)
+                                    .padding(.horizontal, 14).frame(minHeight: 34)
                                     .foregroundStyle(wybrana ? m.motyw.napisNaAkcencie : Barwy.tekst)
                                     .background(wybrana ? m.motyw.akcent : Barwy.karta, in: Capsule())
                                     .overlay(Capsule().stroke(wybrana ? Color.clear : Barwy.ramka))
@@ -33,7 +33,7 @@ struct StartWidok: View {
                 .scrollClipDisabled()
 
                 if let blad = m.blad {
-                    Text(blad).font(.system(size: 14)).foregroundStyle(Barwy.slaby)
+                    Text(blad).czcionka(14).foregroundStyle(Barwy.slaby)
                 }
                 if m.najnowsze.isEmpty && m.laduje {
                     ProgressView().frame(maxWidth: .infinity, minHeight: 300)
@@ -82,8 +82,8 @@ struct BlokWidok: View {
         case "alert":
             Button { strona = StronaWWW(sciezka: "") } label: {
                 Label("Zgłoś zdarzenie (Alert TVML)", systemImage: "exclamationmark.triangle.fill")
-                    .font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
-                    .frame(maxWidth: .infinity).frame(height: 50)
+                    .czcionka(15, .bold).foregroundStyle(.white)
+                    .frame(maxWidth: .infinity).frame(minHeight: 50)
                     .background(Color(hex: "#c8102e"), in: RoundedRectangle(cornerRadius: 14))
             }
             .buttonStyle(.plain)
@@ -119,7 +119,7 @@ struct BlokWidok: View {
                         NavigationLink(value: a) {
                             HStack(alignment: .top, spacing: 12) {
                                 Text("\(i + 1)").font(Czcionka.naglowek(22)).foregroundStyle(m.motyw.akcent).frame(width: 30)
-                                Text(a.tytul).font(.system(size: 15, weight: .semibold)).foregroundStyle(Barwy.tekst).frame(maxWidth: .infinity, alignment: .leading)
+                                Text(a.tytul).czcionka(15, .semibold).foregroundStyle(Barwy.tekst).frame(maxWidth: .infinity, alignment: .leading)
                             }
                             .padding(.vertical, 10)
                             .overlay(alignment: .bottom) { if i < lista.count - 1 { Barwy.ramka.frame(height: 1) } }
@@ -158,7 +158,7 @@ struct BlokWidok: View {
                 .background(Barwy.karta, in: RoundedRectangle(cornerRadius: 14))
                 .sheet(item: $ogloszenie) { OgloszenieWidok(ogloszenie: $0) }
                 Button { strona = StronaWWW(sciezka: "lista/ogloszenia") } label: {
-                    Text("Wszystkie ogłoszenia na tvml.pl").font(.system(size: 14, weight: .semibold))
+                    Text("Wszystkie ogłoszenia na tvml.pl").czcionka(14, .semibold)
                 }
             }
         case "counties":
@@ -171,9 +171,9 @@ struct BlokWidok: View {
                                 HStack(spacing: 8) {
                                     AsyncImage(url: g.herb) { $0.resizable().scaledToFit() } placeholder: { Color.clear }
                                         .frame(width: 22, height: 26)
-                                    Text(g.nazwa).font(.system(size: 14, weight: .semibold)).foregroundStyle(Barwy.tekst)
+                                    Text(g.nazwa).czcionka(14, .semibold).foregroundStyle(Barwy.tekst)
                                 }
-                                .padding(.horizontal, 12).frame(height: 44)
+                                .padding(.horizontal, 12).frame(minHeight: 44)
                                 .background(Barwy.karta, in: Capsule())
                                 .overlay(Capsule().stroke(Barwy.ramka))
                             }
@@ -210,8 +210,8 @@ struct BlokWidok: View {
 
     private func spolecznosc(_ nazwa: String, _ adres: String) -> some View {
         Link(destination: URL(string: adres)!) {
-            Text(nazwa).font(.system(size: 13, weight: .semibold)).foregroundStyle(Barwy.tekst)
-                .frame(maxWidth: .infinity).frame(height: 40)
+            Text(nazwa).czcionka(13, .semibold).foregroundStyle(Barwy.tekst)
+                .frame(maxWidth: .infinity).frame(minHeight: 40)
                 .background(Barwy.karta, in: RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Barwy.ramka))
         }
@@ -337,7 +337,7 @@ struct KartaArtykulu: View {
                     .foregroundStyle(.white)
                     .lineLimit(4)
                 Text([artykul.autor, artykul.kiedy].filter { !$0.isEmpty }.joined(separator: " · "))
-                    .font(.system(size: 12)).foregroundStyle(Color(hex: "#d7deea"))
+                    .czcionka(12).foregroundStyle(Color(hex: "#d7deea"))
             }
             .padding(18)
         }
@@ -361,7 +361,7 @@ struct EtykietaKategorii: View {
 
     private func znaczek(_ tekst: String, tlo: Color, napis: Color) -> some View {
         Text(tekst)
-            .font(.system(size: 11, weight: .heavy)).kerning(1)
+            .czcionka(11, .heavy).kerning(1)
             .padding(.horizontal, 10).padding(.vertical, 5)
             .foregroundStyle(napis)
             .background(tlo, in: RoundedRectangle(cornerRadius: 8))
@@ -407,10 +407,10 @@ struct WierszArtykulu: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Circle().fill(artykul.kolorKategorii).frame(width: 8, height: 8)
-                    Text(artykul.kategoria.uppercased()).font(.system(size: 11, weight: .bold)).kerning(0.6).foregroundStyle(Barwy.slaby)
+                    Text(artykul.kategoria.uppercased()).czcionka(11, .bold).kerning(0.6).foregroundStyle(Barwy.slaby)
                 }
-                Text(artykul.tytul).font(.system(size: 15, weight: .bold)).foregroundStyle(Barwy.tekst).lineLimit(3)
-                Text(artykul.kiedy).font(.system(size: 12)).foregroundStyle(Barwy.slaby)
+                Text(artykul.tytul).czcionka(15, .bold).foregroundStyle(Barwy.tekst).lineLimit(3)
+                Text(artykul.kiedy).czcionka(12).foregroundStyle(Barwy.slaby)
             }
             Spacer(minLength: 0)
         }
@@ -429,9 +429,9 @@ struct WierszOgloszenia: View {
                 Obraz(url: z).frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: 10))
             }
             VStack(alignment: .leading, spacing: 3) {
-                Text(ogloszenie.tytul).font(.system(size: 15, weight: .semibold)).foregroundStyle(Barwy.tekst).lineLimit(2)
+                Text(ogloszenie.tytul).czcionka(15, .semibold).foregroundStyle(Barwy.tekst).lineLimit(2)
                 Text([ogloszenie.kategoria, ogloszenie.cena].filter { !$0.isEmpty }.joined(separator: " · "))
-                    .font(.system(size: 13)).foregroundStyle(Barwy.slaby)
+                    .czcionka(13).foregroundStyle(Barwy.slaby)
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Barwy.slaby)
@@ -458,15 +458,15 @@ struct OgloszenieWidok: View {
                         .clipShape(RoundedRectangle(cornerRadius: 14))
                     }
                     if !ogloszenie.kategoria.isEmpty {
-                        Text(ogloszenie.kategoria.uppercased()).font(.system(size: 11, weight: .heavy)).kerning(1).foregroundStyle(Barwy.slaby)
+                        Text(ogloszenie.kategoria.uppercased()).czcionka(11, .heavy).kerning(1).foregroundStyle(Barwy.slaby)
                     }
                     Text(ogloszenie.tytul).font(Czcionka.naglowek(22, 700)).foregroundStyle(Barwy.tekst)
-                    if !ogloszenie.cena.isEmpty { Text(ogloszenie.cena).font(.system(size: 18, weight: .bold)).foregroundStyle(Barwy.tekst) }
-                    if !ogloszenie.tekst.isEmpty { Text(ogloszenie.tekst).font(.system(size: 16)).foregroundStyle(Barwy.tekst) }
+                    if !ogloszenie.cena.isEmpty { Text(ogloszenie.cena).czcionka(18, .bold).foregroundStyle(Barwy.tekst) }
+                    if !ogloszenie.tekst.isEmpty { Text(ogloszenie.tekst).czcionka(16).foregroundStyle(Barwy.tekst) }
                     if !ogloszenie.kontakt.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Kontakt").font(.system(size: 13, weight: .bold)).foregroundStyle(Barwy.slaby)
-                            Text(ogloszenie.kontakt).font(.system(size: 16)).foregroundStyle(Barwy.tekst).textSelection(.enabled)
+                            Text("Kontakt").czcionka(13, .bold).foregroundStyle(Barwy.slaby)
+                            Text(ogloszenie.kontakt).czcionka(16).foregroundStyle(Barwy.tekst).textSelection(.enabled)
                         }
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -511,16 +511,16 @@ struct KafelPogody: View {
                             scena: m.motyw.scena(miesiac: Calendar.current.component(.month, from: .now)))
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("POGODA W LESZNIE").font(.system(size: 11, weight: .bold)).kerning(1)
-                        Text(m.pogoda.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–").font(.system(size: 30, weight: .heavy))
-                        Text(m.pogoda?.opis ?? "").font(.system(size: 13))
+                        Text("POGODA W LESZNIE").czcionka(11, .bold).kerning(1)
+                        Text(m.pogoda.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–").czcionka(30, .heavy)
+                        Text(m.pogoda?.opis ?? "").czcionka(13)
                     }
                     Spacer()
                     HStack(spacing: 12) {
                         ForEach((m.pogoda?.dni ?? []).dropFirst().prefix(3)) { d in
                             VStack(spacing: 2) {
-                                Text(d.nazwa).font(.system(size: 12)).opacity(0.85)
-                                Text(Pogoda.stopnie(d.max)).font(.system(size: 12, weight: .bold))
+                                Text(d.nazwa).czcionka(12).opacity(0.85)
+                                Text(Pogoda.stopnie(d.max)).czcionka(12, .bold)
                             }
                         }
                     }
@@ -529,7 +529,7 @@ struct KafelPogody: View {
                 .shadow(color: .black.opacity(0.45), radius: 6)
                 .padding(.horizontal, 18)
             }
-            .frame(height: 110)
+            .frame(minHeight: 110)
             .clipShape(RoundedRectangle(cornerRadius: 18))
         }
         .buttonStyle(.plain)

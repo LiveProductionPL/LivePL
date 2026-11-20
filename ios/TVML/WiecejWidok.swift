@@ -14,7 +14,7 @@ struct WiecejWidok: View {
             Section {
                 Button { strona = StronaWWW(sciezka: "") } label: {
                     Label("Zgłoś zdarzenie (Alert TVML)", systemImage: "exclamationmark.triangle.fill")
-                        .font(.system(size: 16, weight: .bold)).foregroundStyle(Color(hex: "#c8102e"))
+                        .czcionka(16, .bold).foregroundStyle(Color(hex: "#c8102e"))
                 }
             } footer: {
                 Text("Formularz jest na stronie głównej tvml.pl, przycisk „Zgłoś zdarzenie”.")
@@ -58,7 +58,7 @@ struct WiecejWidok: View {
             }
             Section {
                 Text("TVML \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "") · Telewizja Młodzieżowa Leszno")
-                    .font(.system(size: 12)).foregroundStyle(Barwy.slaby)
+                    .czcionka(12).foregroundStyle(Barwy.slaby)
             }
         }
         .scrollContentBackground(.hidden)
@@ -98,7 +98,7 @@ struct ZapisaneWidok: View {
                 if laduje { ProgressView().padding(40) }
                 else if lista.isEmpty {
                     Text("Nie masz zapisanych artykułów. Zapiszesz je ikoną zakładki w artykule.")
-                        .font(.system(size: 15)).foregroundStyle(Barwy.slaby).padding(24)
+                        .czcionka(15).foregroundStyle(Barwy.slaby).padding(24)
                 }
                 ForEach(lista) { a in
                     NavigationLink(value: a) { WierszArtykulu(artykul: a) }.buttonStyle(.plain)
@@ -137,8 +137,8 @@ struct SzukajWidok: View {
                         m.otworz(a)
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(a.tytul).font(.system(size: 15, weight: .semibold)).foregroundStyle(Barwy.tekst)
-                            Text([a.kategoria, a.kiedy].filter { !$0.isEmpty }.joined(separator: " · ")).font(.system(size: 12)).foregroundStyle(Barwy.slaby)
+                            Text(a.tytul).czcionka(15, .semibold).foregroundStyle(Barwy.tekst)
+                            Text([a.kategoria, a.kiedy].filter { !$0.isEmpty }.joined(separator: " · ")).czcionka(12).foregroundStyle(Barwy.slaby)
                         }
                     }
                 }

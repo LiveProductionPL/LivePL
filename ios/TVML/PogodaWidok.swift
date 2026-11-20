@@ -14,15 +14,15 @@ struct PogodaWidok: View {
                                 pora: PoraDnia.teraz(dzien: p?.dzien ?? true),
                                 scena: m.motyw.scena(miesiac: Calendar.current.component(.month, from: .now)))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(p.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–").font(.system(size: 52, weight: .heavy))
-                        Text(p?.opis ?? "").font(.system(size: 16, weight: .semibold))
-                        Text("Odczuwalna " + (p.map { Pogoda.stopnie($0.odczuwalna) + "C" } ?? "–")).font(.system(size: 13))
+                        Text(p.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–").czcionka(52, .heavy)
+                        Text(p?.opis ?? "").czcionka(16, .semibold)
+                        Text("Odczuwalna " + (p.map { Pogoda.stopnie($0.odczuwalna) + "C" } ?? "–")).czcionka(13)
                     }
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.45), radius: 8)
                     .padding(18)
                     Text("POGODA W LESZNIE")
-                        .font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                        .czcionka(11, .bold).foregroundStyle(.white)
                         .padding(.horizontal, 9).padding(.vertical, 5)
                         .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 9))
                         .frame(maxWidth: .infinity, alignment: .trailing)
@@ -37,11 +37,11 @@ struct PogodaWidok: View {
                         .frame(width: 30, height: 30).overlay(Circle().stroke(Color(hex: "#e8c26a"), lineWidth: 1.5))
                     VStack(alignment: .leading, spacing: 1) {
                         Text(m.dzisiaj?.etykieta ?? Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide).year().locale(Locale(identifier: "pl_PL"))))
-                            .font(.system(size: 13, weight: .bold))
+                            .czcionka(13, .bold)
                         if let imieniny = m.dzisiaj?.imieniny, !imieniny.isEmpty {
-                            Text("Imieniny: \(imieniny.joined(separator: ", "))").font(.system(size: 12)).foregroundStyle(Color(hex: "#c9d3e3"))
+                            Text("Imieniny: \(imieniny.joined(separator: ", "))").czcionka(12).foregroundStyle(Color(hex: "#c9d3e3"))
                         }
-                        Text("Wschód \(p?.wschod ?? "–") · zachód \(p?.zachod ?? "–")").font(.system(size: 12)).foregroundStyle(Color(hex: "#c9d3e3"))
+                        Text("Wschód \(p?.wschod ?? "–") · zachód \(p?.zachod ?? "–")").czcionka(12).foregroundStyle(Color(hex: "#c9d3e3"))
                     }
                 }
                 .foregroundStyle(.white)
@@ -60,10 +60,10 @@ struct PogodaWidok: View {
                         HStack(spacing: 14) {
                             ForEach(godziny.prefix(24)) { g in
                                 VStack(spacing: 4) {
-                                    Text(g.czas).font(.system(size: 12, weight: .semibold))
+                                    Text(g.czas).czcionka(12, .semibold)
                                     Image(systemName: ikonaPogody(g.ikona)).symbolRenderingMode(.multicolor).font(.system(size: 20))
-                                    Text(Pogoda.stopnie(g.temp)).font(.system(size: 13, weight: .bold))
-                                    if g.opad > 0 { Text("\(g.opad)%").font(.system(size: 11, weight: .semibold)).foregroundStyle(Barwy.link) }
+                                    Text(Pogoda.stopnie(g.temp)).czcionka(13, .bold)
+                                    if g.opad > 0 { Text("\(g.opad)%").czcionka(11, .semibold).foregroundStyle(Barwy.link) }
                                 }
                                 .foregroundStyle(Barwy.tekst)
                             }
@@ -78,13 +78,13 @@ struct PogodaWidok: View {
                     VStack(spacing: 0) {
                         ForEach(Array(dni.enumerated()), id: \.element.id) { i, d in
                             HStack {
-                                Text(d.nazwa).font(.system(size: 15, weight: .bold)).frame(width: 36, alignment: .leading)
+                                Text(d.nazwa).czcionka(15, .bold).frame(width: 36, alignment: .leading)
                                 Image(systemName: ikonaPogody(d.ikona)).symbolRenderingMode(.multicolor).frame(width: 30)
-                                Text(d.opis).font(.system(size: 13)).foregroundStyle(Barwy.slaby).lineLimit(1)
+                                Text(d.opis).czcionka(13).foregroundStyle(Barwy.slaby).lineLimit(1)
                                 Spacer()
-                                if d.opad > 0 { Text("\(d.opad)%").font(.system(size: 12, weight: .semibold)).foregroundStyle(Barwy.link) }
-                                Text(Pogoda.stopnie(d.min)).font(.system(size: 13)).foregroundStyle(Barwy.slaby)
-                                Text(Pogoda.stopnie(d.max)).font(.system(size: 15, weight: .heavy))
+                                if d.opad > 0 { Text("\(d.opad)%").czcionka(12, .semibold).foregroundStyle(Barwy.link) }
+                                Text(Pogoda.stopnie(d.min)).czcionka(13).foregroundStyle(Barwy.slaby)
+                                Text(Pogoda.stopnie(d.max)).czcionka(15, .heavy)
                             }
                             .foregroundStyle(Barwy.tekst)
                             .padding(.vertical, 10)
@@ -108,8 +108,8 @@ struct Pomiar: View {
     let wartosc: String
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(nazwa).font(.system(size: 11, weight: .semibold)).foregroundStyle(Barwy.slaby)
-            Text(wartosc).font(.system(size: 14, weight: .heavy)).foregroundStyle(Barwy.tekst).minimumScaleFactor(0.7).lineLimit(1)
+            Text(nazwa).czcionka(11, .semibold).foregroundStyle(Barwy.slaby)
+            Text(wartosc).czcionka(14, .heavy).foregroundStyle(Barwy.tekst).minimumScaleFactor(0.7).lineLimit(1)
         }
         .padding(.horizontal, 10).padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -156,9 +156,11 @@ struct ScenaPogody: View {
     let stan: StanPogody
     let pora: PoraDnia
     let scena: Motyw.Scena
+    @Environment(\.accessibilityReduceMotion) private var bezRuchu
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30)) { kontekst in
+        // „Ogranicz ruch”: jedna nieruchoma klatka sceny, bez błyskawic
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: bezRuchu)) { kontekst in
             Canvas { ctx, size in
                 rysuj(ctx: &ctx, size: size, t: kontekst.date.timeIntervalSinceReferenceDate)
             }
@@ -270,7 +272,7 @@ struct ScenaPogody: View {
         }
         ctx.opacity = 1
         // błyskawica
-        if stan == .burza {
+        if stan == .burza && !bezRuchu {
             let blysk = sin(t * 0.9) > 0.97 || sin(t * 1.7 + 1) > 0.985
             if blysk {
                 ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.white.opacity(0.25)))

@@ -231,7 +231,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.LiveProduction.TVML
         PRODUCT_NAME: TVML
-        MARKETING_VERSION: "2.0"
+        MARKETING_VERSION: "2.1"
         # ikony na zimę i święta wybiera panel (Ustawienia → Wygląd), więc są w aplikacji od początku
         ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: "IkonaZima IkonaSwieta"
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES

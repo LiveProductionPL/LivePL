@@ -12,6 +12,8 @@ struct TVMLApp: App {
         WindowGroup {
             Glowny()
                 .environmentObject(magazyn)
+                // „Większy tekst” do poziomu AX3 (ponad dwa razy większy tekst); wyżej układ kart i pasków przestaje się mieścić
+                .dynamicTypeSize(...DynamicTypeSize.accessibility3)
                 .preferredColorScheme(wyglad == "dzien" ? .light : (wyglad == "noc" ? .dark : nil))
         }
     }
@@ -173,9 +175,9 @@ struct BanerKomunikatu: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: ikona).font(.system(size: 15, weight: .bold)).padding(.top, 1)
             VStack(alignment: .leading, spacing: 2) {
-                if !komunikat.tytul.isEmpty { Text(komunikat.tytul).font(.system(size: 14, weight: .bold)) }
-                if !komunikat.tekst.isEmpty { Text(komunikat.tekst).font(.system(size: 13)).lineLimit(3) }
-                if komunikat.link != nil { Text(komunikat.etykieta).font(.system(size: 13, weight: .semibold)).underline() }
+                if !komunikat.tytul.isEmpty { Text(komunikat.tytul).czcionka(14, .bold) }
+                if !komunikat.tekst.isEmpty { Text(komunikat.tekst).czcionka(13).lineLimit(3) }
+                if komunikat.link != nil { Text(komunikat.etykieta).czcionka(13, .semibold).underline() }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             if !komunikat.pilny {
@@ -212,11 +214,11 @@ struct EkranAktualizacji: View {
         VStack(spacing: 18) {
             Spacer()
             Image("LogoNoc").resizable().scaledToFit().frame(height: 56)
-            Text("Zaktualizuj aplikację TVML").font(.system(size: 22, weight: .bold))
+            Text("Zaktualizuj aplikację TVML").czcionka(22, .bold)
             Text("Ta wersja (\(Wersja.biezaca)) jest już nieaktualna. Pobierz nową z App Store, żeby dalej czytać wiadomości.")
-                .font(.system(size: 15)).multilineTextAlignment(.center).opacity(0.85)
+                .czcionka(15).multilineTextAlignment(.center).opacity(0.85)
             Button { otworz(URL(string: "https://apps.apple.com/app/id1468277905")!) } label: {
-                Text("Otwórz App Store").font(.system(size: 16, weight: .bold))
+                Text("Otwórz App Store").czcionka(16, .bold)
                     .frame(maxWidth: 320).frame(height: 50)
                     .background(Color(hex: "#e29818"), in: RoundedRectangle(cornerRadius: 12))
                     .foregroundStyle(Color(hex: "#1d1400"))
@@ -238,18 +240,18 @@ struct PasekZyczen: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 Gwiazda().fill(motyw.zlotoPaska).frame(width: 12, height: 12)
-                Text(pasek.etykieta).font(.system(size: 11, weight: .heavy)).kerning(1.4)
+                Text(pasek.etykieta).czcionka(11, .heavy).kerning(1.4)
             }
             .foregroundStyle(motyw.zlotoPaska)
-            Text(pasek.tekst).font(.system(size: 13)).foregroundStyle(Color(hex: "#f6efe3"))
+            Text(pasek.tekst).czcionka(13).foregroundStyle(Color(hex: "#f6efe3"))
             if let doKiedy = pasek.odliczanieDo {
                 TimelineView(.periodic(from: .now, by: 1)) { kontekst in
                     Text("● ODLICZANIE DO \(Calendar.current.component(.year, from: doKiedy).formatted(.number.grouping(.never))) • \(Odliczanie.tekst(od: kontekst.date, do: doKiedy))")
-                        .font(.system(size: 11, weight: .bold)).kerning(1)
+                        .czcionka(11, .bold).kerning(1)
                         .foregroundStyle(motyw.zlotoPaska)
                 }
             } else if let stopka = pasek.stopka {
-                Text(stopka).font(.system(size: 11, weight: .bold)).kerning(1).foregroundStyle(motyw.zlotoPaska)
+                Text(stopka).czcionka(11, .bold).kerning(1).foregroundStyle(motyw.zlotoPaska)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -267,6 +269,7 @@ enum Odliczanie {
 /// Pasek „NA ŻYWO”: najnowsze wiadomości przesuwają się jak na stronie. Stuknięcie otwiera pierwszą z nich.
 struct NaZywo: View {
     @EnvironmentObject private var m: Magazyn
+    @Environment(\.accessibilityReduceMotion) private var bezRuchu
     @State private var szerokosc: CGFloat = 1
 
     var body: some View {
@@ -274,28 +277,37 @@ struct NaZywo: View {
         HStack(spacing: 0) {
             HStack(spacing: 6) {
                 Circle().fill(.white).frame(width: 8, height: 8)
-                Text("NA ŻYWO").font(.system(size: 11, weight: .heavy)).kerning(1)
+                Text("NA ŻYWO").czcionka(11, .heavy).kerning(1)
             }
             .foregroundStyle(.white)
-            .padding(.horizontal, 12).frame(maxHeight: .infinity)
+            .padding(.horizontal, 12).padding(.vertical, 10).frame(maxHeight: .infinity)
             .background(m.motyw.naZywo)
             // tekst w nakładce, żeby jego szerokość nie wypychała etykiety „NA ŻYWO”
             Color.clear
                 .frame(maxWidth: .infinity)
                 .overlay(alignment: .leading) {
+                    // „Ogranicz ruch”: najnowsza wiadomość stoi w miejscu zamiast przesuwać się
+                    if bezRuchu {
+                        Text(m.pasek.first?.tytul ?? "")
+                            .czcionka(13, .semibold)
+                            .foregroundStyle(Barwy.tekst)
+                            .lineLimit(1)
+                            .padding(.horizontal, 10)
+                    } else {
                     TimelineView(.animation(minimumInterval: 1.0 / 30)) { kontekst in
                         let przesuniecie = CGFloat(kontekst.date.timeIntervalSinceReferenceDate * 40).truncatingRemainder(dividingBy: szerokosc + 60)
                         Text(tekst)
-                            .font(.system(size: 13, weight: .semibold))
+                            .czcionka(13, .semibold)
                             .foregroundStyle(Barwy.tekst)
                             .fixedSize()
                             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { szerokosc = max(1, $0) }
                             .offset(x: 10 - przesuniecie)
                     }
+                    }
                 }
                 .clipped()
         }
-        .frame(height: 40)
+        .frame(minHeight: 40)
         .background(Barwy.karta)
         .overlay(alignment: .bottom) { Barwy.ramka.frame(height: 1) }
         .contentShape(Rectangle())
@@ -310,9 +322,11 @@ struct NaZywo: View {
 struct Platki: View {
     let kolor: Color
     let iskry: Bool
+    @Environment(\.accessibilityReduceMotion) private var bezRuchu
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20)) { kontekst in
+        // „Ogranicz ruch”: płatki stoją (jedna klatka zamiast animacji)
+        TimelineView(.animation(minimumInterval: 1.0 / 20, paused: bezRuchu)) { kontekst in
             Canvas { ctx, size in
                 let t = kontekst.date.timeIntervalSinceReferenceDate
                 for i in 0..<18 {

@@ -114,6 +114,44 @@ enum Czcionka {
     }
 }
 
+/// Tekst rośnie razem z ustawieniem „Większy tekst” w iPhonie (Dynamic Type) i od razu się odświeża.
+/// Rozmiar to wielkość przy domyślnym ustawieniu; styl odniesienia (od podpisu do dużego tytułu) ustala, jak szybko
+/// rośnie, tak jak w iOS: duże napisy rosną wolniej niż drobne.
+struct SkalowanaCzcionka: ViewModifier {
+    @ScaledMetric private var rozmiar: CGFloat
+    let waga: Font.Weight
+
+    init(_ rozmiar: CGFloat, _ waga: Font.Weight) {
+        _rozmiar = ScaledMetric(wrappedValue: rozmiar, relativeTo: SkalowanaCzcionka.styl(rozmiar))
+        self.waga = waga
+    }
+
+    static func styl(_ r: CGFloat) -> Font.TextStyle {
+        switch r {
+        case ..<11.5: return .caption2
+        case ..<12.5: return .caption
+        case ..<13.5: return .footnote
+        case ..<15.5: return .subheadline
+        case ..<18.5: return .body
+        case ..<21: return .title3
+        case ..<25: return .title2
+        case ..<31: return .title
+        default: return .largeTitle
+        }
+    }
+
+    func body(content: Content) -> some View {
+        content.font(.system(size: rozmiar, weight: waga))
+    }
+}
+
+extension View {
+    /// Zamiast .font(.system(size:weight:)): ten sam rozmiar przy domyślnym tekście, większy przy większym.
+    func czcionka(_ rozmiar: CGFloat, _ waga: Font.Weight = .regular) -> some View {
+        modifier(SkalowanaCzcionka(rozmiar, waga))
+    }
+}
+
 enum Barwy {
     static let granat = Color(hex: "#0a1f44")
     static let zloto = Color(hex: "#e29818")

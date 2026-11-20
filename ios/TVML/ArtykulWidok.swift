@@ -52,18 +52,18 @@ struct ArtykulWidok: View {
                         .foregroundStyle(Barwy.tekst)
                     HStack(spacing: 10) {
                         Text(inicjaly(a.autor))
-                            .font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
+                            .czcionka(13, .bold).foregroundStyle(.white)
                             .frame(width: 36, height: 36).background(Barwy.granat, in: Circle())
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(a.autor.isEmpty ? "Redakcja TVML" : a.autor).font(.system(size: 14, weight: .bold)).foregroundStyle(Barwy.tekst)
-                            Text(opisDaty).font(.system(size: 12)).foregroundStyle(Barwy.slaby)
+                            Text(a.autor.isEmpty ? "Redakcja TVML" : a.autor).czcionka(14, .bold).foregroundStyle(Barwy.tekst)
+                            Text(opisDaty).czcionka(12).foregroundStyle(Barwy.slaby)
                         }
                     }
                     HStack(spacing: 8) {
                         Button { lektor.przelacz(tekstDoCzytania) } label: {
                             Label(lektor.mowi ? "Zatrzymaj" : "Odsłuchaj", systemImage: lektor.mowi ? "stop.fill" : "speaker.wave.2")
-                                .font(.system(size: 13, weight: .semibold))
-                                .padding(.horizontal, 14).frame(height: 40)
+                                .czcionka(13, .semibold)
+                                .padding(.horizontal, 14).frame(minHeight: 40)
                                 .foregroundStyle(.white)
                                 .background(Barwy.granat, in: Capsule())
                         }
@@ -87,7 +87,7 @@ struct ArtykulWidok: View {
                         Obraz(url: a.miniatura(1200))
                             .frame(height: 220).frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: 14))
                         if !a.zrodloZdjecia.isEmpty {
-                            Text(a.zrodloZdjecia).font(.system(size: 12)).foregroundStyle(Barwy.slaby)
+                            Text(a.zrodloZdjecia).czcionka(12).foregroundStyle(Barwy.slaby)
                         }
                     }
 
@@ -96,7 +96,7 @@ struct ArtykulWidok: View {
                             switch blok {
                             case .akapit(let t):
                                 Text(t)
-                                    .font(.system(size: wielkosc, weight: i == 0 ? .semibold : .regular))
+                                    .czcionka(wielkosc, i == 0 ? .semibold : .regular)
                                     .lineSpacing(wielkosc * 0.4)
                                     .foregroundStyle(Barwy.tekst)
                                     .textSelection(.enabled)
@@ -117,7 +117,7 @@ struct ArtykulWidok: View {
                             }
                         }
                     } else {
-                        Text(a.lead).font(.system(size: wielkosc, weight: .semibold)).foregroundStyle(Barwy.tekst)
+                        Text(a.lead).czcionka(wielkosc, .semibold).foregroundStyle(Barwy.tekst)
                         ProgressView().frame(maxWidth: .infinity)
                     }
 
@@ -172,7 +172,7 @@ struct FlowTagi: View {
         FlowUklad(odstep: 6) {
             ForEach(tagi, id: \.self) { t in
                 Text("#" + t)
-                    .font(.system(size: 12, weight: .semibold))
+                    .czcionka(12, .semibold)
                     .foregroundStyle(Barwy.link)
                     .padding(.horizontal, 10).padding(.vertical, 5)
                     .background(Barwy.link.opacity(0.1), in: Capsule())
@@ -253,7 +253,7 @@ struct KomentarzeWidok: View {
                 ForEach(Array(lista.enumerated()), id: \.offset) { _, k in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(alignment: .firstTextBaseline) {
-                            Text(autor(k)).font(.system(size: 14, weight: .bold))
+                            Text(autor(k)).czcionka(14, .bold)
                             Spacer()
                             // zgłoszenie nieodpowiedniego komentarza trafia do redakcji, która moderuje komentarze w panelu
                             Button { zglos(k) } label: { Image(systemName: "flag").font(.system(size: 13)) }
@@ -261,8 +261,8 @@ struct KomentarzeWidok: View {
                                 .foregroundStyle(Barwy.slaby)
                                 .accessibilityLabel("Zgłoś komentarz")
                         }
-                        Text(tresc(k)).font(.system(size: 15))
-                        Text(k.s("created_at").isEmpty ? k.s("date") : k.s("created_at")).font(.system(size: 12)).foregroundStyle(Barwy.slaby)
+                        Text(tresc(k)).czcionka(15)
+                        Text(k.s("created_at").isEmpty ? k.s("date") : k.s("created_at")).czcionka(12).foregroundStyle(Barwy.slaby)
                     }
                     .padding(.vertical, 4)
                 }
