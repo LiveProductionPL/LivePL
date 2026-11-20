@@ -211,6 +211,17 @@ final class Przegladarka: ObservableObject {
         return !["http", "https", "about", "data", "blob", "file", "javascript"].contains(schemat)
     }
 
+    /// Link „Pobierz” załącznika w poczcie LivePL (…/?mail-attachment/… albo …/?file-cache/…, bez /view i /thumb).
+    /// Poczta otwiera go w nowym oknie; zamiast okna z podglądem pobieramy plik do arkusza „Udostępnij”.
+    nonisolated static func adresPobierania(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == "https",
+              let host = url.host?.lowercased(), host == "livepl.eu" || host.hasSuffix(".livepl.eu"),
+              let zapytanie = url.query?.lowercased(),
+              zapytanie.hasPrefix("mail-attachment/") || zapytanie.hasPrefix("file-cache/") else { return false }
+        let ostatni = zapytanie.split(separator: "/").last.map(String.init) ?? ""
+        return !["view", "thumb"].contains(ostatni)
+    }
+
     // MARK: - Moje strony
 
     /// Zwraca opis błędu albo nil, gdy strona została dodana.

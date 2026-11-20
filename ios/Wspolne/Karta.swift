@@ -284,6 +284,14 @@ final class Karta: NSObject, ObservableObject, Identifiable, WKNavigationDelegat
         if navigationResponse.isForMainFrame && !navigationResponse.canShowMIMEType {
             return .download
         }
+        // Serwer każe pobrać plik (Content-Disposition: attachment), np. zdjęcie z poczty: pobieramy do arkusza
+        // „Udostępnij”, zamiast wyświetlać, tak jak Safari.
+        if navigationResponse.isForMainFrame,
+           let http = navigationResponse.response as? HTTPURLResponse,
+           let opis = http.value(forHTTPHeaderField: "Content-Disposition")?.lowercased(),
+           opis.trimmingCharacters(in: .whitespaces).hasPrefix("attachment") {
+            return .download
+        }
         return .allow
     }
 
@@ -359,6 +367,14 @@ final class Karta: NSObject, ObservableObject, Identifiable, WKNavigationDelegat
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         if let url = navigationAction.request.url, Przegladarka.obcyAdres(url) {
             UIApplication.shared.open(url)
+            return nil
+        }
+        // „Pobierz” załącznik w poczcie: bez nowego okna, od razu pobieranie i arkusz „Udostępnij”
+        // (Zachowaj w Plikach, Zapisz obraz, AirDrop…).
+        if let url = navigationAction.request.url, Przegladarka.adresPobierania(url) {
+            webView.startDownload(using: navigationAction.request) { [weak self] pobieranie in
+                pobieranie.delegate = self
+            }
             return nil
         }
         guard let przegladarka else { return nil }
