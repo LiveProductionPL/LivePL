@@ -1765,10 +1765,11 @@ let ostatniDock = '';
 function odswiezDock() {
   if (!app.dock) return;
   const suma = programy.reduce((s, p) => s + ((karty.get(p.id) || {}).licznik || 0), 0);
-  const klucz = suma + '#' + programy.filter(widoczny).map(p => p.id + ':' + ((karty.get(p.id) || {}).licznik || 0)).join('|');
+  const klucz = suma + '#' + aktywnaId + '#' + programy.filter(widoczny).map(p => p.id + ':' + ((karty.get(p.id) || {}).licznik || 0)).join('|');
   if (klucz === ostatniDock) return;
   ostatniDock = klucz;
   app.dock.setBadge(suma ? (suma > 99 ? '99+' : String(suma)) : '');
+  Menu.setApplicationMenu(menuMaca());
   app.dock.setMenu(Menu.buildFromTemplate(programy.filter(widoczny).map(p => {
     const ile = (karty.get(p.id) || {}).licznik || 0;
     return { label: ile ? `${p.nazwa} (${ile})` : p.nazwa, click: () => { pokazOkno(); przejdzDo(p.id); } };
@@ -2294,13 +2295,34 @@ function ustawNakladke(dataUrl, opis) {
 // ---------------------------------------------------------------- menu Maca
 
 // Na Macu menu na górze ekranu musi być: bez „Edycji” nie działają ⌘C, ⌘V i ⌘A w polach stron.
-// Skróty kart (⌘T, ⌘W, ⌘R, ⌘L, ⌘0…) obsługuje skrot(), więc w menu ich nie ma.
+// Całe menu LivePL jest tutaj, jak w Safari i Chrome: górny pasek Maca i pasek okna to jeden program.
 function menuMaca() {
+  // Skróty, które już obsługuje skrot() (⌘T, ⌘W, ⌘R, ⌘L, ⌘F, ⌘P, ⌘J, ⌘1…, ⌘+/−/0, ⇧⌘I), menu tylko pokazuje
+  // (registerAccelerator: false), żeby nie działały podwójnie. Pozostałe (⌘[, ⌘], ⌘G, ⇧⌘[, ⇧⌘], ⌘,) działają przez menu.
+  const pokaz = (accelerator) => ({ accelerator, registerAccelerator: false });
+  const akt = () => karty.get(aktywnaId);
+  const doOkna = (fn) => () => { pokazOkno(); fn(); };
+  const panelNaSrodku = (rodzaj) => doOkna(() => pokazPanel(rodzaj, { srodek: true }));
+  const lista = kolejnosc();
+  const programyMenu = programy.filter(widoczny).map((p) => {
+    const ile = (karty.get(p.id) || {}).licznik || 0;
+    const nr = lista.indexOf(p.id);
+    return {
+      label: ile ? `${p.nazwa} (${ile})` : p.nazwa,
+      type: 'checkbox',
+      checked: aktywnaId === p.id,
+      ...(nr >= 0 && nr < 8 ? pokaz('Command+' + (nr + 1)) : {}),
+      click: doOkna(() => przejdzDo(p.id))
+    };
+  });
   return Menu.buildFromTemplate([
     {
       label: 'LivePL',
       submenu: [
-        { label: 'O programie LivePL', click: () => { pokazOkno(); pokazPanel('menu', { srodek: true }); } },
+        { label: 'O programie LivePL', click: panelNaSrodku('o-programie') },
+        { label: 'Sprawdź aktualizacje', click: panelNaSrodku('aktualizacja') },
+        { type: 'separator' },
+        { label: 'Ustawienia…', accelerator: 'Command+,', click: panelNaSrodku('ustawienia') },
         { type: 'separator' },
         { role: 'services', label: 'Usługi' },
         { type: 'separator' },
@@ -2309,6 +2331,18 @@ function menuMaca() {
         { role: 'unhide', label: 'Pokaż wszystkie' },
         { type: 'separator' },
         { label: 'Zakończ LivePL', accelerator: 'Command+Q', click: zakoncz }
+      ]
+    },
+    {
+      label: 'Plik',
+      submenu: [
+        { label: 'Nowa karta', ...pokaz('Command+T'), click: doOkna(() => nowaKarta(null)) },
+        { label: 'Przywróć zamkniętą kartę', ...pokaz('Command+Shift+T'), click: doOkna(otworzZamknieta) },
+        { label: 'Otwórz adres…', ...pokaz('Command+L'), click: doOkna(() => { win.webContents.focus(); wyslij('fokus-adres', adresAktywnej()); }) },
+        { type: 'separator' },
+        { label: 'Zamknij kartę', ...pokaz('Command+W'), click: () => { const k = akt(); if (k && !k.program) zamknij(k.id); } },
+        { type: 'separator' },
+        { label: 'Drukuj…', ...pokaz('Command+P'), click: () => { const k = akt(); if (k) drukuj(k.wc); } }
       ]
     },
     {
@@ -2322,7 +2356,44 @@ function menuMaca() {
         { role: 'paste', label: 'Wklej' },
         { role: 'pasteAndMatchStyle', label: 'Wklej i dopasuj styl' },
         { role: 'delete', label: 'Usuń' },
-        { role: 'selectAll', label: 'Zaznacz wszystko' }
+        { role: 'selectAll', label: 'Zaznacz wszystko' },
+        { type: 'separator' },
+        { label: 'Znajdź na stronie…', ...pokaz('Command+F'), click: doOkna(() => { win.webContents.focus(); wyslij('szukaj-otworz'); }) },
+        { label: 'Znajdź następne', accelerator: 'Command+G', click: doOkna(() => { win.webContents.focus(); wyslij('szukaj-otworz', { dalej: true, wstecz: false }); }) },
+        { label: 'Znajdź poprzednie', accelerator: 'Command+Shift+G', click: doOkna(() => { win.webContents.focus(); wyslij('szukaj-otworz', { dalej: true, wstecz: true }); }) }
+      ]
+    },
+    {
+      label: 'Widok',
+      submenu: [
+        { label: 'Odśwież stronę', ...pokaz('Command+R'), click: () => odswiez(akt(), false) },
+        { label: 'Odśwież bez pamięci podręcznej', ...pokaz('Command+Shift+R'), click: () => odswiez(akt(), true) },
+        { type: 'separator' },
+        { label: 'Powiększ', ...pokaz('Command+Plus'), click: () => zmienPowiekszenie(akt(), 1) },
+        { label: 'Pomniejsz', ...pokaz('Command+-'), click: () => zmienPowiekszenie(akt(), -1) },
+        { label: 'Rzeczywisty rozmiar', ...pokaz('Command+0'), click: () => zmienPowiekszenie(akt(), 0) },
+        { type: 'separator' },
+        { role: 'togglefullscreen', label: 'Pełny ekran' },
+        { type: 'separator' },
+        { label: 'Narzędzia programisty', ...pokaz('Command+Shift+I'), click: () => { const k = akt(); if (k) k.wc.openDevTools({ mode: 'detach' }); } }
+      ]
+    },
+    {
+      label: 'Historia',
+      submenu: [
+        { label: 'Wstecz', accelerator: 'Command+[', click: () => { const k = akt(); if (k) k.wc.navigationHistory.goBack(); } },
+        { label: 'Dalej', accelerator: 'Command+]', click: () => { const k = akt(); if (k) k.wc.navigationHistory.goForward(); } },
+        { type: 'separator' },
+        { label: 'Pokaż folder Pobrane', ...pokaz('Command+J'), click: otworzFolderPobranych }
+      ]
+    },
+    {
+      label: 'Programy',
+      submenu: [
+        ...programyMenu,
+        { type: 'separator' },
+        { label: 'Następna karta', accelerator: 'Command+Shift+]', click: () => przelacz(1) },
+        { label: 'Poprzednia karta', accelerator: 'Command+Shift+[', click: () => przelacz(-1) }
       ]
     },
     {
@@ -2330,10 +2401,17 @@ function menuMaca() {
       role: 'windowMenu',
       submenu: [
         { role: 'minimize', label: 'Minimalizuj' },
-        { role: 'zoom', label: 'Powiększ' },
-        { role: 'togglefullscreen', label: 'Pełny ekran' },
+        { role: 'zoom', label: 'Powiększ okno' },
         { type: 'separator' },
+        { label: 'LivePL', click: pokazOkno },
         { role: 'front', label: 'Wszystko na wierzch' }
+      ]
+    },
+    {
+      label: 'Pomoc',
+      role: 'help',
+      submenu: [
+        { label: 'LivePL w internecie', click: doOkna(() => nowaKarta('https://app.livepl.eu/')) }
       ]
     }
   ]);

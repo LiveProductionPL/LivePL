@@ -8,7 +8,7 @@ const P = window.panel;
 const NA_MACU = /Mac/.test(navigator.platform);
 const klaw = (t) => (NA_MACU ? String(t)
   .replace(/Ctrl\+Shift\+/g, '⇧⌘').replace(/Ctrl\s?\+\s?/g, '⌘').replace(/Ctrl /g, '⌘ ')
-  .replace(/\(F5\)/g, '(⌘R)').replace(/^F12$/, '⇧⌘I') : t);
+  .replace(/\(F5\)/g, '(⌘R)').replace(/Alt\+/g, '⌥').replace(/^F12$/, '⇧⌘I') : t);
 const panelEl = document.getElementById('panel');
 let D = null;
 let ekran = null;

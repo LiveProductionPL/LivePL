@@ -96,6 +96,9 @@ jobs:
           screencapture -x wydanie/proba/ekran.png || echo "screencapture nie zadziałał" > wydanie/proba/zrzut-blad.txt
           if kill -0 $PID 2>/dev/null; then echo "LivePL działał po 30 s" > wydanie/proba/stan.txt; else echo "LivePL ZAKOŃCZYŁ SIĘ przed zrzutem" > wydanie/proba/stan.txt; fi
           cat wydanie/proba/stan.txt
+          # rozwinięte menu „Programy” w pasku Maca (jeśli Mac GitHuba pozwala sterować menu)
+          osascript -e 'tell application "System Events" to tell process "LivePL" to click menu bar item "Programy" of menu bar 1' \
+            && sleep 2 && screencapture -x wydanie/proba/menu.png || echo "bez zrzutu menu" >> wydanie/proba/zrzut-blad.txt
           kill $PID 2>/dev/null || true
           sleep 3
           kill -9 $PID 2>/dev/null || true
