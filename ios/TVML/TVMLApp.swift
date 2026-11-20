@@ -270,6 +270,8 @@ enum Odliczanie {
 struct NaZywo: View {
     @EnvironmentObject private var m: Magazyn
     @Environment(\.accessibilityReduceMotion) private var bezRuchu
+    // wysokość paska rośnie razem z tekstem (40 pt przy domyślnej wielkości)
+    @ScaledMetric(relativeTo: .footnote) private var wysokosc: CGFloat = 40
     @State private var szerokosc: CGFloat = 1
 
     var body: some View {
@@ -280,7 +282,7 @@ struct NaZywo: View {
                 Text("NA ŻYWO").czcionka(11, .heavy).kerning(1)
             }
             .foregroundStyle(.white)
-            .padding(.horizontal, 12).padding(.vertical, 10).frame(maxHeight: .infinity)
+            .padding(.horizontal, 12).frame(maxHeight: .infinity)
             .background(m.motyw.naZywo)
             // tekst w nakładce, żeby jego szerokość nie wypychała etykiety „NA ŻYWO”
             Color.clear
@@ -307,7 +309,7 @@ struct NaZywo: View {
                 }
                 .clipped()
         }
-        .frame(minHeight: 40)
+        .frame(height: wysokosc)
         .background(Barwy.karta)
         .overlay(alignment: .bottom) { Barwy.ramka.frame(height: 1) }
         .contentShape(Rectangle())

@@ -4,6 +4,7 @@ import SwiftUI
 /// i wersja z panelu (zima, święta, Sylwester, 11 Listopada).
 struct PogodaWidok: View {
     @EnvironmentObject private var m: Magazyn
+    @Environment(\.dynamicTypeSize) private var rozmiarTekstu
 
     var body: some View {
         ScrollView {
@@ -21,12 +22,15 @@ struct PogodaWidok: View {
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.45), radius: 8)
                     .padding(18)
-                    Text("POGODA W LESZNIE")
-                        .czcionka(11, .bold).foregroundStyle(.white)
-                        .padding(.horizontal, 9).padding(.vertical, 5)
-                        .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 9))
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .padding(14)
+                    // przy bardzo dużym tekście plakietka zasłaniałaby temperaturę (i tak jesteśmy na ekranie Pogoda)
+                    if !rozmiarTekstu.isAccessibilitySize {
+                        Text("POGODA W LESZNIE")
+                            .czcionka(11, .bold).foregroundStyle(.white)
+                            .padding(.horizontal, 9).padding(.vertical, 5)
+                            .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 9))
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                            .padding(14)
+                    }
                 }
                 .frame(height: 300)
                 .clipShape(RoundedRectangle(cornerRadius: 18))
