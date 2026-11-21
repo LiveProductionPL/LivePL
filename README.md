@@ -18,7 +18,7 @@ npm start
 
 Układ nazywa się **Reżyserka**: strona jest jak monitor w ramce, programy są kanałami po lewej, a na dole jest pasek wiadomości jak w telewizji.
 
-- **Kanały po lewej.** Same ikony (logo Poczty, Live Production, TVML), bez podpisów; nazwa jest w podpowiedzi. Liczba przy Poczcie to nieprzeczytane wiadomości. Ta sama liczba pojawia się na ikonie na pasku zadań.
+- **Kanały po lewej.** Same ikony (logo Poczty, Live Production, TVML); nazwa jest w podpowiedzi. Pod dowolną ikoną można dodać krótki podpis (do 14 znaków): prawy klik na ikonie → „Dodaj podpis pod ikoną”. Liczba przy Poczcie to nieprzeczytane wiadomości. Ta sama liczba pojawia się na ikonie na pasku zadań.
 - **Strona się nie wczytała?** Zamiast suchego komunikatu jest telewizorek z „przerwą w nadawaniu”, prosty opis, co się stało (brak internetu, zerwane połączenie, zły certyfikat…), rady i odliczanie do kolejnej próby. Szczegóły techniczne są pod „Szczegóły techniczne”.
 - **Dostęp dla AI.** Claude i inne AI mogą korzystać z LivePL jak z dodatku w Chrome. Opis niżej.
 - **Pasek wiadomości na dole.** Pokazuje powiadomienia z naszych programów (np. nowa wiadomość w poczcie), wzrost liczby nieprzeczytanych i pobrane pliki, każde z godziną. Kliknięcie przenosi do programu albo otwiera plik.

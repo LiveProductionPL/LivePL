@@ -75,6 +75,20 @@ function rysujProgramy() {
     }
     if (!przeciagany && nav.children[idx] !== el) nav.insertBefore(el, nav.children[idx] || null);
     ustawIkoneProgramu(el, p);
+    // podpis pod ikoną tylko wtedy, gdy ktoś go ustawił w menu ikony (prawy klik)
+    let podpis = el.querySelector('.podpis-ikony');
+    if (p.podpis) {
+      if (!podpis) {
+        podpis = document.createElement('span');
+        podpis.className = 'podpis-ikony';
+        podpis.setAttribute('aria-hidden', 'true');
+        el.appendChild(podpis);
+      }
+      podpis.textContent = p.podpis;
+    } else if (podpis) {
+      podpis.remove();
+    }
+    el.classList.toggle('z-podpisem', !!p.podpis);
     el.classList.toggle('wlasny', !!p.wlasny);
     // bez podpisów pod ikonami: nazwa jest w podpowiedzi i dla czytników ekranu
     el.title = p.nazwa + (idx < 8 ? ` (Ctrl+${idx + 1})` : '');

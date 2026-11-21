@@ -323,6 +323,7 @@ button {
 
 .dodaj-strone { display: grid; gap: 8px; padding: 6px 10px 10px; }
 .dodaj-strone .przycisk { justify-self: start; }
+.przyciski-podpisu { display: flex; gap: 6px; align-items: center; }
 .blad-strony { color: var(--czerwony-tekst); }
 
 /* certyfikaty w Windows */

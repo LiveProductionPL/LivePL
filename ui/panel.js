@@ -937,12 +937,44 @@ function ekranProgram() {
   f.appendChild(el('div', 'opis', p.nazwa));
   f.appendChild(poz('zewnetrzna', 'Otwórz w zwykłej przeglądarce', { akcja: 'program-zewnetrzna', arg: p.id }));
   f.appendChild(poz('kopiuj', 'Kopiuj adres', { akcja: 'program-kopiuj', arg: p.id }));
+  f.appendChild(poz('olowek', p.podpis ? `Podpis pod ikoną: „${p.podpis}”` : 'Dodaj podpis pod ikoną', { dalej: true, klik: () => { ekran = 'podpis-ikony'; rysuj(); } }));
   f.appendChild(kreska());
   if (p.wlasny) {
     f.appendChild(poz('odepnij', 'Odepnij z paska', { akcja: 'program-odepnij', arg: p.id, czerwona: true }));
   } else {
     f.appendChild(poz('pinezka', 'Moje strony na pasku', { dalej: true, klik: () => { ekran = 'strony'; rysuj(); } }));
   }
+  return f;
+}
+
+// podpis pod ikoną na pasku bocznym (np. „Redakcja”), gdy same ikony nie wystarczają
+function ekranPodpisIkony() {
+  const f = document.createDocumentFragment();
+  const p = D.programMenu;
+  if (!p) return f;
+  f.appendChild(naglowek('Podpis pod ikoną', 'program'));
+  f.appendChild(el('div', 'opis', `${p.nazwa}: krótki napis pod ikoną na pasku po lewej, do 14 znaków. Puste pole to ikona bez podpisu.`));
+  const forma = el('form', 'dodaj-strone');
+  const pole = el('input', 'pole-tekstu');
+  pole.value = p.podpis || '';
+  pole.maxLength = 14;
+  pole.placeholder = 'np. Redakcja';
+  pole.setAttribute('aria-label', 'Podpis pod ikoną');
+  const przyciski = el('div', 'przyciski-podpisu');
+  const zapisz = el('button', 'przycisk czerwony', 'Zapisz'); zapisz.type = 'submit';
+  przyciski.appendChild(zapisz);
+  if (p.podpis) {
+    const usun = el('button', 'przycisk tekstowy', 'Usuń podpis'); usun.type = 'button';
+    usun.addEventListener('click', () => P.akcja('program-podpis', { id: p.id, podpis: '' }));
+    przyciski.appendChild(usun);
+  }
+  forma.append(pole, przyciski);
+  forma.addEventListener('submit', (e) => {
+    e.preventDefault();
+    P.akcja('program-podpis', { id: p.id, podpis: pole.value });
+  });
+  f.appendChild(forma);
+  setTimeout(() => { pole.focus(); pole.select(); }, 0);
   return f;
 }
 
@@ -1014,6 +1046,7 @@ function rysuj() {
     urzadzenie: ekranUrzadzenie,
     aktualizacja: ekranAktualizacja,
     program: ekranProgram,
+    'podpis-ikony': ekranPodpisIkony,
     strony: ekranStrony,
     haslo: ekranHaslo,
     certyfikaty: ekranCertyfikaty,

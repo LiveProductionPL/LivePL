@@ -162,6 +162,20 @@ button {
 .program .ikonka-strony { width: 30px; height: 30px; object-fit: contain; border-radius: 4px; }
 .program .ikonka-strony.szeroka { width: 50px; height: 30px; border-radius: 2px; }
 .program:not(.otwarty):not(.aktywny) .ik { opacity: 0.8; }
+/* podpis pod ikoną, gdy ustawiony w menu ikony */
+.program.z-podpisem { height: 58px; gap: 3px; }
+.program.z-podpisem .ik { width: 24px; height: 24px; }
+.program.z-podpisem .ikonka-strony { width: 26px; height: 26px; }
+.program.z-podpisem .ikonka-strony.szeroka { width: 46px; height: 26px; }
+.program .podpis-ikony {
+  max-width: 54px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  line-height: 12px;
+  font-weight: 500;
+}
 
 .licznik {
   position: absolute;

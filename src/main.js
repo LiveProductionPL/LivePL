@@ -134,6 +134,25 @@ function skrotNazwy(nazwa, host) {
   return (s.charAt(0).toUpperCase() + s.slice(1)).slice(0, 10);
 }
 
+// krótki podpis pod ikoną na pasku, ustawiany z menu ikony (prawy klik); pusty = bez podpisu
+const MAKS_PODPISU = 14;
+function podpisIkony(id) {
+  const m = ustawienia.podpisyIkon;
+  const t = m && typeof m === 'object' && !Array.isArray(m) ? m[id] : '';
+  return typeof t === 'string' ? t.slice(0, MAKS_PODPISU) : '';
+}
+
+function ustawPodpisIkony(id, tekst) {
+  if (typeof id !== 'string' || !programy.some(p => p.id === id)) return;
+  const m = ustawienia.podpisyIkon && typeof ustawienia.podpisyIkon === 'object' && !Array.isArray(ustawienia.podpisyIkon)
+    ? { ...ustawienia.podpisyIkon } : {};
+  const t = String(tekst || '').replace(/\s+/g, ' ').trim().slice(0, MAKS_PODPISU);
+  if (t) m[id] = t; else delete m[id];
+  ustawienia.podpisyIkon = m;
+  zapiszUstawienia();
+  wyslijStan();
+}
+
 function listaWlasnych() {
   return (Array.isArray(ustawienia.wlasneStrony) ? ustawienia.wlasneStrony : [])
     .filter(s => s && ID_STRONY.test(String(s.id)) && /^https?:\/\//i.test(String(s.adres)));
@@ -263,6 +282,7 @@ function odepnijStrone(id) {
   const lista = listaWlasnych();
   if (!lista.some(s => s.id === id)) return;
   zapiszWlasne(lista.filter(s => s.id !== id));
+  if (ustawienia.podpisyIkon && typeof ustawienia.podpisyIkon === 'object') delete ustawienia.podpisyIkon[id];
   const k = karty.get(id);
   if (k) {
     const noweId = 'k' + (licznikKart++);
@@ -695,6 +715,7 @@ function stan() {
       id: p.id,
       nazwa: p.nazwa,
       skrot: p.skrot || p.nazwa,
+      podpis: podpisIkony(p.id),
       ikona: p.ikona || 'strona',
       ikonka: p.wlasny ? (bezpiecznaIkonka(k && k.ikonka) || p.ikonka || '') : obrazekProgramu(p),
       szeroki: !!p.szeroki,
@@ -1330,7 +1351,7 @@ function danePanelu() {
       : null,
     programMenu: (() => {
       const p = panelStan.programId ? programy.find(x => x.id === panelStan.programId) : null;
-      return p ? { id: p.id, nazwa: p.nazwa, adres: p.adres, wlasny: !!p.wlasny } : null;
+      return p ? { id: p.id, nazwa: p.nazwa, adres: p.adres, wlasny: !!p.wlasny, podpis: podpisIkony(p.id) } : null;
     })(),
     podpis: panelStan.podpis || null,
     ssl: sslKarty(k),
@@ -1584,6 +1605,9 @@ function akcjaPanelu(nazwa, arg) {
       break;
     case 'strona-nazwa':
       if (arg && typeof arg.id === 'string') zmienNazweStrony(arg.id, arg.nazwa);
+      break;
+    case 'program-podpis':
+      if (arg && typeof arg.id === 'string') ustawPodpisIkony(arg.id, arg.podpis);
       break;
     case 'program-zewnetrzna': {
       const p = programy.find(x => x.id === arg);
