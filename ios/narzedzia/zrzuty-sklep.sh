@@ -10,6 +10,9 @@ WYJSCIE="$3"
 CONNECT="${4:-}"
 TVML="${5:-}"
 mkdir -p "$WYJSCIE"
+# polski telefon: język, format daty i 24 h, godziny w aplikacjach jak w Lesznie (Mac GitHuba ma UTC)
+export SIMCTL_CHILD_TZ=Europe/Warsaw
+PO_POLSKU=(-AppleLanguages "(pl)" -AppleLocale pl_PL)
 
 RUNTIME=$(xcrun simctl list runtimes -j | python3 -c '
 import json, sys
@@ -35,8 +38,15 @@ zrob() {
   [ -z "$TYP" ] && { echo "Brak symulatora: $wzorTypu" >&2; return; }
   UDID=$(xcrun simctl create "Sklep $nazwa" "$TYP" "$RUNTIME")
   mkdir -p "$katalog"
+  # język systemu przed pierwszym rozruchem (pasek stanu iPada z datą), a po rozruchu jeszcze raz przez cfprefsd
+  local USTAWIENIA="$HOME/Library/Developer/CoreSimulator/Devices/$UDID/data/Library/Preferences/.GlobalPreferences"
+  mkdir -p "$(dirname "$USTAWIENIA")"
+  defaults write "$USTAWIENIA" AppleLanguages -array pl
+  defaults write "$USTAWIENIA" AppleLocale pl_PL
   xcrun simctl boot "$UDID"
   xcrun simctl bootstatus "$UDID" -b
+  xcrun simctl spawn "$UDID" defaults write -g AppleLanguages -array pl || true
+  xcrun simctl spawn "$UDID" defaults write -g AppleLocale pl_PL || true
   xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 \
     --cellularMode active --cellularBars 4 --wifiBars 3 || true
   xcrun simctl install "$UDID" "$LIVEPL"
@@ -49,14 +59,13 @@ zrob() {
     shift 3
     xcrun simctl ui "$UDID" appearance "$wyglad"
     xcrun simctl terminate "$UDID" "$id" 2>/dev/null || true
-    xcrun simctl launch "$UDID" "$id" "$@"
+    xcrun simctl launch "$UDID" "$id" "${PO_POLSKU[@]}" "$@"
     sleep 15
     xcrun simctl io "$UDID" screenshot "$katalog/$plik.png"
     echo "zrzut $nazwa: $plik"
   }
 
   ujecie livepl-1-start eu.livepl.przegladarka light
-  ujecie livepl-2-tvml eu.livepl.przegladarka dark -otworz tvml
   ujecie livepl-3-liveproduction eu.livepl.przegladarka light -otworz liveproduction
   ujecie livepl-4-start-noc eu.livepl.przegladarka dark
   ujecie livepl-5-poczta eu.livepl.przegladarka light -otworz poczta
