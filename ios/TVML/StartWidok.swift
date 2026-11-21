@@ -502,6 +502,7 @@ struct Obraz: View {
 /// Kafel pogody na Start: ta sama scena co na ekranie Pogoda, w mniejszym wydaniu.
 struct KafelPogody: View {
     @EnvironmentObject private var m: Magazyn
+    @Environment(\.dynamicTypeSize) private var rozmiarTekstu
 
     var body: some View {
         Button { m.pokaz(.pogoda) } label: {
@@ -516,6 +517,8 @@ struct KafelPogody: View {
                         Text(m.pogoda?.opis ?? "").czcionka(13)
                     }
                     Spacer()
+                    // przy bardzo dużym tekście prognoza na 3 dni nie mieści się obok temperatury (jest na ekranie Pogoda)
+                    if !rozmiarTekstu.isAccessibilitySize {
                     HStack(spacing: 12) {
                         ForEach((m.pogoda?.dni ?? []).dropFirst().prefix(3)) { d in
                             VStack(spacing: 2) {
@@ -523,6 +526,7 @@ struct KafelPogody: View {
                                 Text(Pogoda.stopnie(d.max)).czcionka(12, .bold)
                             }
                         }
+                    }
                     }
                 }
                 .foregroundStyle(.white)
