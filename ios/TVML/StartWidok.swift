@@ -90,7 +90,7 @@ struct BlokWidok: View {
         case "video":
             if blok.limit == 1, let f = m.filmy.first {
                 tytul
-                Button { film = f } label: { KafelFilmu(film: f, szerokosc: UIScreen.main.bounds.width - 32) }.buttonStyle(.plain)
+                Button { film = f } label: { KafelFilmu(film: f, szerokosc: min(UIScreen.main.bounds.width, 760) - 32) }.buttonStyle(.plain)
             } else if !m.filmy.isEmpty {
                 tytul
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -327,8 +327,12 @@ struct KartaArtykulu: View {
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            Obraz(url: artykul.miniatura(900))
-                .frame(height: wysokosc).frame(maxWidth: .infinity).clipped()
+            // zdjęcie w nakładce: przy scaledToFill jego szerokość nie może poszerzać karty (w karuzeli
+            // na iPhonie 16/17 Pro karta wychodziła poza ekran i ucinała tytuł z lewej)
+            Color.clear
+                .frame(height: wysokosc).frame(maxWidth: .infinity)
+                .overlay { Obraz(url: artykul.miniatura(900)) }
+                .clipped()
             LinearGradient(colors: [.clear, Color(red: 0.02, green: 0.05, blue: 0.11).opacity(0.92)], startPoint: .init(x: 0.5, y: 0.25), endPoint: .bottom)
             VStack(alignment: .leading, spacing: 8) {
                 EtykietaKategorii(artykul: artykul)

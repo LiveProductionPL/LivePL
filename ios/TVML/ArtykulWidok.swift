@@ -84,8 +84,9 @@ struct ArtykulWidok: View {
                     .foregroundStyle(Barwy.tekst)
 
                     VStack(alignment: .leading, spacing: 6) {
-                        Obraz(url: a.miniatura(1200))
-                            .frame(height: 220).frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: 14))
+                        Color.clear.frame(height: 220).frame(maxWidth: .infinity)
+                            .overlay { Obraz(url: a.miniatura(1200)) }
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
                         if !a.zrodloZdjecia.isEmpty {
                             Text(a.zrodloZdjecia).czcionka(12).foregroundStyle(Barwy.slaby)
                         }
@@ -103,8 +104,9 @@ struct ArtykulWidok: View {
                             case .srodtytul(let t):
                                 Text(t).font(Czcionka.naglowek(wielkosc + 4)).foregroundStyle(Barwy.tekst)
                             case .obraz(let u):
-                                Obraz(url: Siec.obraz(u.absoluteString, szerokosc: 1200))
-                                    .frame(height: 220).frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: 14))
+                                Color.clear.frame(height: 220).frame(maxWidth: .infinity)
+                                    .overlay { Obraz(url: Siec.obraz(u.absoluteString, szerokosc: 1200)) }
+                                    .clipShape(RoundedRectangle(cornerRadius: 14))
                             case .film(let id):
                                 Button { film = id } label: {
                                     ZStack {
