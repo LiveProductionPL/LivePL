@@ -89,7 +89,7 @@ repozytorium. Każda zmiana w `ios/` wysłana na gałąź `ios` przechodzi przez
    w osobnych zadaniach (pierwszy rozruch symulatora trwa kilkanaście minut), artefakty `sklep-N-iphone-69` i `sklep-N-ipad-13`.
    Do App Store Connect wgrywa je `node ios/narzedzia/sklep-zrzuty.mjs <AuthKey Admin> <Issuer ID> <folder> [tvml- …]`
    (w folderze podfoldery `iphone-69` i `ipad-13`; z przedrostkiem tylko ta aplikacja);
-4. **TestFlight**, tylko gdy opis zmiany zawiera `[testflight]`: archiwum Release, podpis i wysyłka do App Store Connect.
+4. **TestFlight**, tylko gdy opis zmiany zawiera `[testflight]`: archiwum Release, podpis i wysyłka do App Store Connect. `[testflight: TVML]` (albo kilka nazw po przecinku: LivePL, Poczta, Connect, TVML) wysyła tylko te aplikacje.
    Budowy nadają się i do TestFlight, i do wysłania do App Store (bez „tylko testy wewnętrzne”).
 
 Teksty do App Store (nazwy, opisy, słowa kluczowe, kategorie, ocena wiekowa) są w [sklep/metadane.json](sklep/metadane.json),

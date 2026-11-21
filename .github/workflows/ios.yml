@@ -1,5 +1,6 @@
 # LivePL, Poczta LivePL, LivePL Connect i TVML na iPhone'a: budowa na Macach GitHuba, zrzuty z symulatora i (na życzenie) wysyłka do TestFlight.
 # TestFlight rusza tylko wtedy, gdy opis zmiany zawiera [testflight] i są ustawione sekrety Apple (ios/README.md).
+# [testflight: TVML] albo [testflight: LivePL, Poczta] wysyła tylko te aplikacje (nazwy schematów).
 # Zmiana musi dotykać plików z listy niżej (pusta zmiana nie uruchomi budowy). Gdy workflow trafi na main,
 # można go też uruchomić ręcznie: Actions → LivePL iOS → Run workflow (z zaznaczonym „TestFlight”).
 name: LivePL iOS
@@ -124,7 +125,7 @@ jobs:
   testflight:
     name: Wysyłka do TestFlight
     needs: symulator
-    if: contains(github.event.head_commit.message, '[testflight]') || (github.event_name == 'workflow_dispatch' && inputs.testflight)
+    if: contains(github.event.head_commit.message, '[testflight]') || contains(github.event.head_commit.message, '[testflight:') || (github.event_name == 'workflow_dispatch' && inputs.testflight)
     runs-on: macos-latest
     timeout-minutes: 45
     env:
@@ -184,8 +185,13 @@ jobs:
           done
 
       - name: Archiwum i wysyłka do App Store Connect
+        env:
+          OPIS_ZMIANY: ${{ github.event.head_commit.message }}
         run: |
           set -o pipefail
+          # [testflight: TVML, Poczta] = tylko te aplikacje; samo [testflight] = wszystkie
+          WYBRANE=$(printf '%s' "$OPIS_ZMIANY" | sed -n 's/.*\[testflight: *\([^]]*\)\].*/\1/p' | head -1 | tr -d ' ')
+          if [ -n "$WYBRANE" ]; then echo "Do TestFlight tylko: $WYBRANE"; fi
           mkdir -p "$RUNNER_TEMP/asc"
           KLUCZ="$RUNNER_TEMP/asc/AuthKey_$ASC_KEY_ID.p8"
           printf '%s' "$ASC_KEY_P8" > "$KLUCZ"
@@ -199,6 +205,7 @@ jobs:
           TVML|TVML App Store|ios/ExportOptions-tvml.plist"; fi
           echo "$APLIKACJE" | while IFS='|' read -r SCHEMAT PROFIL OPCJE; do
             SCHEMAT=$(echo "$SCHEMAT" | xargs)
+            if [ -n "$WYBRANE" ] && ! printf ',%s,' "$WYBRANE" | grep -qi ",$SCHEMAT,"; then echo "Pomijam $SCHEMAT"; continue; fi
             echo "::group::$SCHEMAT"
             xcodebuild -project ios/LivePL.xcodeproj -scheme "$SCHEMAT" -configuration Release               -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/$SCHEMAT.xcarchive"               CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=WHKQ7CW48T               CODE_SIGN_IDENTITY="Apple Distribution" PROVISIONING_PROFILE_SPECIFIER="$PROFIL"               CURRENT_PROJECT_VERSION=${{ github.run_number }}               archive 2>&1 | tee "archive-$SCHEMAT.log" | grep -E "error:|ARCHIVE" || true
             grep -q "ARCHIVE SUCCEEDED" "archive-$SCHEMAT.log"
