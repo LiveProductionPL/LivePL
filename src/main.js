@@ -450,7 +450,7 @@ function kartaProgramu(p) {
   return k;
 }
 
-function nowaKarta(url, { aktywuj: czyAktywowac = true, po = null } = {}) {
+function nowaKarta(url, { aktywuj: czyAktywowac = true, po = null, odloz = false, tytul = '' } = {}) {
   const id = 'k' + (licznikKart++);
   const k = nowyObiektKarty(id, null, utworzWidok(null));
   karty.set(id, k);
@@ -468,7 +468,12 @@ function nowaKarta(url, { aktywuj: czyAktywowac = true, po = null } = {}) {
   if (url) {
     k.nowa = false;
     k.adres = url;
-    laduj(k, url);
+    if (odloz) {
+      k.odlozona = url;
+      if (tytul) k.tytul = tytul;
+    } else {
+      laduj(k, url);
+    }
   } else {
     otworzStroneNowejKarty(k);
   }
@@ -502,6 +507,11 @@ function aktywuj(id) {
   }
   aktywnaId = id;
   k.widok.setVisible(true);
+  if (k.odlozona) {
+    const u = k.odlozona;
+    k.odlozona = null;
+    laduj(k, u);
+  }
   ulozWidoki();
   if (k.program) {
     ustawienia.ostatnia = id;
@@ -592,6 +602,75 @@ function ulozWidoki() {
     k.widok.setBounds(pelny ? { x: 0, y: 0, width: w, height: h } : zwykle);
     try { k.widok.setBorderRadius(pelny ? 0 : ZAOKRAGLENIE); } catch { /* bez zaokrągleń */ }
   }
+}
+
+// ---------------------------------------------------------------- ostatnio otwarte karty
+
+// Po ponownym uruchomieniu wracają karty z poprzedniego razu (Karol, 23.11.2026): programy z ich adresem
+// i dodatkowe karty w tej samej kolejności, z aktywną kartą jak przy zamknięciu. Dodatkowe karty ładują się
+// dopiero po wejściu na nie, żeby start nie obciążał komputera. Zapis w ustawieniach (ustawienia.sesja).
+const MAKS_KART_SESJI = 30;
+let sesjaGotowa = false; // do czasu przywrócenia nie nadpisujemy zapisu pustą listą
+let ostatniaSesja = '';
+
+function sesjaDoZapisu() {
+  const lista = [];
+  let aktywna = -1;
+  for (const p of programy) {
+    const k = karty.get(p.id);
+    if (!k || p.tylkoZYubiKey) continue;
+    const adres = (k.blad && k.blad.url) || k.adres || p.adres;
+    if (!/^https?:\/\//i.test(adres || '')) continue;
+    if (aktywnaId === k.id) aktywna = lista.length;
+    lista.push({ program: p.id, adres });
+  }
+  for (const id of dodatkowe) {
+    const k = karty.get(id);
+    if (!k || k.nowa) continue;
+    const adres = k.odlozona || (k.blad && k.blad.url) || k.adres;
+    if (!/^https?:\/\//i.test(adres || '')) continue;
+    if (aktywnaId === id) aktywna = lista.length;
+    lista.push({ adres, tytul: String(k.tytul || '').slice(0, 200) });
+  }
+  return { karty: lista.slice(0, MAKS_KART_SESJI), aktywna };
+}
+
+function zapiszSesje() {
+  if (!sesjaGotowa) return;
+  const s = sesjaDoZapisu();
+  const json = JSON.stringify(s);
+  if (json === ostatniaSesja) return;
+  ostatniaSesja = json;
+  ustawienia.sesja = s;
+  zapiszUstawienia();
+}
+
+// true, gdy aktywna karta wróciła (wtedy bez nowej karty na start)
+function przywrocSesje() {
+  const s = ustawienia.sesja;
+  let doAktywacji = null;
+  if (s && Array.isArray(s.karty)) {
+    s.karty.slice(0, MAKS_KART_SESJI).forEach((z, i) => {
+      if (!z || typeof z.adres !== 'string' || !/^https?:\/\//i.test(z.adres)) return;
+      let id = null;
+      if (z.program) {
+        const p = programy.find(x => x.id === z.program);
+        if (!p || p.tylkoZYubiKey) return;
+        const k = kartaProgramu(p);
+        // Poczta (ładowana przy starcie w tle) zaczyna od swojej strony; inne programy wracają tam, gdzie były
+        if (z.adres !== p.adres && !p.przyStarcie) laduj(k, z.adres);
+        id = p.id;
+      } else {
+        id = nowaKarta(z.adres, { aktywuj: false, odloz: true, tytul: typeof z.tytul === 'string' ? z.tytul : '' }).id;
+      }
+      if (s.aktywna === i) doAktywacji = id;
+    });
+  }
+  sesjaGotowa = true;
+  // aktywna była nowa karta (albo nic nie zapisano): jak dotąd strona startowa, a przywrócone karty obok
+  if (!doAktywacji) return false;
+  aktywuj(doAktywacji);
+  return true;
 }
 
 // ---------------------------------------------------------------- pasek wiadomości
@@ -718,6 +797,7 @@ function wyslijStan() {
   if (stanZaplanowany) return;
   stanZaplanowany = setTimeout(() => {
     stanZaplanowany = null;
+    zapiszSesje();
     wyslij('stan', stan());
     odswiezZasobnik();
     if (panelStan) wyslijDoPanelu();
@@ -2445,7 +2525,7 @@ app.whenReady().then(() => {
 
   // po włączeniu strona startowa (nowa karta); Poczta ładuje się w tle, żeby działały powiadomienia
   for (const p of programy) if (p.przyStarcie) kartaProgramu(p);
-  nowaKarta(null);
+  if (!przywrocSesje()) nowaKarta(null);
 
   // dostęp dla AI (domyślnie wyłączony): moduł dostaje tylko to, czego potrzebuje do kart
   dostepAI.uruchom({
