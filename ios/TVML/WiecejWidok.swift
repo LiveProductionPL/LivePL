@@ -28,16 +28,17 @@ struct WiecejWidok: View {
             !WiecejWidok.pomijane.contains(s.slug) && (m.stronyGotowe?.contains(s.slug) ?? pewne.contains(s.slug))
         }
     }
-    private var sekcjaTVML: [Podstrona] {
-        let g = gotowe
-        let znane = WiecejWidok.tvml.compactMap { slug in g.first { $0.slug == slug } }
-        let nowe = g.filter { !WiecejWidok.tvml.contains($0.slug) && !WiecejWidok.dokumenty.contains($0.slug) }
-        return znane + nowe
+    /// Sekcja strony: z serwera (API 1.7.1, pole section), a bez niego według list wyżej.
+    private func wDokumentach(_ s: Podstrona) -> Bool {
+        s.sekcja.isEmpty ? WiecejWidok.dokumenty.contains(s.slug) : s.sekcja == "dokumenty"
     }
-    private var sekcjaDokumenty: [Podstrona] {
-        let g = gotowe
-        return WiecejWidok.dokumenty.compactMap { slug in g.first { $0.slug == slug } }
+    /// Znane strony w ustalonej kolejności, potem pozostałe w kolejności z panelu.
+    private func uloz(_ lista: [Podstrona], _ kolejnosc: [String]) -> [Podstrona] {
+        let znane = kolejnosc.compactMap { slug in lista.first { $0.slug == slug } }
+        return znane + lista.filter { !kolejnosc.contains($0.slug) }
     }
+    private var sekcjaTVML: [Podstrona] { uloz(gotowe.filter { !wDokumentach($0) }, WiecejWidok.tvml) }
+    private var sekcjaDokumenty: [Podstrona] { uloz(gotowe.filter { wDokumentach($0) }, WiecejWidok.dokumenty) }
 
     var body: some View {
         List {

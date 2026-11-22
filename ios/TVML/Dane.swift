@@ -481,7 +481,7 @@ final class Magazyn: ObservableObject {
         let pasekKonf = konf.slownik("ticker")
         if !pasekKonf.s("label").isEmpty { etykietaPaska = pasekKonf.s("label") }
         pasekNaZywo = pasekKonf.b("live")
-        let listaStron = konf.lista("pages").map(Podstrona.init).filter { !$0.slug.isEmpty }
+        let listaStron = konf.lista("pages").map(Podstrona.init).filter { !$0.slug.isEmpty && $0.doPokazania }
         if !listaStron.isEmpty { strony = listaStron }
         if !konf.slownik("about").s("footer").isEmpty { stopka = konf.slownik("about").s("footer") }
         gminy = konf.lista("counties").map(Gmina.init).sorted { $0.kolejnosc < $1.kolejnosc }
@@ -934,6 +934,10 @@ struct Podstrona: Identifiable, Hashable {
     let tytul: String
     let adres: URL?
     let adresApp: URL?
+    /// Sekcja w „Więcej” z serwera (API 1.7.1): „tvml” albo „dokumenty”; pusta = według listy w aplikacji.
+    let sekcja: String
+    /// API 1.7.1: ready=false (pusta, „Wkrótce”, w budowie) i app=false (tylko www) aplikacja pomija.
+    let doPokazania: Bool
     var id: String { slug }
 
     init(slug: String, tytul: String) {
@@ -941,6 +945,8 @@ struct Podstrona: Identifiable, Hashable {
         self.tytul = tytul
         adres = URL(string: "https://tvml.pl/strona/" + slug)
         adresApp = URL(string: "https://tvml.pl/strona/" + slug + "?widok=app")
+        sekcja = ""
+        doPokazania = true
     }
 
     init(_ j: Slownik) {
@@ -948,6 +954,8 @@ struct Podstrona: Identifiable, Hashable {
         tytul = Html.tekst(j.s("title"))
         adres = URL(string: j.s("url"))
         adresApp = URL(string: j.s("appUrl"))
+        sekcja = j.s("section")
+        doPokazania = (j["ready"] == nil || j.b("ready")) && (j["app"] == nil || j.b("app"))
     }
 
     /// Bez API (stary serwer albo brak sieci przy pierwszym starcie).
