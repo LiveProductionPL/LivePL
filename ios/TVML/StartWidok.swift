@@ -147,7 +147,8 @@ struct BlokWidok: View {
             }
             .task { if m.wKategorii["_fotorelacje"] == nil { await m.fotorelacje(limit: blok.limit) } }
         case "events":
-            if !m.wydarzenia.isEmpty {
+            // przy bloku poll kalendarz jest w miejscu nieaktywnej sondy, więc tu go nie powtarzamy
+            if !m.wydarzenia.isEmpty && !m.bloki.contains(where: { $0.typ == "poll" }) {
                 if !blok.ukryjTytul { Naglowek(tytul: blok.tytul.isEmpty ? "Kalendarz wydarzeń" : blok.tytul) }
                 let lista = Array(m.wydarzenia.prefix(blok.limit > 0 ? blok.limit : 5))
                 VStack(spacing: 0) {
@@ -161,6 +162,8 @@ struct BlokWidok: View {
                     Text("Wszystkie wydarzenia na tvml.pl").czcionka(14, .semibold)
                 }
             }
+        case "poll":
+            BlokSpotlight(blok: blok, strona: $strona)
         case "classifieds":
             if !m.ogloszenia.isEmpty {
                 Naglowek(tytul: blok.tytul.isEmpty ? "Ogłoszenia drobne" : blok.tytul)
@@ -223,21 +226,15 @@ struct BlokWidok: View {
         return Array(m.najnowsze.dropFirst(karuzela).prefix(limit))
     }
 
-    /// Wydarzenie z artykułem otwiera artykuł w aplikacji, a bez niego swoją stronę na tvml.pl.
+    /// Wydarzenie z artykułem otwiera artykuł, a bez niego ekran wydarzenia w aplikacji.
     private func otworz(_ w: Wydarzenie) {
         if let id = w.artykulId {
             Task { @MainActor in
-                if let a = await m.artykul(id) { m.otworz(a) } else { pokaz(w) }
+                if let a = await m.artykul(id) { m.otworz(a) } else { m.otworz(EkranWiecej.wydarzenie(w)) }
             }
         } else {
-            pokaz(w)
+            m.otworz(EkranWiecej.wydarzenie(w))
         }
-    }
-
-    private func pokaz(_ w: Wydarzenie) {
-        let baza = "https://tvml.pl/"
-        let s = w.adres?.absoluteString ?? ""
-        strona = StronaWWW(sciezka: s.hasPrefix(baza) ? String(s.dropFirst(baza.count)) : "wydarzenia?id=\(w.id)")
     }
 
     private func spolecznosc(_ nazwa: String, _ adres: String) -> some View {
@@ -584,16 +581,23 @@ struct WierszWydarzenia: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            VStack(spacing: 0) {
-                Text(wydarzenie.dzien).font(Czcionka.naglowek(22)).foregroundStyle(m.motyw.napisNaAkcencie)
-                Text(wydarzenie.miesiac).czcionka(11, .bold).foregroundStyle(m.motyw.napisNaAkcencie)
+            if let u = wydarzenie.obraz {
+                Color.clear.frame(width: 72, height: 56)
+                    .overlay { AsyncImage(url: u) { $0.resizable().scaledToFill() } placeholder: { Barwy.ramka } }
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .accessibilityHidden(true)
+            } else {
+                VStack(spacing: 0) {
+                    Text(wydarzenie.dzien).font(Czcionka.naglowek(22)).foregroundStyle(m.motyw.napisNaAkcencie)
+                    Text(wydarzenie.miesiac).czcionka(11, .bold).foregroundStyle(m.motyw.napisNaAkcencie)
+                }
+                .frame(width: 52)
+                .frame(minHeight: 56)
+                .background(m.motyw.akcent, in: RoundedRectangle(cornerRadius: 10))
             }
-            .frame(width: 52)
-            .frame(minHeight: 56)
-            .background(m.motyw.akcent, in: RoundedRectangle(cornerRadius: 10))
             VStack(alignment: .leading, spacing: 3) {
                 Text(wydarzenie.tytul).czcionka(15, .semibold).foregroundStyle(Barwy.tekst).lineLimit(3)
-                Text([wydarzenie.dzienTygodnia, wydarzenie.godzina, wydarzenie.miejsce].filter { !$0.isEmpty }.joined(separator: " · "))
+                Text([wydarzenie.obraz == nil ? wydarzenie.dzienTygodnia : wydarzenie.dzienTygodnia + " " + wydarzenie.dzien + " " + wydarzenie.miesiac.lowercased(), wydarzenie.godzina, wydarzenie.miejsce].filter { !$0.isEmpty }.joined(separator: " · "))
                     .czcionka(12).foregroundStyle(Barwy.slaby).lineLimit(2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -603,5 +607,329 @@ struct WierszWydarzenia: View {
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// Blok „poll” na Start (Karol, 22.11.2026): sonda tylko wtedy, gdy jest aktywna, a w pozostałym czasie
+/// w tym miejscu kalendarz wydarzeń. Decyduje serwer (/api/v1/spotlight, pole type).
+struct BlokSpotlight: View {
+    @EnvironmentObject private var m: Magazyn
+    let blok: BlokStartu
+    @Binding var strona: StronaWWW?
+
+    var body: some View {
+        switch m.spotlight[blok.id] {
+        case .sonda(let s)?:
+            WidokSondy(sonda: s, blok: blok)
+        case .kalendarz(let k)?:
+            KalendarzWidok(kalendarz: k, tytul: blok.ukryjTytul ? nil : "Kalendarz wydarzeń", strona: $strona)
+        case nil:
+            EmptyView()
+        }
+    }
+}
+
+/// Sonda: najpierw tylko odpowiedzi do wyboru i „Zagłosuj”, wyniki dopiero po głosie.
+/// Głos zapamiętuje tylko telefon (id sondy → odpowiedź), bez żadnego identyfikatora.
+struct WidokSondy: View {
+    @EnvironmentObject private var m: Magazyn
+    let sonda: Sonda
+    let blok: BlokStartu
+    @State private var wybor: String?
+    @State private var wysyla = false
+    @State private var komunikat: String?
+
+    var body: some View {
+        if !blok.ukryjTytul { Naglowek(tytul: blok.tytul.isEmpty ? "Sonda" : blok.tytul) }
+        VStack(alignment: .leading, spacing: 12) {
+            Text(sonda.pytanie).font(Czcionka.naglowek(19)).foregroundStyle(Barwy.tekst)
+            if let moj = m.glosy[sonda.id] {
+                wyniki(moj)
+            } else if !sonda.otwarta {
+                wyniki("")
+            } else {
+                VStack(spacing: 8) {
+                    ForEach(sonda.opcje) { o in
+                        Button { wybor = o.klucz } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: wybor == o.klucz ? "largecircle.fill.circle" : "circle")
+                                    .foregroundStyle(wybor == o.klucz ? m.motyw.akcent : Barwy.slaby)
+                                Text(o.etykieta).czcionka(15).foregroundStyle(Barwy.tekst)
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 44)
+                            .background(Barwy.tlo, in: RoundedRectangle(cornerRadius: 10))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(wybor == o.klucz ? .isSelected : [])
+                    }
+                }
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel(sonda.pytanie)
+                Button { Task { await glosuj() } } label: {
+                    Text(wysyla ? "Wysyłam…" : "Zagłosuj").czcionka(15, .bold)
+                        .foregroundStyle(m.motyw.napisNaAkcencie)
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 46)
+                        .background(m.motyw.akcent.opacity(wybor == nil ? 0.4 : 1), in: RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+                .disabled(wybor == nil || wysyla)
+            }
+            if let d = sonda.doKiedy {
+                Text("Sonda trwa do \(Sonda.doKiedyTekst(d))").czcionka(12).foregroundStyle(Barwy.slaby)
+            }
+            if let k = komunikat { Text(k).czcionka(13).foregroundStyle(Barwy.slaby) }
+        }
+        .padding(16)
+        .background(Barwy.karta, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func wyniki(_ moj: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(sonda.opcje) { o in
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text(o.etykieta).czcionka(14, o.klucz == moj ? .bold : .regular).foregroundStyle(Barwy.tekst)
+                        if o.klucz == moj { Text("Twój głos").czcionka(11, .bold).foregroundStyle(m.motyw.akcent) }
+                        Spacer(minLength: 8)
+                        Text("\(o.procent)%").czcionka(14, .semibold).foregroundStyle(Barwy.tekst)
+                    }
+                    GeometryReader { g in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Barwy.ramka)
+                            Capsule().fill(o.klucz == moj ? m.motyw.akcent : Barwy.slaby.opacity(0.6))
+                                .frame(width: g.size.width * CGFloat(min(max(o.procent, 0), 100)) / 100)
+                        }
+                    }
+                    .frame(height: 8)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(o.etykieta), \(o.procent) procent, \(Sonda.glosyTekst(o.glosy))\(o.klucz == moj ? ", twój głos" : "")")
+            }
+            Text("Oddano \(Sonda.glosyTekst(sonda.razem))").czcionka(12).foregroundStyle(Barwy.slaby)
+        }
+    }
+
+    private func glosuj() async {
+        guard let k = wybor else { return }
+        wysyla = true
+        komunikat = await m.glosuj(sonda: sonda, klucz: k, blok: blok)
+        wysyla = false
+    }
+}
+
+/// Kalendarz wydarzeń w miejscu sondy: miesiąc (Pn–Nd, dziś w obwódce, dni z wydarzeniami z kropką),
+/// strzałki do miesiąca ostatniego wydarzenia, stuknięcie w dzień zawęża listę.
+struct KalendarzWidok: View {
+    @EnvironmentObject private var m: Magazyn
+    let kalendarz: KalendarzSpot
+    let tytul: String?
+    @Binding var strona: StronaWWW?
+    @State private var przesuniecie = 0
+    @State private var wybranyDzien: String?
+    @State private var listaDnia: [Wydarzenie]?
+    @State private var dzienNaStronie = false
+
+    private static let iso: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "Europe/Warsaw")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+    private static let nazwaMiesiaca: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "pl_PL")
+        f.timeZone = TimeZone(identifier: "Europe/Warsaw")
+        f.dateFormat = "LLLL yyyy"
+        return f
+    }()
+    private static let dzienSlownie: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "pl_PL")
+        f.timeZone = TimeZone(identifier: "Europe/Warsaw")
+        f.dateFormat = "d MMMM"
+        return f
+    }()
+    private var kal: Calendar {
+        var c = Calendar(identifier: .gregorian)
+        c.locale = Locale(identifier: "pl_PL")
+        c.timeZone = TimeZone(identifier: "Europe/Warsaw") ?? .current
+        c.firstWeekday = 2
+        return c
+    }
+    private var bazaMiesiaca: Date { KalendarzWidok.iso.date(from: kalendarz.miesiac + "-01") ?? Date() }
+    private var poczatekMiesiaca: Date { kal.date(byAdding: .month, value: przesuniecie, to: bazaMiesiaca) ?? bazaMiesiaca }
+    private var maksPrzesuniecie: Int {
+        guard let ostatni = kalendarz.dni.max(), let d = KalendarzWidok.iso.date(from: ostatni) else { return 0 }
+        return max(0, kal.dateComponents([.month], from: bazaMiesiaca, to: d).month ?? 0)
+    }
+    private var komorki: [String?] {
+        let pierwszy = poczatekMiesiaca
+        let dniWMiesiacu = kal.range(of: .day, in: .month, for: pierwszy)?.count ?? 30
+        let puste = (kal.component(.weekday, from: pierwszy) + 5) % 7
+        var wynik: [String?] = Array(repeating: nil, count: puste)
+        for i in 0..<dniWMiesiacu {
+            if let d = kal.date(byAdding: .day, value: i, to: pierwszy) { wynik.append(KalendarzWidok.iso.string(from: d)) }
+        }
+        return wynik
+    }
+
+    var body: some View {
+        if let t = tytul { Naglowek(tytul: t) }
+        VStack(spacing: 12) {
+            HStack {
+                Button { przesuniecie -= 1; wybranyDzien = nil } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
+                    .disabled(przesuniecie <= 0)
+                    .accessibilityLabel("Poprzedni miesiąc")
+                Spacer()
+                let nazwa = KalendarzWidok.nazwaMiesiaca.string(from: poczatekMiesiaca)
+                Text(nazwa.prefix(1).uppercased() + nazwa.dropFirst()).czcionka(15, .bold).foregroundStyle(Barwy.tekst)
+                Spacer()
+                Button { przesuniecie += 1; wybranyDzien = nil } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44) }
+                    .disabled(przesuniecie >= maksPrzesuniecie)
+                    .accessibilityLabel("Następny miesiąc")
+            }
+            .foregroundStyle(m.motyw.akcent)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 7), spacing: 4) {
+                ForEach(["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"], id: \.self) { d in
+                    Text(d).czcionka(11, .semibold).foregroundStyle(Barwy.slaby)
+                }
+                ForEach(Array(komorki.enumerated()), id: \.offset) { _, d in
+                    if let d { komorka(d) } else { Color.clear.frame(height: 36) }
+                }
+            }
+            let lista = listaDnia ?? kalendarz.wydarzenia
+            if lista.isEmpty {
+                if dzienNaStronie {
+                    Button { strona = StronaWWW(sciezka: "wydarzenia") } label: {
+                        Text("Szczegóły tego dnia są na tvml.pl").czcionka(14, .semibold)
+                    }
+                } else {
+                    Text("Na razie brak zaplanowanych wydarzeń.").czcionka(14).foregroundStyle(Barwy.slaby)
+                }
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(lista.enumerated()), id: \.element.id) { i, w in
+                        Button { otworz(w) } label: { WierszWydarzenia(wydarzenie: w) }.buttonStyle(.plain)
+                        if i < lista.count - 1 { Barwy.ramka.frame(height: 1) }
+                    }
+                }
+                .background(Barwy.tlo.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+            }
+            HStack {
+                Button { strona = StronaWWW(sciezka: "wydarzenia#dodaj") } label: { Text("Zgłoś wydarzenie").czcionka(14, .semibold) }
+                Spacer()
+                Button { strona = StronaWWW(sciezka: "wydarzenia") } label: { Text("Wszystkie").czcionka(14, .semibold) }
+            }
+        }
+        .padding(14)
+        .background(Barwy.karta, in: RoundedRectangle(cornerRadius: 14))
+        .task(id: wybranyDzien) { await wczytajDzien() }
+    }
+
+    private func komorka(_ d: String) -> some View {
+        let maWydarzenia = kalendarz.dni.contains(d)
+        let dzis = d == kalendarz.dzisiaj
+        let wybrany = d == wybranyDzien
+        let numer = String(Int(d.suffix(2)) ?? 0)
+        let data = KalendarzWidok.iso.date(from: d)
+        return Button {
+            if maWydarzenia { wybranyDzien = wybrany ? nil : d }
+        } label: {
+            VStack(spacing: 2) {
+                Text(numer).czcionka(13, maWydarzenia ? .bold : .regular)
+                    .foregroundStyle(wybrany ? m.motyw.napisNaAkcencie : (maWydarzenia ? m.motyw.akcent : Barwy.tekst))
+                Circle().fill(maWydarzenia && !wybrany ? m.motyw.akcent : Color.clear).frame(width: 5, height: 5)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 36)
+            .background(wybrany ? m.motyw.akcent : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+            .overlay(RoundedRectangle(cornerRadius: 8).stroke(dzis ? Barwy.slaby : Color.clear, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .disabled(!maWydarzenia)
+        .accessibilityLabel((data.map { KalendarzWidok.dzienSlownie.string(from: $0) } ?? d) + (maWydarzenia ? ": są wydarzenia" : "") + (dzis ? ", dziś" : ""))
+    }
+
+    /// Dzień z listy: najpierw wydarzenia, które już są, a gdy ich nie ma, /api/v1/events?from=D&to=D (API 1.7).
+    private func wczytajDzien() async {
+        dzienNaStronie = false
+        guard let d = wybranyDzien else { listaDnia = nil; return }
+        let juzSa = kalendarz.wydarzenia.filter { $0.dzienISO == d }
+        if !juzSa.isEmpty { listaDnia = juzSa; return }
+        if let z = await m.wydarzeniaDnia(d) {
+            listaDnia = z
+        } else {
+            listaDnia = []
+            dzienNaStronie = true
+        }
+    }
+
+    private func otworz(_ w: Wydarzenie) {
+        if let id = w.artykulId {
+            Task { @MainActor in
+                if let a = await m.artykul(id) { m.otworz(a) } else { m.otworz(EkranWiecej.wydarzenie(w)) }
+            }
+        } else {
+            m.otworz(EkranWiecej.wydarzenie(w))
+        }
+    }
+}
+
+/// Wydarzenie w aplikacji: zdjęcie, data i godzina, miejsce, organizator, bilety i opis (/api/v1/events/{id}, API 1.7).
+/// Do czasu 1.7 pokazuje to, co było na liście, i link do strony wydarzenia.
+struct WydarzenieWidok: View {
+    @EnvironmentObject private var m: Magazyn
+    @Environment(\.dismiss) private var wroc
+    let poczatkowe: Wydarzenie
+    @State private var pelne: Wydarzenie?
+    @State private var strona: StronaWWW?
+
+    private var w: Wydarzenie { pelne ?? poczatkowe }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Button { wroc() } label: {
+                    HStack(spacing: 2) { Image(systemName: "chevron.left"); Text("Wróć") }
+                        .font(.system(size: 15, weight: .bold)).foregroundStyle(Barwy.tekst).frame(height: 44)
+                }
+                if let u = w.obraz {
+                    Color.clear
+                        .frame(height: 210).frame(maxWidth: .infinity)
+                        .overlay { AsyncImage(url: u) { $0.resizable().scaledToFill() } placeholder: { Barwy.ramka } }
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .accessibilityHidden(true)
+                }
+                Text(w.tytul).font(Czcionka.naglowek(24)).foregroundStyle(Barwy.tekst).accessibilityAddTraits(.isHeader)
+                VStack(alignment: .leading, spacing: 8) {
+                    if !w.dataPelna.isEmpty { szczegol("calendar", w.dataPelna) }
+                    if !w.miejsce.isEmpty { szczegol("mappin.and.ellipse", w.miejsce) }
+                    if !w.organizator.isEmpty { szczegol("person.2", w.organizator) }
+                    if !w.bilety.isEmpty { szczegol("ticket", w.bilety) }
+                }
+                if !w.opis.isEmpty {
+                    Text(w.opis).czcionka(16).foregroundStyle(Barwy.tekst).textSelection(.enabled)
+                }
+                Button { strona = StronaWWW(sciezka: "wydarzenia?id=\(w.id)") } label: {
+                    Text("Zobacz na tvml.pl").czcionka(14, .semibold)
+                }
+            }
+            .padding(16)
+        }
+        .background(Barwy.tlo)
+        .toolbar(.hidden, for: .navigationBar)
+        .sheet(item: $strona) { s in Safari(url: URL(string: "https://tvml.pl/" + s.sciezka)!).ignoresSafeArea() }
+        .task { pelne = await m.wydarzenie(poczatkowe.id) }
+    }
+
+    private func szczegol(_ ikona: String, _ tekst: String) -> some View {
+        Label { Text(tekst).czcionka(15).foregroundStyle(Barwy.tekst) } icon: {
+            Image(systemName: ikona).foregroundStyle(m.motyw.akcent)
+        }
     }
 }

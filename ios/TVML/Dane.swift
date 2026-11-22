@@ -75,6 +75,30 @@ enum Siec {
         throw ostatni
     }
 
+    /// POST z JSON-em do API (np. głos w sondzie). Zwraca kod HTTP i odpowiedź; bez identyfikatorów urządzenia.
+    static func v1Wyslij(_ trasa: String, _ cialo: [String: Any]) async throws -> (Int, Slownik) {
+        let kolejnosc = dzialajacaBaza.map { d in [d] + bazyApi.filter { $0 != d } } ?? bazyApi
+        var ostatni: Error = URLError(.badURL)
+        for b in kolejnosc {
+            guard let url = URL(string: b + trasa, relativeTo: baza) else { continue }
+            var z = URLRequest(url: url, timeoutInterval: 20)
+            z.httpMethod = "POST"
+            z.setValue(agent, forHTTPHeaderField: "User-Agent")
+            z.setValue("https://tvml.pl/", forHTTPHeaderField: "Referer")
+            z.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            z.httpBody = try JSONSerialization.data(withJSONObject: cialo)
+            do {
+                let (dane, odp) = try await URLSession.shared.data(for: z)
+                guard let http = odp as? HTTPURLResponse else { continue }
+                if http.statusCode == 404 && b != kolejnosc.last { continue }
+                return (http.statusCode, (try? JSONSerialization.jsonObject(with: dane)) as? Slownik ?? [:])
+            } catch {
+                ostatni = error
+            }
+        }
+        throw ostatni
+    }
+
     /// Mniejszy obraz w WebP z tego samego pośrednika co strona (img-webp-v2.php).
     static func obraz(_ adres: String, szerokosc: Int) -> URL? {
         guard !adres.isEmpty else { return nil }
@@ -362,6 +386,12 @@ final class Magazyn: ObservableObject {
     /// Etykieta paska pod banerem (config.ticker.label) i czy to transmisja (config.ticker.live).
     @Published var etykietaPaska = "NAJNOWSZE"
     @Published var pasekNaZywo = false
+    /// Blok poll: trwająca sonda albo kalendarz wydarzeń (klucz: id bloku).
+    @Published var spotlight: [String: Spotlight] = [:]
+    /// Głosy oddane z tego telefonu (id sondy → odpowiedź), tylko lokalnie.
+    @Published var glosy: [String: String] = (UserDefaults.standard.dictionary(forKey: "tvml-glosy") as? [String: String]) ?? [:] {
+        didSet { UserDefaults.standard.set(glosy, forKey: "tvml-glosy") }
+    }
     @Published var wymaganaAktualizacja = false
     /// Nowsza wersja w App Store: łagodna prośba o aktualizację pod paskiem „NA ŻYWO” (do zamknięcia).
     @Published var nowaWersja: Komunikat?
@@ -477,6 +507,7 @@ final class Magazyn: ObservableObject {
         } else {
             wydarzenia = []
         }
+        for b in bloki where b.typ == "poll" { await wczytajSpotlight(b) }
         return true
     }
 
@@ -531,6 +562,49 @@ final class Magazyn: ObservableObject {
     func podstrona(_ slug: String) async -> TrescPodstrony? {
         guard let j = (try? await Siec.v1("pages/" + slug)) as? Slownik, j["html"] != nil else { return nil }
         return TrescPodstrony(j)
+    }
+
+    /// Blok poll: sonda, gdy trwa, a bez niej kalendarz wydarzeń. Przy błędzie sieci zostaje poprzedni stan.
+    func wczytajSpotlight(_ b: BlokStartu) async {
+        var p = ["limit": "12"]
+        if let id = b.ankieta { p["pollId"] = id }
+        guard let j = (try? await Siec.v1("spotlight", p)) as? Slownik else { return }
+        if j.s("type") == "poll", j["poll"] is Slownik {
+            spotlight[b.id] = .sonda(Sonda(j.slownik("poll")))
+        } else {
+            spotlight[b.id] = .kalendarz(KalendarzSpot(j.slownik("events")))
+        }
+    }
+
+    /// Głos w sondzie (POST /api/v1/polls/{id}/vote). Zwraca komunikat dla czytelnika albo nil.
+    func glosuj(sonda: Sonda, klucz: String, blok: BlokStartu) async -> String? {
+        guard let wynik = try? await Siec.v1Wyslij("polls/" + sonda.id + "/vote", ["option": klucz]) else {
+            return "Brak połączenia. Spróbuj jeszcze raz."
+        }
+        let (kod, j) = wynik
+        if kod == 200 {
+            glosy[sonda.id] = klucz
+            if j["poll"] is Slownik { spotlight[blok.id] = .sonda(Sonda(j.slownik("poll"))) }
+            return j.b("counted") || j.s("message").isEmpty ? nil : j.s("message")
+        }
+        if kod == 409 {
+            await wczytajSpotlight(blok)
+            return "Głosowanie w tej sondzie zostało zakończone."
+        }
+        let blad = j.slownik("error").s("message")
+        return blad.isEmpty ? "Nie udało się oddać głosu." : blad
+    }
+
+    /// Wydarzenia jednego dnia (/api/v1/events?from=D&to=D, API 1.7); nil, gdy serwer jeszcze tego nie ma.
+    func wydarzeniaDnia(_ d: String) async -> [Wydarzenie]? {
+        guard let j = (try? await Siec.v1("events", ["from": d, "to": d, "limit": "50"])) as? Slownik else { return nil }
+        return j.lista("items").map(Wydarzenie.init)
+    }
+
+    /// Szczegóły wydarzenia (/api/v1/events/{id}, API 1.7); nil, gdy serwer jeszcze tego nie ma.
+    func wydarzenie(_ id: Int) async -> Wydarzenie? {
+        guard let j = (try? await Siec.v1("events/\(id)")) as? Slownik, j["id"] != nil else { return nil }
+        return Wydarzenie(j)
     }
 
     /// Ogłoszenia drobne do ekranu z „Więcej”.
@@ -698,6 +772,8 @@ struct BlokStartu: Identifiable, Hashable {
     let kategoria: String?
     /// Flaga z panelu dla bloku posts (API 1.3): sponsored, featured, urgent albo photoReport, filtr do /articles.
     let filtr: String?
+    /// Sonda bloku poll (props.pollId); nil = pierwsza z układu strony.
+    let ankieta: String?
 
     static let domyslne: [BlokStartu] = [
         BlokStartu(id: "hero", typ: "hero", tytul: "", ukryjTytul: true, limit: 5, kategoria: nil),
@@ -707,15 +783,15 @@ struct BlokStartu: Identifiable, Hashable {
         BlokStartu(id: "video", typ: "video", tytul: "Wideo", ukryjTytul: false, limit: 6, kategoria: nil)
     ]
 
-    init(id: String, typ: String, tytul: String, ukryjTytul: Bool, limit: Int, kategoria: String?, filtr: String? = nil) {
+    init(id: String, typ: String, tytul: String, ukryjTytul: Bool, limit: Int, kategoria: String?, filtr: String? = nil, ankieta: String? = nil) {
         self.id = id; self.typ = typ; self.tytul = tytul; self.ukryjTytul = ukryjTytul; self.limit = limit; self.kategoria = kategoria
-        self.filtr = filtr
+        self.filtr = filtr; self.ankieta = ankieta
     }
 
     init?(_ j: Slownik) {
         let p = j.slownik("props")
         let typ = j.s("type")
-        guard ["hero", "weather", "alert", "video", "posts", "mostread", "gallery", "counties", "social", "classifieds", "events"].contains(typ) else { return nil }
+        guard ["hero", "weather", "alert", "video", "posts", "mostread", "gallery", "counties", "social", "classifieds", "events", "poll"].contains(typ) else { return nil }
         // artykuły sponsorowane są w aplikacji wyłączone (Karol, 22.11.2026): bez bloku sponsored i bez list sponsorowanych
         if p.s("category") == "artykuly-sponsorowane" || p.b("sponsored") { return nil }
         self.typ = typ
@@ -725,6 +801,7 @@ struct BlokStartu: Identifiable, Hashable {
         limit = p.i("limit")
         kategoria = p.s("category").isEmpty ? nil : p.s("category")
         filtr = ["featured", "urgent", "photoReport"].first { p.b($0) }
+        ankieta = p.s("pollId").isEmpty ? nil : p.s("pollId")
     }
 
     /// Klucz własnej listy bloku posts (kategoria albo flaga); nil, gdy blok pokazuje kolejne najnowsze.
@@ -869,7 +946,8 @@ struct TrescPodstrony {
     }
 }
 
-/// Wydarzenie z kalendarza tvml.pl (/api/v1/events, API 1.7): tylko zatwierdzone, od najbliższego, także trwające.
+/// Wydarzenie z kalendarza tvml.pl (/api/v1/events i spotlight; szczegóły z /api/v1/events/{id}, API 1.7).
+/// Tylko zatwierdzone, od najbliższego, także trwające.
 struct Wydarzenie: Identifiable, Hashable {
     let id: Int
     let tytul: String
@@ -879,6 +957,12 @@ struct Wydarzenie: Identifiable, Hashable {
     let miejsce: String
     let adres: URL?
     let artykulId: Int?
+    let obraz: URL?
+    /// Dzień rozpoczęcia, np. „2026-11-23” (do zawężania listy w kalendarzu).
+    let dzienISO: String
+    let opis: String
+    let organizator: String
+    let bilety: String
 
     init(_ j: Slownik) {
         id = j.i("id")
@@ -888,8 +972,26 @@ struct Wydarzenie: Identifiable, Hashable {
         koniec = j.s("endsAt").isEmpty ? nil : iso.date(from: j.s("endsAt"))
         calyDzien = j.b("allDay")
         miejsce = Html.tekst(j.s("place").isEmpty ? j.s("location") : j.s("place"))
-        adres = URL(string: j.s("url"))
+        // kanoniczny adres to /wydarzenia?id=N (wersja .html to tylko przekierowanie)
+        adres = URL(string: j.s("url").replacingOccurrences(of: "wydarzenia.html", with: "wydarzenia"))
         artykulId = j.i("articleId") > 0 ? j.i("articleId") : nil
+        obraz = Wydarzenie.obrazek(j)
+        let dzien = j.s("date")
+        dzienISO = dzien.isEmpty ? (poczatek.map { Wydarzenie.fISO.string(from: $0) } ?? "") : dzien
+        opis = j.s("description")
+        organizator = Html.tekst(j.s("organizer"))
+        bilety = Html.tekst(j.s("tickets"))
+    }
+
+    /// Miniatura jak na stronie: wariant co najmniej 200 px, a bez wariantów oryginał.
+    private static func obrazek(_ j: Slownik) -> URL? {
+        if let o = j["image"] as? Slownik {
+            var w: [Int: String] = [:]
+            for (k, v) in o.slownik("variants") { if let n = Int(k), let s = v as? String { w[n] = s } }
+            if let k = w.keys.sorted().first(where: { $0 >= 200 }) ?? w.keys.max(), let s = w[k] { return URL(string: s) }
+            return o.s("url").isEmpty ? nil : URL(string: o.s("url"))
+        }
+        return j.s("image").isEmpty ? nil : URL(string: j.s("image"))
     }
 
     /// „trwa”, „cały dzień” albo godzina rozpoczęcia, np. „18:00”.
@@ -903,6 +1005,20 @@ struct Wydarzenie: Identifiable, Hashable {
     var miesiac: String { poczatek.map { Wydarzenie.fMiesiac.string(from: $0).uppercased() } ?? "" }
     var dzienTygodnia: String { poczatek.map { Wydarzenie.fTydzien.string(from: $0) } ?? "" }
 
+    /// „sobota, 28 listopada 2026 · 18:00–20:00” albo „… · cały dzień”.
+    var dataPelna: String {
+        guard let p = poczatek else { return "" }
+        var t = Wydarzenie.fPelna.string(from: p)
+        if calyDzien { return t + " · cały dzień" }
+        t += " · " + Wydarzenie.fGodzina.string(from: p)
+        if let k = koniec {
+            var kal = Calendar(identifier: .gregorian)
+            kal.timeZone = TimeZone(identifier: "Europe/Warsaw") ?? .current
+            t += kal.isDate(k, inSameDayAs: p) ? "–" + Wydarzenie.fGodzina.string(from: k) : " – " + Wydarzenie.fPelna.string(from: k)
+        }
+        return t
+    }
+
     private static func format(_ wzor: String) -> DateFormatter {
         let f = DateFormatter()
         f.locale = Locale(identifier: "pl_PL")
@@ -914,4 +1030,74 @@ struct Wydarzenie: Identifiable, Hashable {
     static let fDzien = format("d")
     static let fMiesiac = format("LLL")
     static let fTydzien = format("EEE")
+    static let fPelna = format("EEEE, d MMMM yyyy")
+    static let fISO = format("yyyy-MM-dd")
+}
+
+/// Sonda z /api/v1/spotlight albo /api/v1/polls/{id}: pytanie, odpowiedzi i wyniki (pokazywane dopiero po głosie).
+struct Sonda {
+    struct Opcja: Identifiable {
+        let klucz: String
+        let etykieta: String
+        let glosy: Int
+        let procent: Int
+        var id: String { klucz }
+    }
+    let id: String
+    let pytanie: String
+    let otwarta: Bool
+    let doKiedy: Date?
+    let razem: Int
+    let opcje: [Opcja]
+
+    init(_ j: Slownik) {
+        id = j.s("id")
+        pytanie = Html.tekst(j.s("question"))
+        otwarta = j.b("open")
+        doKiedy = ISO8601DateFormatter().date(from: j.s("showTo"))
+        razem = j.i("totalVotes")
+        opcje = j.lista("options").map { o in
+            Opcja(klucz: o.s("key"), etykieta: Html.tekst(o.s("label")), glosy: o.i("votes"), procent: o.i("pct"))
+        }
+    }
+
+    /// 1 głos, 2–4 głosy (bez 12–14), 5+ głosów.
+    static func glosyTekst(_ n: Int) -> String {
+        if n == 1 { return "1 głos" }
+        if (2...4).contains(n % 10) && !(12...14).contains(n % 100) { return "\(n) głosy" }
+        return "\(n) głosów"
+    }
+
+    /// „30 listopada, 20:00”, z rokiem tylko gdy inny niż bieżący.
+    static func doKiedyTekst(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "pl_PL")
+        f.timeZone = TimeZone(identifier: "Europe/Warsaw")
+        let innyRok = Calendar.current.component(.year, from: d) != Calendar.current.component(.year, from: Date())
+        f.dateFormat = innyRok ? "d MMMM yyyy, HH:mm" : "d MMMM, HH:mm"
+        return f.string(from: d)
+    }
+}
+
+/// Kalendarz wydarzeń w miejscu sondy (spotlight type „events”): miesiąc, dni z wydarzeniami i najbliższe wydarzenia.
+struct KalendarzSpot {
+    let miesiac: String
+    let dzisiaj: String
+    let dni: Set<String>
+    let wydarzenia: [Wydarzenie]
+    let adres: URL?
+
+    init(_ j: Slownik) {
+        miesiac = j.s("month")
+        dzisiaj = j.s("today")
+        dni = Set((j["days"] as? [String]) ?? [])
+        wydarzenia = j.lista("items").map(Wydarzenie.init)
+        adres = URL(string: j.s("url"))
+    }
+}
+
+/// Blok „poll”: trwająca sonda albo, gdy jej nie ma, kalendarz wydarzeń.
+enum Spotlight {
+    case sonda(Sonda)
+    case kalendarz(KalendarzSpot)
 }

@@ -171,6 +171,7 @@ struct SzukajWidok: View {
 enum EkranWiecej: Hashable {
     case zapisane, ogloszenia, fotorelacje
     case strona(String)
+    case wydarzenie(Wydarzenie)
 }
 
 struct EkranWiecejWidok: View {
@@ -182,6 +183,7 @@ struct EkranWiecejWidok: View {
         case .ogloszenia: OgloszeniaWidok().kolumna()
         case .fotorelacje: FotorelacjeWidok().kolumna()
         case .strona(let slug): PodstronaWidok(slug: slug).kolumna()
+        case .wydarzenie(let w): WydarzenieWidok(poczatkowe: w).kolumna()
         }
     }
 }
