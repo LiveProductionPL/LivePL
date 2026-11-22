@@ -545,6 +545,7 @@ button {
 /* pole adresu, powiększenie, pobrane i menu na górze, przed przyciskami okna */
 #gora #adres-forma,
 #gora #zoom,
+#gora #tlumacz,
 #gora #przypnij,
 #gora #pobrane,
 #gora #menu {
@@ -729,6 +730,53 @@ kbd {
 #przypnij .ik { width: 15px; height: 15px; color: var(--kropka); }
 #przypnij:hover { background: var(--hover); }
 #przypnij:active { background: var(--wcisniety); }
+
+/* tłumacz stron: dyskretna pigułka przy adresie, tylko na stronach w innym języku */
+#tlumacz {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  height: 26px;
+  border-radius: 13px;
+  border: 1px solid var(--ramka);
+  overflow: hidden;
+  flex: none;
+}
+
+#tlumacz[hidden] { display: none; }
+
+#tlumacz button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--tekst);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#tlumacz-glowny { padding: 0 8px 0 7px; }
+#tlumacz-glowny .ik { width: 16px; height: 16px; color: var(--turkus); }
+#tlumacz-opcje { padding: 0 5px; border-left: 1px solid var(--ramka) !important; color: var(--slaby) !important; }
+#tlumacz-opcje .ik { width: 13px; height: 13px; }
+#tlumacz button:hover { background: var(--hover); }
+#tlumacz button:active { background: var(--wcisniety); }
+
+/* przetłumaczona strona: wyraźniejsza, żeby było widać, że tekst nie jest oryginałem */
+#tlumacz[data-stan="gotowe"] { border-color: var(--turkus); background: color-mix(in srgb, var(--turkus) 10%, transparent); }
+#tlumacz[data-stan="blad"] #tlumacz-glowny .ik { color: var(--kropka); }
+
+/* pasek postępu pobierania słownika i tłumaczenia */
+#tlumacz[data-stan="pobieranie"]::after,
+#tlumacz[data-stan="trwa"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: calc(var(--postep, 0) * 1%);
+  background: var(--turkus);
+  transition: width 0.3s;
+}
 
 #zoom {
   height: 24px;

@@ -31,7 +31,8 @@ Układ nazywa się **Reżyserka**: strona jest jak monitor w ramce, programy są
 - **Po zamknięciu okna program działa dalej** przy zegarze, więc poczta sprawdza nowe wiadomości. Program zamykasz prawym przyciskiem na tej ikonie. Działanie w tle można wyłączyć w menu ⋮ → Ustawienia.
 - **Dzień i noc** przełączają się same razem z trybem Windows: kolory, logo w rogu, ikona okna, ikona przy zegarze i ikona skrótu na pulpicie.
 - **Udostępnianie ekranu** (np. na lekcjach w Sevetoo) otwiera okienko wyboru ekranu albo okna.
-- **Prawy przycisk myszy:** kopiuj, wklej, poprawianie literówek, otwieranie linku w nowej karcie albo w zwykłej przeglądarce.
+- **Prawy przycisk myszy:** kopiuj, wklej, poprawianie literówek, otwieranie linku w nowej karcie albo w zwykłej przeglądarce, tłumaczenie strony albo zaznaczenia.
+- **Tłumacz stron.** Strona w innym języku niż polski ma obok adresu przycisk „Przetłumacz”. Domyślnie tłumaczy ten komputer, a tekst nigdzie nie wychodzi. Opis niżej.
 - **Wejście mimo błędu certyfikatu** i **Bezpieczny DNS**: opis niżej.
 
 ## Błąd certyfikatu: wejście mimo to
@@ -86,6 +87,54 @@ LivePL może być „dodatkiem” dla AI, tak jak Claude w Chrome. Działa w sta
 
 **Jak to działa:** aplikacja AI uruchamia `LivePL.exe src\ai-most.js` ze zmienną `ELECTRON_RUN_AS_NODE=1`. Ten most rozmawia z AI przez MCP, a z działającym LivePL przez potok. Narzędzia: `list_tabs`, `get_page_text`, `read_page`, `find`, `screenshot`, `switch_tab`, `wait`, `scroll`, `open_tab`, `navigate`, `close_tab`, `click`, `type`, `press_key` (`src/ai-narzedzia.js`, wykonanie w `src/dostep-ai.js`). Ramki z tej samej domeny są obsługiwane, z innych domen nie.
 
+## Tłumacz stron
+
+Nie każda strona jest po polsku, a nie każdy zna angielski. LivePL tłumaczy strony na polski w miejscu: układ, zdjęcia i linki zostają, zmienia się tylko tekst.
+
+**Jak się z niego korzysta:**
+- Na stronie w innym języku obok adresu jest przycisk **„Przetłumacz”** (najechanie myszą pokazuje „Język strony: angielski. Przetłumaczyć na polski?”). Jedno kliknięcie tłumaczy całą stronę: najpierw to, co widać, potem resztę. Treść, którą strona dopisuje później (np. nowe wiadomości, przewijane listy), też się tłumaczy.
+- Na przetłumaczonej stronie ten sam przycisk to **„Pokaż oryginał”**. Wraca dokładnie poprzedni tekst.
+- Strzałka obok przycisku otwiera opcje: zmiana języka strony (gdy LivePL źle go rozpozna), **„Zawsze tłumacz z języka: …”** i **„Nigdy nie proponuj na …”** (dla tej strony).
+- Kolejne strony otwierane w tej samej karcie po tłumaczeniu tłumaczą się same, aż do „Pokaż oryginał”.
+- To samo jest w menu ⋮ („Przetłumacz stronę na polski” / „Pokaż oryginał”) i pod prawym przyciskiem myszy. Tam jest też **„Przetłumacz zaznaczenie”**: tłumaczenie pokazuje się w okienku obok, z przyciskiem „Kopiuj”, a strona się nie zmienia.
+- Ustawienia: menu ⋮ → Ustawienia → Tłumacz stron.
+
+**Kto tłumaczy:**
+
+| Silnik | Jak działa | Co wychodzi z komputera |
+|---|---|---|
+| Ten komputer (domyślnie) | silnik Firefox Translations (Bergamot, WebAssembly) i modele językowe Mozilli | nic z tekstu stron; przy pierwszym użyciu języka LivePL pobiera jego słownik od Mozilli |
+| DeepL (do włączenia) | serwis DeepL z własnym kluczem API; najlepsza jakość po polsku | tekst tłumaczonych stron trafia do DeepL SE (Niemcy, UE) |
+
+- **Słowniki Mozilli:** pobierają się przy pierwszym tłumaczeniu z danego języka, z paskiem postępu na przycisku (ok. 25 MB na parę języków). Mozilla ma pary z polskim tylko z angielskim, więc inne języki idą przez angielski: niemiecki → angielski → polski (razem ok. 50 MB przy pierwszym razie). Obsługiwanych jest ok. 55 języków. Każdy plik ma sprawdzaną sumę SHA-256. Słowniki leżą w `%APPDATA%\LivePL\tlumacz\modele`, a w ustawieniach jest ich lista i „Usuń pobrane słowniki”. Pobieranie idzie z `firefox.settings.services.mozilla.com` (lista plików) i `firefox-settings-attachments.cdn.mozilla.net` (pliki).
+- **Silnik w komputerze** działa w osobnym procesie (`src/tlumacz-silnik.js`), więc okno nie zwalnia. Tłumaczy ok. 100 słów na sekundę: to, co widać na ekranie, jest po polsku po 2–3 sekundach, a długi artykuł w całości po 1–2 minutach. Zajmuje ok. 300 MB pamięci (ok. 450 MB, gdy tłumaczy przez angielski). Po 10 minutach bez tłumaczenia LivePL go zamyka i zwalnia pamięć. Pliki silnika są w `src/bergamot` (opis i sumy w `src/bergamot/ZRODLO.md`).
+- **Tłumaczenie przez angielski** to dwa osobne kroki (np. niemiecki → angielski, potem angielski → polski). Wbudowane w silnik `translateViaPivoting` przy HTML wrzuca cały akapit do pierwszego znacznika, więc LivePL go nie używa.
+- Serwer plików Mozilli odrzuca zapytania z nagłówkiem przeglądarki Chrome (błąd 406), dlatego LivePL pobiera słowniki z krótkim `User-Agent: LivePL`, bez wersji i innych danych.
+- **DeepL:** Ustawienia → Tłumacz stron → DeepL, potem klucz API. Darmowy klucz (500 tys. znaków miesięcznie) zakłada się na deepl.com/pro-api. Klucz wpisuje się sam i jest zaszyfrowany przez Windows (`safeStorage`, plik `tlumacz-deepl.bin`), jak hasła. „Sprawdź klucz” pokazuje zużycie znaków w tym miesiącu. Z DeepL tłumaczy się tylko to, co widać na ekranie, żeby oszczędzać limit.
+
+**Bezpieczeństwo:**
+- Programy LivePL z `programy.json` (poczta, strefa klienta, panele, urząd) zawsze tłumaczy komputer, także gdy włączony jest DeepL.
+- Programy z `"dlaAI": false` (Panel serwera) i Urząd (`tylkoZYubiKey`) nie dostają propozycji tłumaczenia i nie działa na nich „Zawsze tłumacz”. Tłumaczą się tylko po wyraźnym kliknięciu (menu ⋮ albo prawy przycisk).
+- Skrypt tłumacza (`src/preload-tlumacz.js`) działa w odizolowanym świecie JavaScriptu: strona go nie widzi i nie może go podmienić.
+- Tłumacz zmienia tylko tekst na stronie. Nie dotyka pól formularzy (wpisanych wartości, list wyboru, pól haseł), miejsc do edycji, kodu (`code`, `pre`), elementów oznaczonych `translate="no"` lub `notranslate` ani formularzy z polem hasła.
+- Strona prosi LivePL o tłumaczenie tylko wtedy, gdy użytkownik je włączył dla tej karty.
+
+**Język strony** LivePL rozpoznaje sam w komputerze: z atrybutu `lang` strony i z kawałka jej tekstu (po piśmie i najczęstszych słowach). Wynik z tekstu wygrywa, bo wiele polskich stron ma w szablonie `lang="en"`.
+
+**Ograniczenia:** ramki w środku strony (`iframe`) nie są tłumaczone. Tłumaczenie maszynowe czasem przesuwa granice linków albo pogrubień o słowo czy dwa (tekst czyta się dobrze, ale link może obejmować sąsiednie słowo); to cecha silnika, który dopasowuje znaczniki do przetłumaczonych słów. Atrybuty (`title`, `alt`, podpowiedzi w polach) zostają w oryginale. Wbudowane w Chromium `Translator` API w silniku LivePL nie działa: Electron nie ma modeli Chrome, a `Translator.availability()` nie odpowiada (sprawdzone w wersji 0.1.10, Chromium 156).
+
+**Test bez silnika:** `LIVEPL_TLUMACZ_TEST=1` włącza atrapę, która zamiast tłumaczyć dopisuje „[pl]” przed każdym kawałkiem tekstu. Przydaje się do sprawdzania samej obsługi strony.
+
+**Wspólna zasada LivePL na wszystkich urządzeniach: tłumaczy urządzenie, DeepL tylko opcjonalnie.**
+
+| Urządzenie | Tłumaczenie w urządzeniu (domyślnie) | Opcjonalnie |
+|---|---|---|
+| Windows | Bergamot (Firefox Translations) i modele Mozilli | DeepL z własnym kluczem |
+| iPhone | Apple Translation | DeepL z własnym kluczem |
+| Android | ML Kit (Google, modele w telefonie) | DeepL z własnym kluczem |
+
+Wszędzie obowiązuje to samo: domyślnie tekst nie wychodzi z urządzenia, DeepL włącza się świadomie w ustawieniach, z jasną informacją, co wychodzi, a programy LivePL i programy chronione tłumaczy zawsze urządzenie.
+
 ## Lista programów
 
 Programy są w pliku `programy.json` (menu ⋮ → Ustawienia → Edytuj listę programów). Po zmianie uruchom LivePL ponownie.
@@ -128,6 +177,7 @@ Programy są w pliku `programy.json` (menu ⋮ → Ustawienia → Edytuj listę 
 - `src/nasze-ca.js` – zaufanie do LivePL Root CA dla naszych domen
 - `src/wyjatki-certyfikatow.js` – wejście mimo błędu certyfikatu (wyjątki host:port + odcisk, HSTS)
 - `src/bezpieczny-dns.js` – Bezpieczny DNS (DNS przez HTTPS)
+- `src/tlumacz.js`, `src/tlumacz-silnik.js`, `src/preload-tlumacz.js`, `src/jezyki.js`, `src/bergamot/` – tłumacz stron
 - `ui/` – pasek boczny i górny, pusta karta, ekran błędu, wybór ekranu
 - dane przeglądarki (logowania, ustawienia okna): `%APPDATA%\LivePL`
 
