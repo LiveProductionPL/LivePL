@@ -722,16 +722,25 @@ struct WidokSondy: View {
 }
 
 /// Kalendarz wydarzeń w miejscu sondy: miesiąc (Pn–Nd, dziś w obwódce, dni z wydarzeniami z kropką),
-/// strzałki do miesiąca ostatniego wydarzenia, stuknięcie w dzień zawęża listę.
+/// strzałki do miesiąca ostatniego wydarzenia. Lista pokazuje wydarzenia wybranego dnia: domyślnie dzisiaj,
+/// a po stuknięciu dnia ten dzień (Karol, 22.11.2026), razem z wydarzeniami, które wtedy trwają.
 struct KalendarzWidok: View {
     @EnvironmentObject private var m: Magazyn
     let kalendarz: KalendarzSpot
     let tytul: String?
     @Binding var strona: StronaWWW?
     @State private var przesuniecie = 0
-    @State private var wybranyDzien: String?
+    @State private var wybranyDzien: String
     @State private var listaDnia: [Wydarzenie]?
     @State private var dzienNaStronie = false
+
+    init(kalendarz: KalendarzSpot, tytul: String?, strona: Binding<StronaWWW?>) {
+        self.kalendarz = kalendarz
+        self.tytul = tytul
+        _strona = strona
+        let dzis = kalendarz.dzisiaj.isEmpty ? KalendarzWidok.iso.string(from: Date()) : kalendarz.dzisiaj
+        _wybranyDzien = State(initialValue: dzis)
+    }
 
     private static let iso: DateFormatter = {
         let f = DateFormatter()
@@ -754,6 +763,19 @@ struct KalendarzWidok: View {
         f.dateFormat = "d MMMM"
         return f
     }()
+    private static let dzienNaglowek: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "pl_PL")
+        f.timeZone = TimeZone(identifier: "Europe/Warsaw")
+        f.dateFormat = "EEEE, d MMMM"
+        return f
+    }()
+    /// „Niedziela, 22 listopada · dziś”
+    private var naglowekDnia: String {
+        guard let d = KalendarzWidok.iso.date(from: wybranyDzien) else { return wybranyDzien }
+        let t = KalendarzWidok.dzienNaglowek.string(from: d)
+        return t.prefix(1).uppercased() + t.dropFirst() + (wybranyDzien == kalendarz.dzisiaj ? " · dziś" : "")
+    }
     private var kal: Calendar {
         var c = Calendar(identifier: .gregorian)
         c.locale = Locale(identifier: "pl_PL")
@@ -782,14 +804,14 @@ struct KalendarzWidok: View {
         if let t = tytul { Naglowek(tytul: t) }
         VStack(spacing: 12) {
             HStack {
-                Button { przesuniecie -= 1; wybranyDzien = nil } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
+                Button { przesuniecie -= 1 } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
                     .disabled(przesuniecie <= 0)
                     .accessibilityLabel("Poprzedni miesiąc")
                 Spacer()
                 let nazwa = KalendarzWidok.nazwaMiesiaca.string(from: poczatekMiesiaca)
                 Text(nazwa.prefix(1).uppercased() + nazwa.dropFirst()).czcionka(15, .bold).foregroundStyle(Barwy.tekst)
                 Spacer()
-                Button { przesuniecie += 1; wybranyDzien = nil } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44) }
+                Button { przesuniecie += 1 } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44) }
                     .disabled(przesuniecie >= maksPrzesuniecie)
                     .accessibilityLabel("Następny miesiąc")
             }
@@ -802,16 +824,10 @@ struct KalendarzWidok: View {
                     if let d { komorka(d) } else { Color.clear.frame(height: 36) }
                 }
             }
-            let lista = listaDnia ?? kalendarz.wydarzenia
-            if lista.isEmpty {
-                if dzienNaStronie {
-                    Button { strona = StronaWWW(sciezka: "wydarzenia") } label: {
-                        Text("Szczegóły tego dnia są na tvml.pl").czcionka(14, .semibold)
-                    }
-                } else {
-                    Text("Na razie brak zaplanowanych wydarzeń.").czcionka(14).foregroundStyle(Barwy.slaby)
-                }
-            } else {
+            Text(naglowekDnia).czcionka(14, .bold).foregroundStyle(Barwy.tekst)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityAddTraits(.isHeader)
+            if let lista = listaDnia, !lista.isEmpty {
                 VStack(spacing: 0) {
                     ForEach(Array(lista.enumerated()), id: \.element.id) { i, w in
                         Button { otworz(w) } label: { WierszWydarzenia(wydarzenie: w) }.buttonStyle(.plain)
@@ -819,6 +835,15 @@ struct KalendarzWidok: View {
                     }
                 }
                 .background(Barwy.tlo.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
+            } else if listaDnia == nil {
+                ProgressView().frame(maxWidth: .infinity, minHeight: 60)
+            } else if dzienNaStronie {
+                Button { strona = StronaWWW(sciezka: "wydarzenia") } label: {
+                    Text("Szczegóły tego dnia są na tvml.pl").czcionka(14, .semibold)
+                }
+            } else {
+                Text("Brak wydarzeń tego dnia.").czcionka(14).foregroundStyle(Barwy.slaby)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             HStack {
                 Button { strona = StronaWWW(sciezka: "wydarzenia#dodaj") } label: { Text("Zgłoś wydarzenie").czcionka(14, .semibold) }
@@ -838,7 +863,7 @@ struct KalendarzWidok: View {
         let numer = String(Int(d.suffix(2)) ?? 0)
         let data = KalendarzWidok.iso.date(from: d)
         return Button {
-            if maWydarzenia { wybranyDzien = wybrany ? nil : d }
+            wybranyDzien = d
         } label: {
             VStack(spacing: 2) {
                 Text(numer).czcionka(13, maWydarzenia ? .bold : .regular)
@@ -851,22 +876,26 @@ struct KalendarzWidok: View {
             .overlay(RoundedRectangle(cornerRadius: 8).stroke(dzis ? Barwy.slaby : Color.clear, lineWidth: 1))
         }
         .buttonStyle(.plain)
-        .disabled(!maWydarzenia)
+        .disabled(!maWydarzenia && !dzis)
+        .accessibilityAddTraits(wybrany ? .isSelected : [])
         .accessibilityLabel((data.map { KalendarzWidok.dzienSlownie.string(from: $0) } ?? d) + (maWydarzenia ? ": są wydarzenia" : "") + (dzis ? ", dziś" : ""))
     }
 
-    /// Dzień z listy: najpierw wydarzenia, które już są, a gdy ich nie ma, /api/v1/events?from=D&to=D (API 1.7).
+    /// Wydarzenia wybranego dnia z /api/v1/events?from=D&to=D (także trwające wtedy, np. wystawy).
+    /// Bez sieci: te z listy kalendarza, które zaczynają się tego dnia.
     private func wczytajDzien() async {
+        let d = wybranyDzien
         dzienNaStronie = false
-        guard let d = wybranyDzien else { listaDnia = nil; return }
-        let juzSa = kalendarz.wydarzenia.filter { $0.dzienISO == d }
-        if !juzSa.isEmpty { listaDnia = juzSa; return }
+        listaDnia = nil
         if let z = await m.wydarzeniaDnia(d) {
+            guard d == wybranyDzien else { return }
             listaDnia = z
-        } else {
-            listaDnia = []
-            dzienNaStronie = true
+            return
         }
+        guard d == wybranyDzien else { return }
+        let juzSa = kalendarz.wydarzenia.filter { $0.dzienISO == d }
+        listaDnia = juzSa
+        dzienNaStronie = juzSa.isEmpty && kalendarz.dni.contains(d)
     }
 
     private func otworz(_ w: Wydarzenie) {
