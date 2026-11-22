@@ -386,6 +386,13 @@ final class Magazyn: ObservableObject {
     /// Etykieta paska pod banerem (config.ticker.label) i czy to transmisja (config.ticker.live).
     @Published var etykietaPaska = "NAJNOWSZE"
     @Published var pasekNaZywo = false
+    /// Podstrony z prawdziwą treścią (bez pustych i „Wkrótce.”); nil = jeszcze nie sprawdzone.
+    @Published var stronyGotowe: Set<String>?
+    /// Czy w „Więcej” pokazać ogłoszenia i fotorelacje (tylko gdy coś w nich jest).
+    @Published var maOgloszenia = false
+    @Published var maFotorelacje = true
+    /// Treść podstron pobrana przy sprawdzaniu, żeby otwierały się od razu.
+    private var trescStron: [String: TrescPodstrony] = [:]
     /// Blok poll: trwająca sonda albo kalendarz wydarzeń (klucz: id bloku).
     @Published var spotlight: [String: Spotlight] = [:]
     /// Głosy oddane z tego telefonu (id sondy → odpowiedź), tylko lokalnie.
@@ -560,8 +567,28 @@ final class Magazyn: ObservableObject {
 
     /// Treść podstrony redakcji (/api/v1/pages/<slug>); nil przy błędzie sieci albo nieznanej stronie.
     func podstrona(_ slug: String) async -> TrescPodstrony? {
+        if let t = trescStron[slug] { return t }
         guard let j = (try? await Siec.v1("pages/" + slug)) as? Slownik, j["html"] != nil else { return nil }
-        return TrescPodstrony(j)
+        let t = TrescPodstrony(j)
+        trescStron[slug] = t
+        return t
+    }
+
+    /// Raz po starcie: które podstrony mają treść (Karol, 22.11: tego, co w budowie, nie publikujemy)
+    /// i czy są ogłoszenia oraz fotorelacje. Bez sieci zostaje to, co było.
+    func sprawdzStrony() async {
+        var gotowe = Set<String>()
+        var odpowiedzi = 0
+        for s in strony {
+            guard let j = (try? await Siec.v1("pages/" + s.slug)) as? Slownik, j["html"] != nil else { continue }
+            odpowiedzi += 1
+            let t = TrescPodstrony(j)
+            trescStron[s.slug] = t
+            if Html.tekst(t.html).count >= 40 { gotowe.insert(s.slug) }
+        }
+        if odpowiedzi > 0 { stronyGotowe = gotowe }
+        if let j = (try? await Siec.v1("classifieds", ["limit": "1"])) as? Slownik { maOgloszenia = !j.lista("items").isEmpty }
+        if let j = (try? await Siec.v1("articles", ["photoReport": "1", "limit": "1"])) as? Slownik { maFotorelacje = !j.lista("items").isEmpty }
     }
 
     /// Blok poll: sonda, gdy trwa, a bez niej kalendarz wydarzeń. Przy błędzie sieci zostaje poprzedni stan.

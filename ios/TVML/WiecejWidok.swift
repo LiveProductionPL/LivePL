@@ -10,18 +10,40 @@ struct WiecejWidok: View {
     @AppStorage("tvml-rozmiar") private var rozmiar = 1
     @State private var strona: StronaWWW?
 
-    /// Podstrony w sekcji „TVML”; pozostałe z panelu idą niżej, do „Informacje”.
-    private static let glowne = ["o-nas", "redakcja", "reklama", "kontakt", "regulamin", "polityka-prywatnosci"]
-    private static let ikony = ["o-nas": "info.circle", "redakcja": "person.2", "reklama": "megaphone.fill", "kontakt": "envelope",
-                                "regulamin": "doc.text", "polityka-prywatnosci": "hand.raised", "cookies": "checkmark.shield",
-                                "mapa-strony": "map", "newsletter": "envelope.open", "zasady-redakcyjne": "text.book.closed",
-                                "sprzedaj-ogloszenie": "tag", "gazeta-ogloszeniowa": "newspaper"]
+    /// Podstrony w dwóch sekcjach, w tej kolejności. Nowe strony z panelu (z treścią) dochodzą na koniec „TVML”.
+    /// Strony bez treści albo z „Wkrótce.” (Karol, 22.11: tego, co w budowie, nie publikujemy) aplikacja pomija,
+    /// a mapy strony www w aplikacji nie ma.
+    private static let tvml = ["o-nas", "redakcja", "zasady-redakcyjne", "reklama", "kontakt"]
+    private static let dokumenty = ["regulamin", "polityka-prywatnosci", "cookies"]
+    private static let pomijane: Set<String> = ["mapa-strony"]
+    private static let ikony = ["o-nas": "info.circle", "redakcja": "person.2", "zasady-redakcyjne": "text.book.closed",
+                                "reklama": "megaphone", "kontakt": "envelope", "regulamin": "doc.text",
+                                "polityka-prywatnosci": "hand.raised", "cookies": "checkmark.shield",
+                                "newsletter": "envelope.open", "sprzedaj-ogloszenie": "tag", "gazeta-ogloszeniowa": "newspaper"]
+
+    /// Strony gotowe do pokazania; zanim aplikacja je sprawdzi, tylko te, które na pewno mają treść.
+    private var gotowe: [Podstrona] {
+        let pewne: Set<String> = ["o-nas", "redakcja", "kontakt", "regulamin", "polityka-prywatnosci"]
+        return m.strony.filter { s in
+            !WiecejWidok.pomijane.contains(s.slug) && (m.stronyGotowe?.contains(s.slug) ?? pewne.contains(s.slug))
+        }
+    }
+    private var sekcjaTVML: [Podstrona] {
+        let g = gotowe
+        let znane = WiecejWidok.tvml.compactMap { slug in g.first { $0.slug == slug } }
+        let nowe = g.filter { !WiecejWidok.tvml.contains($0.slug) && !WiecejWidok.dokumenty.contains($0.slug) }
+        return znane + nowe
+    }
+    private var sekcjaDokumenty: [Podstrona] {
+        let g = gotowe
+        return WiecejWidok.dokumenty.compactMap { slug in g.first { $0.slug == slug } }
+    }
 
     var body: some View {
         List {
             Section {
                 Button { strona = StronaWWW(sciezka: "") } label: {
-                    Label("Zgłoś zdarzenie (Alert TVML)", systemImage: "exclamationmark.triangle.fill")
+                    Label("Zgłoś zdarzenie (Alert TVML)", systemImage: "exclamationmark.triangle")
                         .czcionka(16, .bold).foregroundStyle(Color(hex: "#c8102e"))
                 }
             } footer: {
@@ -33,9 +55,15 @@ struct WiecejWidok: View {
                         .badge(m.zapisane.count)
                 }
             }
-            Section("Na tvml.pl") {
-                NavigationLink(value: EkranWiecej.ogloszenia) { Label("Ogłoszenia drobne", systemImage: "megaphone") }
-                NavigationLink(value: EkranWiecej.fotorelacje) { Label("Fotorelacje", systemImage: "photo.on.rectangle") }
+            if m.maOgloszenia || m.maFotorelacje {
+                Section("Na tvml.pl") {
+                    if m.maOgloszenia {
+                        NavigationLink(value: EkranWiecej.ogloszenia) { Label("Ogłoszenia drobne", systemImage: "list.bullet.rectangle") }
+                    }
+                    if m.maFotorelacje {
+                        NavigationLink(value: EkranWiecej.fotorelacje) { Label("Fotorelacje", systemImage: "photo.on.rectangle") }
+                    }
+                }
             }
             Section("Wygląd") {
                 Picker("Tryb", selection: $wyglad) {
@@ -49,14 +77,13 @@ struct WiecejWidok: View {
                     Text("Duży").tag(2)
                 }
             }
-            Section("TVML") {
-                ForEach(m.strony.filter { WiecejWidok.glowne.contains($0.slug) }) { s in pozycja(s) }
+            let tvml = sekcjaTVML
+            if !tvml.isEmpty {
+                Section("TVML") { ForEach(tvml) { s in pozycja(s) } }
             }
-            let inne = m.strony.filter { !WiecejWidok.glowne.contains($0.slug) }
-            if !inne.isEmpty {
-                Section("Informacje") {
-                    ForEach(inne) { s in pozycja(s) }
-                }
+            let dokumenty = sekcjaDokumenty
+            if !dokumenty.isEmpty {
+                Section("Dokumenty") { ForEach(dokumenty) { s in pozycja(s) } }
             }
             Section("Obserwuj nas") {
                 Link(destination: URL(string: "https://www.facebook.com/TVMLpl")!) { Label("Facebook", systemImage: "f.circle") }
@@ -72,6 +99,7 @@ struct WiecejWidok: View {
         .scrollContentBackground(.hidden)
         .background(Barwy.tlo)
         .sheet(item: $strona) { s in Safari(url: URL(string: "https://tvml.pl/" + s.sciezka)!).ignoresSafeArea() }
+        .task { if m.stronyGotowe == nil { await m.sprawdzStrony() } }
     }
 
     /// Podstrona redakcji otwiera się w aplikacji (treść z API), nie w przeglądarce.
