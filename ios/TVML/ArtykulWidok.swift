@@ -319,7 +319,15 @@ struct Odtwarzacz: View {
                 .aspectRatio(16 / 9, contentMode: .fit)
                 .frame(maxHeight: .infinity)
                 .background(.black)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Gotowe") { zamknij() } } }
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) { Button("Gotowe") { zamknij() } }
+                    // zapas, gdy YouTube nie pozwoli odtworzyć filmu w aplikacji
+                    ToolbarItem(placement: .cancellationAction) {
+                        if let yt = URL(string: "https://www.youtube.com/watch?v=" + adres.lastPathComponent) {
+                            Link("Otwórz w YouTube", destination: yt)
+                        }
+                    }
+                }
                 .toolbarBackground(.black, for: .navigationBar)
         }
     }
@@ -336,7 +344,16 @@ struct OknoWideo: UIViewRepresentable {
         w.isOpaque = false
         w.backgroundColor = .black
         w.scrollView.isScrollEnabled = false
-        w.load(URLRequest(url: adres))
+        // YouTube od 2025 r. wymaga strony, która osadza odtwarzacz (inaczej „Błąd 153”): HTML z bazą https://tvml.pl
+        // i iframe z origin. Sam adres embed w WKWebView nie ma referera.
+        let zrodlo = adres.absoluteString + (adres.query == nil ? "?" : "&") + "origin=https%3A%2F%2Ftvml.pl"
+        let html = """
+        <!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>html, body { margin: 0; height: 100%; background: #000; } iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; }</style>
+        </head><body><iframe src="\(zrodlo)" referrerpolicy="strict-origin-when-cross-origin"
+        allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></body></html>
+        """
+        w.loadHTMLString(html, baseURL: URL(string: "https://tvml.pl"))
         return w
     }
     func updateUIView(_ w: WKWebView, context: Context) {}

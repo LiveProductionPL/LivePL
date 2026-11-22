@@ -170,6 +170,7 @@ struct Artykul: Identifiable, Hashable {
     let obraz: String
     let kategoria: String
     let kolor: String
+    let kategoriaSlug: String
     let autor: String
     let data: Date?
     let komentarze: Int
@@ -199,9 +200,9 @@ struct Artykul: Identifiable, Hashable {
             warianty = [:]
         }
         if let k = j["category"] as? Slownik {
-            kategoria = Html.tekst(k.s("name")); kolor = k.s("color")
+            kategoria = Html.tekst(k.s("name")); kolor = k.s("color"); kategoriaSlug = k.s("slug")
         } else {
-            kategoria = Html.tekst(j.s("category")); kolor = j.s("categoryColor")
+            kategoria = Html.tekst(j.s("category")); kolor = j.s("categoryColor"); kategoriaSlug = j.s("categorySlug")
         }
         autor = (j["author"] as? Slownik)?.s("name") ?? j.s("author")
         if j["publishedAt"] != nil {
@@ -220,6 +221,13 @@ struct Artykul: Identifiable, Hashable {
         tresc = t.isEmpty ? nil : t
         pilne = j.slownik("flags").b("urgent")
         sponsorowany = j.slownik("flags").b("sponsored")
+    }
+
+    /// Artykuły sponsorowane są w aplikacji wyłączone (Karol, 22.11.2026), niezależnie od panelu.
+    var sponsorowanyAlboZKategorii: Bool { sponsorowany || kategoriaSlug == "artykuly-sponsorowane" }
+    static func widoczny(_ j: Slownik) -> Artykul? {
+        let a = Artykul(j)
+        return a.sponsorowanyAlboZKategorii ? nil : a
     }
 
     var link: URL { URL(string: "https://tvml.pl/artykul/\(id)")! }
@@ -345,6 +353,15 @@ final class Magazyn: ObservableObject {
     private var kategoriePortali: [String: String] = [:]
     /// Ogłoszenia drobne zatwierdzone w panelu (/api/v1/classifieds, API 1.4).
     @Published var ogloszenia: [Ogloszenie] = []
+    /// Kalendarz wydarzeń (/api/v1/events, API 1.7), gdy panel go włączy.
+    @Published var wydarzenia: [Wydarzenie] = []
+    /// Podstrony redakcji do „Więcej” (config.pages), w kolejności z serwera.
+    @Published var strony: [Podstrona] = Podstrona.domyslne
+    /// Podpis w stopce „Więcej” (config.about.footer).
+    @Published var stopka = "Telewizja TVML · Leszno"
+    /// Etykieta paska pod banerem (config.ticker.label) i czy to transmisja (config.ticker.live).
+    @Published var etykietaPaska = "NAJNOWSZE"
+    @Published var pasekNaZywo = false
     @Published var wymaganaAktualizacja = false
     /// Nowsza wersja w App Store: łagodna prośba o aktualizację pod paskiem „NA ŻYWO” (do zamknięcia).
     @Published var nowaWersja: Komunikat?
@@ -403,7 +420,7 @@ final class Magazyn: ObservableObject {
         async let d = Siec.v1("videos", ["limit": "12"])
         async let e = Siec.v1("weather")
         guard let lista = (try? await a) as? Slownik, let konf = (try? await k) as? Slownik else { return false }
-        najnowsze = lista.lista("items").map(Artykul.init)
+        najnowsze = lista.lista("items").compactMap(Artykul.widoczny)
         if let m = Motyw.zV1(konf.slownik("theme"), wersjaApi: konf.s("apiVersion")) { motyw = m }
         let z = konf.lista("tabs").compactMap(ZakladkaApp.init)
         if !z.isEmpty {
@@ -423,7 +440,13 @@ final class Magazyn: ObservableObject {
             return !bylyOgloszenia
         }
         if !bl.isEmpty { bloki = bl }
-        pasek = konf.slownik("ticker").lista("items").map(Artykul.init)
+        pasek = konf.slownik("ticker").lista("items").compactMap(Artykul.widoczny)
+        let pasekKonf = konf.slownik("ticker")
+        if !pasekKonf.s("label").isEmpty { etykietaPaska = pasekKonf.s("label") }
+        pasekNaZywo = pasekKonf.b("live")
+        let listaStron = konf.lista("pages").map(Podstrona.init).filter { !$0.slug.isEmpty }
+        if !listaStron.isEmpty { strony = listaStron }
+        if !konf.slownik("about").s("footer").isEmpty { stopka = konf.slownik("about").s("footer") }
         gminy = konf.lista("counties").map(Gmina.init).sorted { $0.kolejnosc < $1.kolejnosc }
         for s in konf.lista("subportals") where !s.s("slug").isEmpty {
             kategoriePortali[s.s("slug")] = s.s("category").isEmpty ? s.s("slug") : s.s("category")
@@ -437,7 +460,7 @@ final class Magazyn: ObservableObject {
         komunikat = Komunikat(konf.slownik("message"))
         let minimalna = konf.slownik("minAppVersion").s("ios")
         wymaganaAktualizacja = !minimalna.isEmpty && Wersja.starsza(Wersja.biezaca, niz: minimalna)
-        if let j = (try? await b) as? Slownik { najczytniejsze = j.lista("items").map(Artykul.init) }
+        if let j = (try? await b) as? Slownik { najczytniejsze = j.lista("items").compactMap(Artykul.widoczny) }
         if let j = (try? await d) as? Slownik { filmy = j.lista("items").map(Film.init) }
         if let j = (try? await e) as? Slownik, j["current"] != nil { pogoda = Pogoda(j) }
         // listy bloków Start z kategorią albo flagą i fotorelacje, odświeżane razem z resztą
@@ -446,6 +469,13 @@ final class Magazyn: ObservableObject {
         if let o = bloki.first(where: { $0.typ == "classifieds" }),
            let j = (try? await Siec.v1("classifieds", ["limit": String(o.limit > 0 ? o.limit : 4)])) as? Slownik {
             ogloszenia = j.lista("items").map(Ogloszenie.init)
+        }
+        if konf.slownik("modules").b("events") || bloki.contains(where: { $0.typ == "events" }) {
+            if let j = (try? await Siec.v1("events", ["limit": "20"])) as? Slownik {
+                wydarzenia = j.lista("items").map(Wydarzenie.init)
+            }
+        } else {
+            wydarzenia = []
         }
         return true
     }
@@ -456,7 +486,7 @@ final class Magazyn: ObservableObject {
         var p = ["limit": String(b.limit > 0 ? b.limit : 4)]
         if let k = b.kategoria { p["category"] = k }
         if let f = b.filtr { p[f] = "1" }
-        if let j = (try? await Siec.v1("articles", p)) as? Slownik { wKategorii[klucz] = j.lista("items").map(Artykul.init) }
+        if let j = (try? await Siec.v1("articles", p)) as? Slownik { wKategorii[klucz] = j.lista("items").compactMap(Artykul.widoczny) }
     }
 
     /// Zapas: te same akcje co strona (tvml-db.php i tvml-portal.php).
@@ -468,14 +498,14 @@ final class Magazyn: ObservableObject {
         async let e = Siec.json("tvml-portal.php?action=weather-full")
         async let f = Siec.json("tvml-portal.php?action=portal-config")
         do {
-            najnowsze = ((try await a) as? [Slownik] ?? []).map(Artykul.init)
+            najnowsze = ((try await a) as? [Slownik] ?? []).compactMap(Artykul.widoczny)
             blad = nil
             ostatnio = Date()
         } catch {
             if najnowsze.isEmpty { blad = "Nie udało się pobrać wiadomości. Sprawdź internet i przeciągnij w dół, żeby spróbować ponownie." }
         }
-        if let lista = (try? await b) as? [Slownik] { najczytniejsze = lista.map(Artykul.init) }
-        if let lista = (try? await c) as? [Slownik] { pasek = lista.map(Artykul.init) }
+        if let lista = (try? await b) as? [Slownik] { najczytniejsze = lista.compactMap(Artykul.widoczny) }
+        if let lista = (try? await c) as? [Slownik] { pasek = lista.compactMap(Artykul.widoczny) }
         if let j = (try? await d) as? Slownik { filmy = j.lista("items").map(Film.init) }
         if let j = (try? await e) as? Slownik, j["current"] != nil { pogoda = Pogoda(j) }
         if let j = (try? await f) as? Slownik { motyw = Motyw.wylicz(z: j) }
@@ -485,21 +515,39 @@ final class Magazyn: ObservableObject {
         // subportal ma w panelu własną kategorię artykułów (Muzyka: muzyka-tvml); lista zostaje pod slugiem
         let kat = kategoriePortali[slug] ?? slug
         if let j = (try? await Siec.v1("articles", ["category": kat, "limit": String(limit)])) as? Slownik {
-            wKategorii[slug] = j.lista("items").map(Artykul.init)
+            wKategorii[slug] = j.lista("items").compactMap(Artykul.widoczny)
             return
         }
         guard let lista = (try? await Siec.json("tvml-db.php?action=news&category=\(kat)&limit=\(limit)")) as? [Slownik] else { return }
-        wKategorii[slug] = lista.map(Artykul.init)
+        wKategorii[slug] = lista.compactMap(Artykul.widoczny)
     }
 
     func gmina(_ g: Gmina) async -> [Artykul] {
         guard let j = (try? await Siec.v1("articles", ["county": g.id, "limit": "20"])) as? Slownik else { return [] }
-        return j.lista("items").map(Artykul.init)
+        return j.lista("items").compactMap(Artykul.widoczny)
+    }
+
+    /// Treść podstrony redakcji (/api/v1/pages/<slug>); nil przy błędzie sieci albo nieznanej stronie.
+    func podstrona(_ slug: String) async -> TrescPodstrony? {
+        guard let j = (try? await Siec.v1("pages/" + slug)) as? Slownik, j["html"] != nil else { return nil }
+        return TrescPodstrony(j)
+    }
+
+    /// Ogłoszenia drobne do ekranu z „Więcej”.
+    func wszystkieOgloszenia() async -> [Ogloszenie] {
+        guard let j = (try? await Siec.v1("classifieds", ["limit": "50"])) as? Slownik else { return ogloszenia }
+        return j.lista("items").map(Ogloszenie.init)
+    }
+
+    /// Fotorelacje do ekranu z „Więcej” (osobno od bloku na Start).
+    func listaFotorelacji() async -> [Artykul] {
+        guard let j = (try? await Siec.v1("articles", ["photoReport": "1", "limit": "30"])) as? Slownik else { return [] }
+        return j.lista("items").compactMap(Artykul.widoczny)
     }
 
     func fotorelacje(limit: Int) async {
         guard let j = (try? await Siec.v1("articles", ["photoReport": "1", "limit": String(max(limit, 4))])) as? Slownik else { return }
-        wKategorii["_fotorelacje"] = j.lista("items").map(Artykul.init)
+        wKategorii["_fotorelacje"] = j.lista("items").compactMap(Artykul.widoczny)
     }
 
     func artykul(_ id: Int) async -> Artykul? {
@@ -509,10 +557,10 @@ final class Magazyn: ObservableObject {
     }
 
     func szukaj(_ fraza: String) async -> [Artykul] {
-        if let j = (try? await Siec.v1("search", ["q": fraza, "limit": "20"])) as? Slownik { return j.lista("items").map(Artykul.init) }
+        if let j = (try? await Siec.v1("search", ["q": fraza, "limit": "20"])) as? Slownik { return j.lista("items").compactMap(Artykul.widoczny) }
         let q = fraza.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
         guard !q.isEmpty, let lista = (try? await Siec.json("tvml-db.php?action=search&q=\(q)&limit=20")) as? [Slownik] else { return [] }
-        return lista.map(Artykul.init)
+        return lista.compactMap(Artykul.widoczny)
     }
 
     func przelaczZapis(_ a: Artykul) {
@@ -667,15 +715,16 @@ struct BlokStartu: Identifiable, Hashable {
     init?(_ j: Slownik) {
         let p = j.slownik("props")
         let typ = j.s("type")
-        guard ["hero", "weather", "alert", "video", "posts", "mostread", "gallery", "counties", "social", "sponsored", "classifieds"].contains(typ) else { return nil }
-        // „sponsored” z kreatora to lista artykułów sponsorowanych, rysowana jak posts
-        self.typ = typ == "sponsored" ? "posts" : typ
+        guard ["hero", "weather", "alert", "video", "posts", "mostread", "gallery", "counties", "social", "classifieds", "events"].contains(typ) else { return nil }
+        // artykuły sponsorowane są w aplikacji wyłączone (Karol, 22.11.2026): bez bloku sponsored i bez list sponsorowanych
+        if p.s("category") == "artykuly-sponsorowane" || p.b("sponsored") { return nil }
+        self.typ = typ
         id = j.s("id").isEmpty ? UUID().uuidString : j.s("id")
         tytul = j.s("title")
         ukryjTytul = p.b("hideTitle")
         limit = p.i("limit")
         kategoria = p.s("category").isEmpty ? nil : p.s("category")
-        filtr = typ == "sponsored" ? "sponsored" : ["sponsored", "featured", "urgent", "photoReport"].first { p.b($0) }
+        filtr = ["featured", "urgent", "photoReport"].first { p.b($0) }
     }
 
     /// Klucz własnej listy bloku posts (kategoria albo flaga); nil, gdy blok pokazuje kolejne najnowsze.
@@ -773,4 +822,96 @@ enum Html {
         }
         return t.trimmingCharacters(in: .whitespacesAndNewlines)
     }
+}
+
+/// Podstrona redakcji z config.pages (O nas, Kontakt, Regulamin…), w kolejności z panelu.
+struct Podstrona: Identifiable, Hashable {
+    let slug: String
+    let tytul: String
+    let adres: URL?
+    let adresApp: URL?
+    var id: String { slug }
+
+    init(slug: String, tytul: String) {
+        self.slug = slug
+        self.tytul = tytul
+        adres = URL(string: "https://tvml.pl/strona/" + slug)
+        adresApp = URL(string: "https://tvml.pl/strona/" + slug + "?widok=app")
+    }
+
+    init(_ j: Slownik) {
+        slug = j.s("slug")
+        tytul = Html.tekst(j.s("title"))
+        adres = URL(string: j.s("url"))
+        adresApp = URL(string: j.s("appUrl"))
+    }
+
+    /// Bez API (stary serwer albo brak sieci przy pierwszym starcie).
+    static let domyslne: [Podstrona] = [
+        Podstrona(slug: "o-nas", tytul: "O nas"), Podstrona(slug: "redakcja", tytul: "Redakcja"),
+        Podstrona(slug: "reklama", tytul: "Reklama"), Podstrona(slug: "kontakt", tytul: "Kontakt"),
+        Podstrona(slug: "regulamin", tytul: "Regulamin"), Podstrona(slug: "polityka-prywatnosci", tytul: "Polityka prywatności")
+    ]
+}
+
+/// Treść podstrony z /api/v1/pages/<slug>: bezpieczny HTML z panelu (p, h2–h4, a, listy, obrazy, tabele).
+struct TrescPodstrony {
+    let slug: String
+    let tytul: String
+    let html: String
+    let aktualizacja: Date?
+
+    init(_ j: Slownik) {
+        slug = j.s("slug")
+        tytul = Html.tekst(j.s("title"))
+        html = j.s("html")
+        aktualizacja = ISO8601DateFormatter().date(from: j.s("updatedAt"))
+    }
+}
+
+/// Wydarzenie z kalendarza tvml.pl (/api/v1/events, API 1.7): tylko zatwierdzone, od najbliższego, także trwające.
+struct Wydarzenie: Identifiable, Hashable {
+    let id: Int
+    let tytul: String
+    let poczatek: Date?
+    let koniec: Date?
+    let calyDzien: Bool
+    let miejsce: String
+    let adres: URL?
+    let artykulId: Int?
+
+    init(_ j: Slownik) {
+        id = j.i("id")
+        tytul = Html.tekst(j.s("title"))
+        let iso = ISO8601DateFormatter()
+        poczatek = iso.date(from: j.s("startsAt"))
+        koniec = j.s("endsAt").isEmpty ? nil : iso.date(from: j.s("endsAt"))
+        calyDzien = j.b("allDay")
+        miejsce = Html.tekst(j.s("place").isEmpty ? j.s("location") : j.s("place"))
+        adres = URL(string: j.s("url"))
+        artykulId = j.i("articleId") > 0 ? j.i("articleId") : nil
+    }
+
+    /// „trwa”, „cały dzień” albo godzina rozpoczęcia, np. „18:00”.
+    var godzina: String {
+        let teraz = Date()
+        if let p = poczatek, p < teraz, (koniec ?? p) > teraz { return "trwa" }
+        if calyDzien { return "cały dzień" }
+        return poczatek.map { Wydarzenie.fGodzina.string(from: $0) } ?? ""
+    }
+    var dzien: String { poczatek.map { Wydarzenie.fDzien.string(from: $0) } ?? "" }
+    var miesiac: String { poczatek.map { Wydarzenie.fMiesiac.string(from: $0).uppercased() } ?? "" }
+    var dzienTygodnia: String { poczatek.map { Wydarzenie.fTydzien.string(from: $0) } ?? "" }
+
+    private static func format(_ wzor: String) -> DateFormatter {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "pl_PL")
+        f.timeZone = TimeZone(identifier: "Europe/Warsaw")
+        f.dateFormat = wzor
+        return f
+    }
+    static let fGodzina = format("HH:mm")
+    static let fDzien = format("d")
+    static let fMiesiac = format("LLL")
+    static let fTydzien = format("EEE")
 }

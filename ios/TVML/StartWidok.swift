@@ -146,6 +146,21 @@ struct BlokWidok: View {
                 }
             }
             .task { if m.wKategorii["_fotorelacje"] == nil { await m.fotorelacje(limit: blok.limit) } }
+        case "events":
+            if !m.wydarzenia.isEmpty {
+                if !blok.ukryjTytul { Naglowek(tytul: blok.tytul.isEmpty ? "Kalendarz wydarzeń" : blok.tytul) }
+                let lista = Array(m.wydarzenia.prefix(blok.limit > 0 ? blok.limit : 5))
+                VStack(spacing: 0) {
+                    ForEach(Array(lista.enumerated()), id: \.element.id) { i, w in
+                        Button { otworz(w) } label: { WierszWydarzenia(wydarzenie: w) }.buttonStyle(.plain)
+                        if i < lista.count - 1 { Barwy.ramka.frame(height: 1) }
+                    }
+                }
+                .background(Barwy.karta, in: RoundedRectangle(cornerRadius: 14))
+                Button { strona = StronaWWW(sciezka: "wydarzenia") } label: {
+                    Text("Wszystkie wydarzenia na tvml.pl").czcionka(14, .semibold)
+                }
+            }
         case "classifieds":
             if !m.ogloszenia.isEmpty {
                 Naglowek(tytul: blok.tytul.isEmpty ? "Ogłoszenia drobne" : blok.tytul)
@@ -206,6 +221,23 @@ struct BlokWidok: View {
         if let k = blok.klucz { return Array((m.wKategorii[k] ?? []).prefix(limit)) }
         let karuzela = m.bloki.first { $0.typ == "hero" }.map { $0.limit > 0 ? $0.limit : 5 } ?? 0
         return Array(m.najnowsze.dropFirst(karuzela).prefix(limit))
+    }
+
+    /// Wydarzenie z artykułem otwiera artykuł w aplikacji, a bez niego swoją stronę na tvml.pl.
+    private func otworz(_ w: Wydarzenie) {
+        if let id = w.artykulId {
+            Task { @MainActor in
+                if let a = await m.artykul(id) { m.otworz(a) } else { pokaz(w) }
+            }
+        } else {
+            pokaz(w)
+        }
+    }
+
+    private func pokaz(_ w: Wydarzenie) {
+        let baza = "https://tvml.pl/"
+        let s = w.adres?.absoluteString ?? ""
+        strona = StronaWWW(sciezka: s.hasPrefix(baza) ? String(s.dropFirst(baza.count)) : "wydarzenia?id=\(w.id)")
     }
 
     private func spolecznosc(_ nazwa: String, _ adres: String) -> some View {
@@ -542,5 +574,34 @@ struct KafelPogody: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Pogoda w Lesznie: \(m.pogoda.map { Pogoda.stopnie($0.temperatura) } ?? ""), \(m.pogoda?.opis ?? "")")
+    }
+}
+
+/// Wiersz kalendarza wydarzeń: kafelek z dniem i miesiącem, tytuł, godzina i miejsce.
+struct WierszWydarzenia: View {
+    @EnvironmentObject private var m: Magazyn
+    let wydarzenie: Wydarzenie
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(spacing: 0) {
+                Text(wydarzenie.dzien).font(Czcionka.naglowek(22)).foregroundStyle(m.motyw.napisNaAkcencie)
+                Text(wydarzenie.miesiac).czcionka(11, .bold).foregroundStyle(m.motyw.napisNaAkcencie)
+            }
+            .frame(width: 52)
+            .frame(minHeight: 56)
+            .background(m.motyw.akcent, in: RoundedRectangle(cornerRadius: 10))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(wydarzenie.tytul).czcionka(15, .semibold).foregroundStyle(Barwy.tekst).lineLimit(3)
+                Text([wydarzenie.dzienTygodnia, wydarzenie.godzina, wydarzenie.miejsce].filter { !$0.isEmpty }.joined(separator: " · "))
+                    .czcionka(12).foregroundStyle(Barwy.slaby).lineLimit(2)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold)).foregroundStyle(Barwy.slaby)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
     }
 }

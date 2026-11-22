@@ -37,7 +37,7 @@ struct Glowny: View {
                             .toolbar(.hidden, for: .navigationBar)
                             .navigationDestination(for: Artykul.self) { ArtykulWidok(poczatkowy: $0).kolumna() }
                             .navigationDestination(for: Gmina.self) { ListaGminy(gmina: $0).kolumna() }
-                            .navigationDestination(for: EkranZapisanych.self) { _ in ZapisaneWidok() }
+                            .navigationDestination(for: EkranWiecej.self) { EkranWiecejWidok(ekran: $0) }
                     }
                     .tabItem { Label(z.tytul, systemImage: z.ikona) }
                     .tag(z.id)
@@ -99,6 +99,10 @@ extension Magazyn {
 
     func otworz(_ a: Artykul) {
         sciezki[zakladka, default: NavigationPath()].append(a)
+    }
+
+    func otworz(_ e: EkranWiecej) {
+        sciezki[zakladka, default: NavigationPath()].append(e)
     }
 }
 
@@ -277,16 +281,16 @@ struct NaZywo: View {
     @State private var szerokosc: CGFloat = 1
 
     var body: some View {
-        let tekst = m.pasek.map(\.tytul).joined(separator: "     •     ")
         HStack(spacing: 0) {
             HStack(spacing: 6) {
-                Circle().fill(.white).frame(width: 8, height: 8)
-                Text("NA ŻYWO").czcionka(11, .heavy).kerning(1)
+                // kropka i „NA ŻYWO” tylko przy transmisji (config.ticker.live), inaczej etykieta z panelu, np. „NAJNOWSZE”
+                if m.pasekNaZywo { Circle().fill(.white).frame(width: 8, height: 8) }
+                Text(m.pasekNaZywo ? "NA ŻYWO" : m.etykietaPaska.uppercased()).czcionka(11, .heavy).kerning(1)
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 12).frame(maxHeight: .infinity)
             .background(m.motyw.naZywo)
-            // tekst w nakładce, żeby jego szerokość nie wypychała etykiety „NA ŻYWO”
+            // tekst w nakładce, żeby jego szerokość nie wypychała etykiety
             Color.clear
                 .frame(maxWidth: .infinity)
                 .overlay(alignment: .leading) {
@@ -297,15 +301,24 @@ struct NaZywo: View {
                             .foregroundStyle(Barwy.tekst)
                             .lineLimit(1)
                             .padding(.horizontal, 10)
+                            .contentShape(Rectangle())
+                            .onTapGesture { if let pierwszy = m.pasek.first { m.otworz(pierwszy) } }
                     } else {
                     TimelineView(.animation(minimumInterval: 1.0 / 30)) { kontekst in
                         let przesuniecie = CGFloat(kontekst.date.timeIntervalSinceReferenceDate * 40).truncatingRemainder(dividingBy: szerokosc + 60)
-                        Text(tekst)
-                            .czcionka(13, .semibold)
-                            .foregroundStyle(Barwy.tekst)
-                            .fixedSize()
-                            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { szerokosc = max(1, $0) }
-                            .offset(x: 10 - przesuniecie)
+                        // każda wiadomość to osobny przycisk z własnym artykułem (wcześniej cały pasek otwierał jeden)
+                        HStack(spacing: 0) {
+                            ForEach(Array(m.pasek.enumerated()), id: \.offset) { i, a in
+                                if i > 0 { Text("     •     ").czcionka(13, .semibold).foregroundStyle(Barwy.tekst) }
+                                Button { m.otworz(a) } label: {
+                                    Text(a.tytul).czcionka(13, .semibold).foregroundStyle(Barwy.tekst)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .fixedSize()
+                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { szerokosc = max(1, $0) }
+                        .offset(x: 10 - przesuniecie)
                     }
                     }
                 }
@@ -314,11 +327,8 @@ struct NaZywo: View {
         .frame(height: wysokosc)
         .background(Barwy.karta)
         .overlay(alignment: .bottom) { Barwy.ramka.frame(height: 1) }
-        .contentShape(Rectangle())
-        .onTapGesture { if let pierwszy = m.pasek.first { m.otworz(pierwszy) } }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Na żywo: \(m.pasek.first?.tytul ?? "")")
-        .accessibilityAddTraits(.isButton)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(m.pasekNaZywo ? "Na żywo" : m.etykietaPaska)
     }
 }
 
