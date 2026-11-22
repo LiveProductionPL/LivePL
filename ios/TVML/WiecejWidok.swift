@@ -20,7 +20,7 @@ struct WiecejWidok: View {
                 Text("Formularz jest na stronie głównej tvml.pl, przycisk „Zgłoś zdarzenie”.")
             }
             Section("Moje") {
-                NavigationLink { ZapisaneWidok() } label: {
+                NavigationLink(value: EkranZapisanych()) {
                     Label("Zapisane artykuły", systemImage: "bookmark")
                         .badge(m.zapisane.count)
                 }
@@ -80,6 +80,9 @@ struct Safari: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> SFSafariViewController { SFSafariViewController(url: url) }
     func updateUIViewController(_ vc: SFSafariViewController, context: Context) {}
 }
+
+/// Wartość do ścieżki nawigacji: ekran „Zapisane artykuły”.
+struct EkranZapisanych: Hashable {}
 
 struct ZapisaneWidok: View {
     @EnvironmentObject private var m: Magazyn

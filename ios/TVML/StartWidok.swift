@@ -167,7 +167,7 @@ struct BlokWidok: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(m.gminy) { g in
-                            NavigationLink { ListaGminy(gmina: g) } label: {
+                            NavigationLink(value: g) {
                                 HStack(spacing: 8) {
                                     AsyncImage(url: g.herb) { $0.resizable().scaledToFit() } placeholder: { Color.clear }
                                         .frame(width: 22, height: 26)

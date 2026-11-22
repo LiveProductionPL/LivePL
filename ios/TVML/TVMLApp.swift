@@ -36,6 +36,8 @@ struct Glowny: View {
                             .kolumna()
                             .toolbar(.hidden, for: .navigationBar)
                             .navigationDestination(for: Artykul.self) { ArtykulWidok(poczatkowy: $0).kolumna() }
+                            .navigationDestination(for: Gmina.self) { ListaGminy(gmina: $0).kolumna() }
+                            .navigationDestination(for: EkranZapisanych.self) { _ in ZapisaneWidok() }
                     }
                     .tabItem { Label(z.tytul, systemImage: z.ikona) }
                     .tag(z.id)
@@ -91,12 +93,12 @@ struct Glowny: View {
 }
 
 extension Magazyn {
-    func sciezka(_ z: String) -> Binding<[Artykul]> {
-        Binding(get: { self.sciezki[z] ?? [] }, set: { self.sciezki[z] = $0 })
+    func sciezka(_ z: String) -> Binding<NavigationPath> {
+        Binding(get: { self.sciezki[z] ?? NavigationPath() }, set: { self.sciezki[z] = $0 })
     }
 
     func otworz(_ a: Artykul) {
-        sciezki[zakladka, default: []].append(a)
+        sciezki[zakladka, default: NavigationPath()].append(a)
     }
 }
 

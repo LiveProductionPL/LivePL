@@ -331,8 +331,9 @@ final class Magazyn: ObservableObject {
     /// Zakładki z panelu (Aplikacja mobilna → Zakładki), a bez API domyślne z projektu.
     @Published var zakladki: [ZakladkaApp] = ZakladkaApp.domyslne
     @Published var zakladka = "home"
-    /// Otwarte artykuły w każdej zakładce (NavigationStack).
-    @Published var sciezki: [String: [Artykul]] = [:]
+    /// Otwarte ekrany w każdej zakładce (NavigationStack): artykuły, gminy, zapisane. Wszystko przez wartości,
+    /// bo link do widoku (NavigationLink { … }) obok ścieżki z wartościami nie otwierał potem artykułu.
+    @Published var sciezki: [String: NavigationPath] = [:]
     /// Bloki ekranu Start w kolejności z panelu (layout.widgetsMobile).
     @Published var bloki: [BlokStartu] = BlokStartu.domyslne
     @Published var gminy: [Gmina] = []
@@ -528,7 +529,7 @@ final class Magazyn: ObservableObject {
     func naStart() {
         let start = zakladki.first { $0.cel == .start }?.id ?? zakladki.first?.id ?? "home"
         zakladka = start
-        sciezki[start] = []
+        sciezki[start] = NavigationPath()
     }
 }
 
