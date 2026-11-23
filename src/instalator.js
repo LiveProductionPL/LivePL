@@ -88,18 +88,67 @@ function lista(folder, baza = folder, wynik = []) {
   return wynik;
 }
 
-async function kopiuj(postep) {
+const czekaj = (ms) => new Promise(r => setTimeout(r, ms));
+
+// Antywirus (skanuje świeżo zapisany .exe) albo indeksowanie potrafią na chwilę trzymać plik: wtedy kilka prób.
+const CHWILOWE = new Set(['EPERM', 'EACCES', 'EBUSY']);
+
+async function ponawiaj(dzialanie, proby = 6, odstep = 400) {
+  for (let i = 1; ; i++) {
+    try {
+      return await dzialanie();
+    } catch (e) {
+      if (i >= proby || !CHWILOWE.has(e.code)) throw e;
+      await czekaj(odstep * i);
+    }
+  }
+}
+
+function usun(folder) {
+  fs.rmSync(folder, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+}
+
+async function kopiuj(postep, folder) {
   const pliki = lista(ZRODLO);
   const razem = pliki.reduce((s, p) => s + p.rozmiar, 0) || 1;
   let skopiowano = 0;
   for (const [i, p] of pliki.entries()) {
-    const cel = path.join(CEL, p.sciezka);
+    const cel = path.join(folder, p.sciezka);
     fs.mkdirSync(path.dirname(cel), { recursive: true });
-    await fs.promises.copyFile(path.join(ZRODLO, p.sciezka), cel);
+    try {
+      await ponawiaj(() => fs.promises.copyFile(path.join(ZRODLO, p.sciezka), cel));
+    } catch (e) {
+      e.plik = p.sciezka;
+      throw e;
+    }
     skopiowano += p.rozmiar;
     if (i % 3 === 0 || i === pliki.length - 1) postep(skopiowano / razem, `Kopiuję pliki: ${i + 1} z ${pliki.length}`);
   }
   return razem;
+}
+
+// Opis błędu po polsku, z tym, co zrobić; kod techniczny zostaje w nawiasie.
+function opisBledu(e, staraZostala) {
+  const stara = staraZostala ? ' Poprzednia wersja LivePL została bez zmian.' : '';
+  if (e.code === 'ENOSPC') return 'Za mało miejsca na dysku.' + stara;
+  if (CHWILOWE.has(e.code) && e.plik) {
+    return `Windows albo program antywirusowy zablokował plik ${path.basename(e.plik)}. ` +
+      'Otwórz Zabezpieczenia Windows → Ochrona przed wirusami i zagrożeniami → Historia ochrony, ' +
+      `zezwól na LivePL i kliknij „Spróbuj jeszcze raz”.${stara} (${e.code})`;
+  }
+  return (e.message || String(e)) + stara;
+}
+
+// Resztki po przerwanej instalacji (LivePL.nowa-…, LivePL.stara-…) obok folderu programu.
+function sprzatnijResztki() {
+  const rodzic = path.dirname(CEL), nazwa = path.basename(CEL);
+  let wpisy = [];
+  try { wpisy = fs.readdirSync(rodzic); } catch { return; }
+  for (const w of wpisy) {
+    if (w.startsWith(nazwa + '.nowa-') || w.startsWith(nazwa + '.stara-')) {
+      try { usun(path.join(rodzic, w)); } catch { /* spróbuje następna instalacja */ }
+    }
+  }
 }
 
 // ---------------------------------------------------------------- skróty i wpis w Windows
@@ -138,21 +187,46 @@ async function zarejestruj(rozmiar) {
 
 // ---------------------------------------------------------------- instalacja
 
+// Nowa wersja kopiuje się obok (LivePL.nowa-…), a stara zostaje do samego końca: gdy kopiowanie się nie uda
+// (np. antywirus zablokuje LivePL.exe), użytkownik dalej ma działający LivePL. Na końcu szybka podmiana folderów;
+// stara wersja znika w całości, żeby nie zostały po niej pliki (dane użytkownika są gdzie indziej).
 async function instaluj(opcje) {
   const postep = (ulamek, opis) => wyslij('postep', { ulamek: Math.max(0, Math.min(1, ulamek)), opis });
+  const bylaStara = fs.existsSync(EXE);
   try {
     postep(0, 'Zamykam LivePL, jeśli działa…');
     await zamknijDzialajace();
     postep(0.01, 'Przygotowuję folder…');
-    if (fs.existsSync(CEL)) {
-      // stara wersja znika w całości, żeby nie zostały po niej pliki (dane użytkownika są gdzie indziej)
+    sprzatnijResztki();
+    const znacznik = Date.now().toString(36);
+    const nowa = `${CEL}.nowa-${znacznik}`;
+    const stara = `${CEL}.stara-${znacznik}`;
+    let rozmiar;
+    try {
+      rozmiar = await kopiuj((u, opis) => postep(0.02 + u * 0.88, opis), nowa);
+    } catch (e) {
+      try { usun(nowa); } catch { /* sprzątnie następna instalacja */ }
+      throw e;
+    }
+    postep(0.91, 'Podmieniam wersję…');
+    await zamknijDzialajace(); // gdyby ktoś w międzyczasie uruchomił LivePL
+    const jestStara = fs.existsSync(CEL);
+    if (jestStara) {
       try {
-        fs.rmSync(CEL, { recursive: true, force: true, maxRetries: 5, retryDelay: 300 });
+        await ponawiaj(() => fs.promises.rename(CEL, stara), 10);
       } catch {
+        try { usun(nowa); } catch { /* sprzątnie następna instalacja */ }
         throw new Error('Nie mogę zastąpić poprzedniej wersji. Zamknij LivePL i spróbuj jeszcze raz.');
       }
     }
-    const rozmiar = await kopiuj((u, opis) => postep(0.02 + u * 0.9, opis));
+    try {
+      await ponawiaj(() => fs.promises.rename(nowa, CEL), 10);
+    } catch (e) {
+      if (jestStara) { try { fs.renameSync(stara, CEL); } catch { /* zostaje w LivePL.stara-…, patrz niżej */ } }
+      try { usun(nowa); } catch { /* sprzątnie następna instalacja */ }
+      throw e;
+    }
+    if (jestStara) { try { usun(stara); } catch { /* sprzątnie następna instalacja */ } }
     postep(0.94, 'Tworzę skróty…');
     skrot(SKROTY.start);
     if (opcje && opcje.pulpit) skrot(SKROTY.pulpit);
@@ -177,7 +251,7 @@ async function instaluj(opcje) {
     postep(1, 'Gotowe');
     return { ok: true, cel: CEL, ca };
   } catch (e) {
-    return { ok: false, blad: e.message || String(e) };
+    return { ok: false, blad: opisBledu(e, bylaStara && fs.existsSync(EXE)) };
   }
 }
 
@@ -273,4 +347,4 @@ function uruchom(tryb) {
   });
 }
 
-module.exports = { uruchom };
+module.exports = { uruchom, instaluj }; // instaluj także dla testów (--cel=…)
