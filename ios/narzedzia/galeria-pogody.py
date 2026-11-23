@@ -14,6 +14,7 @@ Wynik: raport.txt, wyniki.csv i arkusze PNG (arkusz-przeglad.png, arkusz-najgors
 import csv
 import glob
 import os
+import re
 import sys
 
 import numpy as np
@@ -61,12 +62,14 @@ def podziel(y0, y1, x0, x1, poziom=0):
 
 elementy = sorted(podziel(0, H, 0, W), key=lambda e: (e[0], e[2]))
 # nazwy: pierwszy wiersz to napis, potem lewa kolumna (temperatura, opis) i prawa (prognoza);
-# na dole belka pod grafiką (ok. 48 pkt) z datą i imieninami
-BELKA = 50
+# na dole belka pod grafiką (ok. 50 pkt) z medalem, datą i imieninami
+BELKA = 52
 nazwane = []
 lewe = 0
 gora = [e for e in elementy if e[0] < H - BELKA]
 for (y0, y1, x0, x1) in elementy:
+    if y0 >= H - BELKA and x1 < 60:
+        continue  # medal z ikoną: ma własne tło
     if y0 >= H - BELKA:
         nazwa, prog = "belka (data, imieniny)", 4.5
     elif (y0, y1, x0, x1) == gora[0]:
@@ -89,17 +92,29 @@ def kontrast(l):
     return 1.05 / (l + 0.05)
 
 
-# tekst na belce: na śniegu (zima, Święta) ciemny (#1e293b), w pozostałych scenach jasny (#f6efe4)
-L_CIEMNY = float(jasnosc(np.array([30.0, 41.0, 59.0])))
-L_JASNY = float(jasnosc(np.array([246.0, 239.0, 228.0])))
+def kontrast_belki(w, obszar):
+    """Belka ma własne barwy według sceny: tło z warstwy sceny (jednolite), kolor tekstu z gotowej karty (2×):
+    piksele najbardziej odległe od tła. Kontrast WCAG między nimi."""
+    y0, y1, x0, x1 = obszar
+    try:
+        cal = np.asarray(Image.open(os.path.join(folder, "calosc", w + ".png")).convert("RGB")).astype(float)
+        sc = np.asarray(Image.open(glob.glob(os.path.join(folder, "scena", w + "@*.png"))[0]).convert("RGB")).astype(float)
+    except (OSError, IndexError):
+        return None
+    tlo = np.median(sc[y0:y1, x0:x1].reshape(-1, 3), axis=0)
+    obr = cal[y0 * 2:y1 * 2, x0 * 2:x1 * 2].reshape(-1, 3)
+    if obr.size == 0:
+        return None
+    odl = np.abs(obr - tlo).sum(axis=1)
+    if odl.max() < 30:
+        return None
+    tekst = np.median(obr[odl > odl.max() * 0.7], axis=0)
+    a, b = float(jasnosc(tlo)), float(jasnosc(tekst))
+    return (max(a, b) + 0.05) / (min(a, b) + 0.05)
 
 
 def kontrast_elementu(w, nazwa, pod):
-    """Kontrast tekstu z tłem pod nim; dla jasnego tekstu liczą się najjaśniejsze miejsca, dla ciemnego najciemniejsze."""
-    if nazwa.startswith("belka"):
-        if "-zima-" in w or "-swieta-" in w:
-            return (float(np.percentile(pod, 5)) + 0.05) / (L_CIEMNY + 0.05)
-        return (L_JASNY + 0.05) / (float(np.percentile(pod, 95)) + 0.05)
+    """Kontrast białego tekstu na grafice z najjaśniejszymi miejscami tła pod literami."""
     return kontrast(float(np.percentile(pod, 95)))
 
 
@@ -113,12 +128,20 @@ for w in warianty:
             continue
         L = jasnosc(obraz)
         for nazwa, prog, (y0, y1, x0, x1) in nazwane:
+            if nazwa.startswith("belka"):
+                continue  # osobno niżej (własne barwy)
             pod = L[y0:y1, x0:x1][maska[y0:y1, x0:x1]]
             if pod.size == 0:
                 continue
             k = kontrast_elementu(w, nazwa, pod)
             klucz = (nazwa, prog)
             najgorsze[klucz] = min(najgorsze.get(klucz, 99), k)
+    for nazwa, prog, obszar in nazwane:
+        if nazwa.startswith("belka"):
+            k = kontrast_belki(w, obszar)
+            if k is not None:
+                klucz = (nazwa, prog)
+                najgorsze[klucz] = min(najgorsze.get(klucz, 99), k)
     for (nazwa, prog), k in najgorsze.items():
         wyniki.append((w, nazwa, k, prog))
 
@@ -174,17 +197,15 @@ def arkusz(nazwy, plik, tytul):
     arkusz.save(os.path.join(folder, plik))
 
 
-przeglad = [
-    "zwykly-jesien-day-clear-day", "zwykly-jesien-night-clear-night",
-    "zwykly-jesien-dusk-clouds-rzadkie", "zwykly-jesien-night-rain",
-    "zwykly-jesien-day-fog", "zwykly-jesien-day-wind",
-    "zwykly-wiosna-day-clouds-geste", "zwykly-wiosna-night-storm",
-    "zwykly-lato-day-clear-day", "zwykly-lato-dusk-clear-day",
-    "zwykly-zima-day-snow", "zwykly-zima-night-snow",
-    "wersja-listopad-dzien-chmury", "wersja-listopad-noc-slonce",
-    "wersja-zima-dzien-mgla", "wersja-zima-noc-snieg",
-    "wersja-swieta-dzien-slonce", "wersja-swieta-noc-snieg",
-    "wersja-sylwester-zmierzch-przejasnienia", "wersja-sylwester-noc-slonce",
-]
-arkusz(przeglad, "arkusz-przeglad.png", "Karta pogody na Starcie: wybrane sceny, dzień i noc")
+# każda scena: pogodny dzień i pogodna noc obok siebie (dwa arkusze, żeby obrazy nie były za duże)
+wszystkie = sorted(os.path.basename(p)[:-4] for p in glob.glob(os.path.join(folder, "calosc", "*.png")))
+sceny = sorted({re.sub(r"-(day|night)-.*$", "", n) for n in wszystkie})
+pary = []
+for s in sceny:
+    for przyrostek in ("-day-sunny", "-day-clear-day", "-night-clear-night"):
+        if s + przyrostek in wszystkie:
+            pary.append(s + przyrostek)
+polowa = (len(pary) // 2 + 1) // 2 * 2
+arkusz(pary[:polowa], "arkusz-sceny-1.png", "Karta pogody na Starcie: sceny ze strony, dzień i noc (1/2)")
+arkusz(pary[polowa:], "arkusz-sceny-2.png", "Karta pogody na Starcie: sceny ze strony, dzień i noc (2/2)")
 arkusz(sorted(z_wariantu, key=z_wariantu.get)[:12], "arkusz-najgorsze.png", "12 wariantów z najsłabszym kontrastem")

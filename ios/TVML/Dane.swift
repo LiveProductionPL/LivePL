@@ -534,6 +534,30 @@ final class Magazyn: ObservableObject {
     @Published var dzisiaj: Dzisiaj?
     /// Tematy powiadomień z config.push.topics (pusto = serwer bez push albo jeszcze nie pobrano).
     @Published var tematyPush: [TematPush] = []
+    /// Scena karty pogody z serwera (theme.weatherScene i harmonogram upcomingThemes).
+    @Published var wyborSceny = WyborSceny()
+    /// Ustawienia scen z panelu według stanu pogody (config.weatherAnimation: skyColor, waterColor, fale…).
+    @Published var ustawieniaScen: [String: Slownik] = [:]
+    /// Zmienia się na granicy motywu (from/until) albo o północy, żeby karta przerysowała się z nową sceną.
+    @Published var chwilaSceny = Date()
+    private var zegarSceny: Task<Void, Never>?
+
+    /// Scena teraz: z okna harmonogramu, jeśli trwa, inaczej bieżąca z serwera.
+    var aktywnaScena: WyborSceny.Scena { wyborSceny.scena(na: max(chwilaSceny, Date())) }
+
+    /// Na najbliższej granicy (początek albo koniec motywu, północ w Warszawie) przełącza scenę od razu
+    /// i pobiera config, bo etapy motywu (np. Mikołajki → Święta) i tło po motywie liczy serwer.
+    func zaplanujZmianeSceny() {
+        zegarSceny?.cancel()
+        guard let kiedy = wyborSceny.nastepnaZmiana(po: Date()) else { return }
+        zegarSceny = Task { [weak self] in
+            let sekundy = max(1, kiedy.timeIntervalSinceNow)
+            try? await Task.sleep(nanoseconds: UInt64(sekundy * 1_000_000_000))
+            guard !Task.isCancelled, let self else { return }
+            self.chwilaSceny = Date()
+            await self.odswiez(wymus: true)
+        }
+    }
     /// Komunikat redakcji z panelu (config.message) i prośba o aktualizację (config.minAppVersion.ios), od API 1.2.
     @Published var komunikat: Komunikat?
     /// Kategoria artykułów subportalu z panelu (config.subportals[].category, pusta = slug), np. muzyka → muzyka-tvml.
@@ -614,7 +638,8 @@ final class Magazyn: ObservableObject {
 
     /// Nowe API (/api/v1): config, artykuły, najczęściej czytane, wideo, pogoda.
     private func odswiezV1() async -> Bool {
-        async let k = Siec.v1("config")
+        // features=ai-themes: także motywy z panelu ze sceną SVG (weatherSceneType "svg" i adres obrazu)
+        async let k = Siec.v1("config", ["features": "ai-themes"])
         async let a = Siec.v1("articles", ["limit": "20"])
         async let b = Siec.v1("articles/most-read", ["limit": "10"])
         async let d = Siec.v1("videos", ["limit": "12"])
@@ -626,6 +651,10 @@ final class Magazyn: ObservableObject {
         // push o nowym wpisie: tematy z panelu, gdy serwer ma powiadomienia włączone
         let push = konf.slownik("push")
         tematyPush = push.b("enabled") ? push.lista("topics").compactMap(TematPush.init) : []
+        // scena karty pogody jak na stronie: teraz theme.weatherScene, później upcomingThemes (przełączenie o czasie)
+        wyborSceny = WyborSceny(konf)
+        ustawieniaScen = (konf["weatherAnimation"] as? [String: Slownik]) ?? [:]
+        zaplanujZmianeSceny()
         if jezyk != Jezyk.biezacy { jezyk = Jezyk.biezacy }
         najnowsze = lista.lista("items").compactMap(Artykul.widoczny)
         if let m = Motyw.zV1(konf.slownik("theme"), wersjaApi: konf.s("apiVersion")) { motyw = m }

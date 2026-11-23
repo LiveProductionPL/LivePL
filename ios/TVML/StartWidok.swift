@@ -559,19 +559,26 @@ struct KafelPogody: View {
         return Napisy.t("app.nameDays", "Imieniny") + ": " + imiona.joined(separator: ", ")
     }
 
+    @Environment(\.accessibilityReduceMotion) private var bezRuchu
+
     var body: some View {
+        let scena = m.aktywnaScena
+        let drugaLinia = PaletaBelki.drugaLinia(scena, imieniny: imieniny)
         Button { m.pokaz(.pogoda) } label: {
             KartaPogody(temperatura: m.pogoda.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–",
                         opis: m.pogoda?.opis ?? "",
                         prognoza: (m.pogoda?.dni ?? []).dropFirst().prefix(3).map { (nazwa: $0.nazwa, max: Pogoda.stopnie($0.max)) },
-                        data: data, imieniny: imieniny,
+                        data: data, imieniny: drugaLinia,
                         stan: StanPogody.z(ikony: m.pogoda?.ikona ?? "cloud"),
                         pora: PoraDnia.teraz(dzien: m.pogoda?.dzien ?? true),
                         scena: m.motyw.scena(miesiac: Calendar.current.component(.month, from: .now)),
-                        efekt: m.pogoda?.efekt, okolicznosciowy: m.motyw.rodzaj != .zwykly)
+                        efekt: m.pogoda?.efekt, okolicznosciowy: m.motyw.rodzaj != .zwykly,
+                        scenaKarty: scena,
+                        warunki: WarunkiSceny.z(stan: m.pogoda?.ikona ?? "", efekt: m.pogoda?.efekt, dzien: m.pogoda?.dzien ?? true,
+                                                ustawienia: m.ustawieniaScen[m.pogoda?.ikona ?? ""], karta: false, bezRuchu: bezRuchu))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie") + ": \(m.pogoda.map { Pogoda.stopnie($0.temperatura) } ?? ""), \(m.pogoda?.opis ?? ""). " + data + (imieniny.map { ". " + $0 } ?? ""))
+        .accessibilityLabel(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie") + ": \(m.pogoda.map { Pogoda.stopnie($0.temperatura) } ?? ""), \(m.pogoda?.opis ?? ""). " + data + (drugaLinia.map { ". " + $0 } ?? ""))
     }
 }
 
@@ -590,20 +597,25 @@ struct KartaPogody: View {
     let scena: Motyw.Scena
     var efekt: EfektPogody? = nil
     var okolicznosciowy = false
+    /// scena ze strony wybrana przez serwer (theme.weatherScene, harmonogram) albo obraz SVG motywu z panelu;
+    /// nil = dawna panorama według pory roku
+    var scenaKarty: WyborSceny.Scena? = nil
+    /// isNight, burza, deszcz, mgła i ustawienia sceny z panelu (jak na stronie)
+    var warunki: WarunkiSceny? = nil
     /// stała chwila animacji (galeria); nil = scena żyje
     var czas: Double? = nil
     /// galeria: sama scena (z przyciemnieniem, tekst niewidoczny, ale zajmuje miejsce) albo sam tekst na przezroczystym tle
     var warstwa: Warstwa = .calosc
     @Environment(\.dynamicTypeSize) private var rozmiarTekstu
 
-    /// Belka pod grafiką ma kolor ziemi sceny (jesienią brązowa, nocą granatowa, zimą i w Święta śnieżna),
-    /// tekst na niej ciemny na śniegu, w pozostałych scenach jasny.
     private var noc: Bool {
+        if let warunki { return warunki.noc }
         if !okolicznosciowy, let e = efekt { return e.faza == "night" }
         return pora == .noc
     }
-    private var jasnaBelka: Bool { ScenaPogody.zimowa(scena) }
-    private var kolorNaBelce: Color { jasnaBelka ? Color(hex: "#1e293b") : Color(hex: "#f6efe4") }
+    private var paleta: PaletaBelki {
+        PaletaBelki.dla(scenaKarty ?? WyborSceny.Scena(), noc: noc, rok: Calendar.current.component(.year, from: Date()))
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -613,8 +625,39 @@ struct KartaPogody: View {
         .clipShape(RoundedRectangle(cornerRadius: 18))
     }
 
-    /// Scena z napisem, temperaturą i prognozą; na dole pas, w którym stoją drzewa (ok. 25 pkt).
+    /// Grafika w proporcjach zbliżonych do karty ze strony (scena rysowana jak na stronie, dół sceny pod tekstem);
+    /// przy dużym tekście karta rośnie razem z nim.
     private var grafika: some View {
+        ZStack(alignment: .topLeading) {
+            Color.clear.aspectRatio(2.15, contentMode: .fit)
+            tekst
+        }
+        .frame(maxWidth: .infinity)
+        .background {
+            if warstwa != .tekst {
+                tlo
+                    // przyciemnienie pod tekstem: mocniej u góry (napis, chmury), słabnie ku scenie na dole
+                    .overlay {
+                        LinearGradient(stops: [.init(color: .black.opacity(0.34), location: 0),
+                                               .init(color: .black.opacity(0.2), location: 0.5),
+                                               .init(color: .black.opacity(0), location: 0.78)],
+                                       startPoint: .top, endPoint: .bottom)
+                    }
+            }
+        }
+    }
+
+    @ViewBuilder private var tlo: some View {
+        if let s = scenaKarty, let svg = s.svg {
+            TloSVG(adres: noc ? (s.svgNoc ?? svg) : svg, przyciemnij: noc && s.svgNoc == nil)
+        } else {
+            ScenaPogody(stan: stan, pora: pora, scena: scena, efekt: efekt,
+                        okolicznosciowy: okolicznosciowy, kafel: true, czas: czas,
+                        scenaStrony: scenaKarty?.strony, warunki: warunki)
+        }
+    }
+
+    private var tekst: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie").uppercased(with: Jezyk.locale())).czcionka(11, .bold).kerning(1)
             HStack(alignment: .center) {
@@ -642,45 +685,33 @@ struct KartaPogody: View {
         .opacity(warstwa == .scena ? 0 : 1)
         .padding(.horizontal, 18)
         .padding(.top, 12)
-        // pas drzew i ozdób nad ziemią (korony do ok. 25 pkt przy skali 1)
-        .padding(.bottom, ScenaPogody.pasZiemiKafla + 28)
-        .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
-        .background {
-            if warstwa != .tekst {
-                ScenaPogody(stan: stan, pora: pora, scena: scena, efekt: efekt,
-                            okolicznosciowy: okolicznosciowy, kafel: true, czas: czas)
-                    // przyciemnienie pod tekstem: mocniej u góry (napis, chmury), słabnie ku drzewom na dole
-                    .overlay {
-                        LinearGradient(stops: [.init(color: .black.opacity(0.34), location: 0),
-                                               .init(color: .black.opacity(0.22), location: 0.55),
-                                               .init(color: .black.opacity(0), location: 0.8)],
-                                       startPoint: .top, endPoint: .bottom)
-                    }
-            }
-        }
+        .padding(.bottom, 12)
     }
 
-    /// Belka pod grafiką: data (i święto), pod nią imieniny.
+    /// Belka pod grafiką jak karta daty na stronie: medal sceny, data (i święto), pod nią przedrostek sceny i imieniny.
     private var belka: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "calendar").font(.system(size: 15, weight: .semibold)).opacity(0.85)
+        let p = paleta
+        return HStack(spacing: 10) {
+            MedalBelki(paleta: p)
             VStack(alignment: .leading, spacing: 1) {
-                Text(data).czcionka(13, .bold)
+                Text(data).czcionka(13, .bold).foregroundStyle(p.data)
                     .lineLimit(1).truncationMode(.tail).minimumScaleFactor(0.85)
                 if let imieniny {
-                    Text(imieniny).czcionka(12)
+                    Text(imieniny).czcionka(12, .semibold).foregroundStyle(p.drugaLinia)
                         .lineLimit(1).truncationMode(.tail).minimumScaleFactor(0.85)
-                        .opacity(0.9)
                 }
             }
             Spacer(minLength: 0)
         }
-        .foregroundStyle(kolorNaBelce)
         .opacity(warstwa == .scena ? 0 : 1)
-        .padding(.horizontal, 18)
+        .padding(.horizontal, 14)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(warstwa == .tekst ? Color.clear : ScenaPogody.kolorZiemi(scena: scena, noc: noc))
+        .background {
+            if warstwa != .tekst {
+                p.tlo.overlay(alignment: p.pasekNaGorze ? .top : .bottom) { p.pasek.frame(height: 3) }
+            }
+        }
     }
 }
 

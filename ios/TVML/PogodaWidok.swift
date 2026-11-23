@@ -1,20 +1,33 @@
 import SwiftUI
 
-/// Pogoda w Lesznie ze stacji TVML. Scena zmienia się jak na stronie: stan pogody, pora dnia, pora roku
-/// i wersja z panelu (zima, święta, Sylwester, 11 Listopada).
+/// Pogoda w Lesznie ze stacji TVML. Scena jak na stronie: wybrana przez serwer (motyw i harmonogram, także SVG
+/// z panelu), z pogodą z serwera jako nakładką na scenach zwykłych.
 struct PogodaWidok: View {
     @EnvironmentObject private var m: Magazyn
     @Environment(\.dynamicTypeSize) private var rozmiarTekstu
+    @Environment(\.accessibilityReduceMotion) private var bezRuchu
+
+    @ViewBuilder private func scena(_ p: Pogoda?) -> some View {
+        let s = m.aktywnaScena
+        let warunki = WarunkiSceny.z(stan: p?.ikona ?? "", efekt: p?.efekt, dzien: p?.dzien ?? true,
+                                     ustawienia: m.ustawieniaScen[p?.ikona ?? ""], karta: false, bezRuchu: bezRuchu)
+        if let svg = s.svg {
+            TloSVG(adres: warunki.noc ? (s.svgNoc ?? svg) : svg, przyciemnij: warunki.noc && s.svgNoc == nil)
+        } else {
+            ScenaPogody(stan: StanPogody.z(ikony: p?.ikona ?? "cloud"),
+                        pora: PoraDnia.teraz(dzien: p?.dzien ?? true),
+                        scena: m.motyw.scena(miesiac: Calendar.current.component(.month, from: .now)),
+                        efekt: p?.efekt, okolicznosciowy: m.motyw.rodzaj != .zwykly,
+                        scenaStrony: s.strony, warunki: warunki)
+        }
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 let p = m.pogoda
                 ZStack(alignment: .topLeading) {
-                    ScenaPogody(stan: StanPogody.z(ikony: p?.ikona ?? "cloud"),
-                                pora: PoraDnia.teraz(dzien: p?.dzien ?? true),
-                                scena: m.motyw.scena(miesiac: Calendar.current.component(.month, from: .now)),
-                                efekt: p?.efekt, okolicznosciowy: m.motyw.rodzaj != .zwykly)
+                    scena(p)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(p.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–").czcionka(52, .heavy)
                         Text(p?.opis ?? "").czcionka(16, .semibold)
@@ -183,6 +196,10 @@ struct ScenaPogody: View {
     }
     /// Stała chwila animacji (galeria scen do sprawdzania czytelności); nil = scena żyje.
     var czas: Double? = nil
+    /// Scena ze strony tvml.pl (ScenyStrony.swift) zamiast dawnej panoramy; nil = panorama według pory roku.
+    var scenaStrony: ScenaStrony? = nil
+    /// Warunki sceny ze strony (noc, burza, deszcz, mgła, ustawienia z panelu); nil = z danych tej sceny.
+    var warunki: WarunkiSceny? = nil
     @Environment(\.accessibilityReduceMotion) private var bezRuchu
     @State private var start = Date().timeIntervalSinceReferenceDate
 
@@ -240,7 +257,23 @@ struct ScenaPogody: View {
         }
     }
 
+    /// Scena ze strony: rysowana w proporcjach karty ze strony (ok. 380 × 236 nad kartą daty), a niższa karta
+    /// pokazuje jej dolną część (wzgórza, miasto, ozdoby). Na scenach zwykłych pogoda z serwera jako nakładka
+    /// (chmury, opady, słońce, księżyc, mgła), na specjalnych (Leszno, Sylwester, biwak…) bez niej, jak na stronie.
+    private func rysujStrony(_ s: ScenaStrony, ctx: inout GraphicsContext, size: CGSize, t: Double) {
+        let w = size.width, h = size.height
+        let wysokosc = max(h, w * 0.62)
+        var c = ctx
+        c.translateBy(x: 0, y: h - wysokosc)
+        let war = warunki ?? WarunkiSceny(noc: noc)
+        s.rysuj(&c, size: CGSize(width: w, height: wysokosc), t: t, warunki: war)
+        if !s.specjalna, let e = efekt {
+            rysujEfekt(ctx: &ctx, size: size, t: t, e: e, tylkoNakladka: true)
+        }
+    }
+
     private func rysuj(ctx: inout GraphicsContext, size: CGSize, t: Double) {
+        if let s = scenaStrony { rysujStrony(s, ctx: &ctx, size: size, t: t); return }
         if let e = wgEfektu { rysujEfekt(ctx: &ctx, size: size, t: t, e: e); return }
         let w = size.width, h = size.height
         ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .linearGradient(Gradient(colors: niebo()), startPoint: .zero, endPoint: CGPoint(x: 0, y: h)))
@@ -402,12 +435,15 @@ struct ScenaPogody: View {
         }
     }
 
-    private func rysujEfekt(ctx: inout GraphicsContext, size: CGSize, t: Double, e: EfektPogody) {
+    /// tylkoNakladka: sama pogoda na scenie ze strony (bez nieba i panoramy).
+    private func rysujEfekt(ctx: inout GraphicsContext, size: CGSize, t: Double, e: EfektPogody, tylkoNakladka: Bool = false) {
         let w = size.width, h = size.height
         let calosc = Path(CGRect(origin: .zero, size: size))
         let wNocy = e.faza == "night", oZmierzchu = e.faza == "dusk"
         let n = e.natezenie
-        ctx.fill(calosc, with: .linearGradient(Gradient(colors: niebo()), startPoint: .zero, endPoint: CGPoint(x: 0, y: h)))
+        if !tylkoNakladka {
+            ctx.fill(calosc, with: .linearGradient(Gradient(colors: niebo()), startPoint: .zero, endPoint: CGPoint(x: 0, y: h)))
+        }
         let deszczowo = ["rain", "rain-heavy", "storm"].contains(e.rodzaj)
         if (e.rodzaj == "clouds" && n >= 0.6) || deszczowo {
             ctx.fill(calosc, with: .color(Color(white: 0.5).opacity(0.12)))
@@ -548,7 +584,7 @@ struct ScenaPogody: View {
                 lisc.fill(Path(ellipseIn: CGRect(x: -4.4, y: -2.1, width: 8.8, height: 4.2)), with: .color(barwy[k % 4]))
             }
         }
-        panorama(ctx: &ctx, w: w, h: h)
+        if !tylkoNakladka { panorama(ctx: &ctx, w: w, h: h) }
         // mgła: 5 półprzezroczystych pasm na przemian w lewo i w prawo i mleczny dół, bez gwiazd i liści
         if e.rodzaj == "fog" {
             let kolorMgly = wNocy ? Color(red: 168 / 255, green: 180 / 255, blue: 204 / 255)
