@@ -1,8 +1,10 @@
 package pl.tvml
 
+import android.animation.ValueAnimator
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -11,13 +13,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathFillType
+import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import java.time.LocalTime
+import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -61,14 +66,67 @@ enum class PoraDnia {
     }
 }
 
-/** Animowana scena: niebo, słońce lub księżyc, chmury, opady, mgła, błyskawice i panorama Leszna z Ratuszem. */
-@Composable
-fun ScenaPogody(stan: StanPogody, pora: PoraDnia, scena: Motyw.Scena, modifier: Modifier = Modifier) {
-    val czas by czasAnimacji()
-    Canvas(modifier.clearAndSetSemantics { }) { RysunekSceny(stan, pora, scena, this).rysuj(czas) }
+/**
+ * Efekt tła pogody z serwera (API 1.7.2: effect, intensity, windy, leaves, phase). Mapę warunków na efekt liczy serwer
+ * (tą samą co strona), więc aplikacja niczego nie zgaduje, tylko rysuje [rodzaj].
+ */
+data class EfektPogody(val rodzaj: String, val intensywnosc: Float, val wietrznie: Boolean, val liscie: Boolean, val faza: String) {
+    /** Niebo i panorama jak w dotychczasowej scenie dla podobnego stanu. */
+    val stan: StanPogody
+        get() = when (rodzaj) {
+            "clear-day", "clear-night" -> StanPogody.SLONCE
+            "clouds" -> if (intensywnosc < 0.5f) StanPogody.PRZEJASNIENIA else StanPogody.CHMURY
+            "fog" -> StanPogody.MGLA
+            "drizzle", "rain", "rain-heavy" -> StanPogody.DESZCZ
+            "storm" -> StanPogody.BURZA
+            "snow", "sleet" -> StanPogody.SNIEG
+            else -> StanPogody.WIATR
+        }
+
+    /** phase: day, dusk (do 45 min od wschodu lub zachodu), night. */
+    val pora: PoraDnia
+        get() = when (faza) {
+            "night" -> PoraDnia.NOC
+            "dusk" -> if (LocalTime.now(Daty.strefa).hour < 12) PoraDnia.SWIT else PoraDnia.ZMIERZCH
+            else -> PoraDnia.DZIEN
+        }
+
+    companion object {
+        val rodzaje = setOf("clear-day", "clear-night", "clouds", "fog", "drizzle", "rain", "rain-heavy", "storm", "snow", "sleet", "wind")
+
+        /**
+         * Efekt z API do sceny. Wersja okolicznościowa z panelu (każda inna niż zwykła: 11 Listopada, zima, święta,
+         * Sylwester, żałoba) ma pierwszeństwo: wtedy jej dotychczasowa scena bez nakładki pogody, jak na iPhonie.
+         */
+        fun doSceny(p: Pogoda?, motyw: Motyw): EfektPogody? = p?.efekt?.takeIf { motyw.rodzaj == Motyw.Rodzaj.ZWYKLY }
+    }
 }
 
-private class RysunekSceny(val stan: StanPogody, val pora: PoraDnia, val scena: Motyw.Scena, val d: DrawScope) {
+/**
+ * Animowana scena: niebo, słońce lub księżyc, chmury, opady, mgła, błyskawice i panorama Leszna z Ratuszem.
+ * Z [efekt] (API 1.7.2) rysuje aktualne warunki jak strona; bez niego według stanu ze stacji.
+ * Przy „Usuń animacje” w systemie (skala animacji 0) jedna nieruchoma klatka, bez błysków burzy.
+ * Animacja stoi sama, gdy scena nie jest na ekranie albo aplikacja jest w tle (zegar klatek wtedy nie chodzi).
+ */
+@Composable
+fun ScenaPogody(stan: StanPogody, pora: PoraDnia, scena: Motyw.Scena, modifier: Modifier = Modifier, efekt: EfektPogody? = null) {
+    if (!ValueAnimator.areAnimatorsEnabled()) {
+        Canvas(modifier.clearAndSetSemantics { }) { RysunekSceny(stan, pora, scena, efekt, this).rysuj(KLATKA_BEZ_RUCHU, ruch = false) }
+        return
+    }
+    val czas by czasAnimacji()
+    val start = remember { System.nanoTime() / 1e9 }
+    Canvas(modifier.clearAndSetSemantics { }) { RysunekSceny(stan, pora, scena, efekt, this).rysuj(czas - start, ruch = true) }
+}
+
+/** Chwila, z której jest nieruchoma klatka: cząstki rozrzucone po scenie, bez błyskawicy. */
+private const val KLATKA_BEZ_RUCHU = 37.0
+
+private fun rgb(r: Int, g: Int, b: Int) = Color(r, g, b)
+
+private class RysunekSceny(stanStacji: StanPogody, poraStacji: PoraDnia, val scena: Motyw.Scena, val efekt: EfektPogody?, val d: DrawScope) {
+    val stan = efekt?.stan ?: stanStacji
+    val pora = efekt?.pora ?: poraStacji
     val noc = pora == PoraDnia.NOC
     val swiatla = noc || pora == PoraDnia.ZMIERZCH || scena == Motyw.Scena.SWIETA || scena == Motyw.Scena.SYLWESTER
     val zimowo = scena == Motyw.Scena.ZIMA || scena == Motyw.Scena.SWIETA
@@ -102,7 +160,12 @@ private class RysunekSceny(val stan: StanPogody, val pora: PoraDnia, val scena: 
         }
     }
 
-    fun rysuj(t: Double) = with(d) {
+    fun rysuj(t: Double, ruch: Boolean) {
+        if (efekt != null) EfektSceny(this, efekt, t, ruch).rysuj() else rysujWedlugStanu(t)
+    }
+
+    /** Dotychczasowa scena według stanu ze stacji (starszy serwer bez pola effect i wersje okolicznościowe). */
+    fun rysujWedlugStanu(t: Double) = with(d) {
         val w = size.width.toDouble()
         val h = size.height.toDouble()
         drawRect(Brush.verticalGradient(niebo()))
@@ -328,6 +391,197 @@ private class RysunekSceny(val stan: StanPogody, val pora: PoraDnia, val scena: 
                 drawRect(Color.White, r(x, y, 12f, 3f).topLeft, r(x, y, 12f, 3f).size)
                 drawRect(c(0xdc143c), r(x, y + 3, 12f, 3f).topLeft, r(x, y + 3, 12f, 3f).size)
             }
+        }
+    }
+}
+
+/**
+ * Scena według efektu z serwera (API 1.7.2), jak na stronie i w TVML na iPhonie: aktualna pogoda, a nie sama pora roku.
+ * Gwiazdy i księżyc tylko przy czystym niebie (nieliczne przy rzadkich chmurach nocą), nigdy we mgle, w deszczu ani w śniegu.
+ * Najwyżej 70 cząstek; ruch liczony z czasu, więc tempo nie zależy od liczby klatek. Miary w dp jak punkty na iPhonie.
+ */
+private class EfektSceny(val s: RysunekSceny, val e: EfektPogody, val t: Double, val ruch: Boolean) {
+    fun rysuj() = with(s.d) {
+        val p = s.p.toDouble()
+        val w = size.width.toDouble()
+        val h = size.height.toDouble()
+        val wNocy = e.faza == "night"
+        val oZmierzchu = e.faza == "dusk"
+        val n = e.intensywnosc.toDouble()
+        fun pt(v: Double) = (v * p).toFloat()
+        drawRect(Brush.verticalGradient(s.niebo()))
+        val deszczowo = e.rodzaj == "rain" || e.rodzaj == "rain-heavy" || e.rodzaj == "storm"
+        if ((e.rodzaj == "clouds" && n >= 0.6) || deszczowo) drawRect(Color(0.5f, 0.5f, 0.5f, 0.12f))
+        if (e.rodzaj == "snow") drawRect(Color.White.copy(alpha = 0.06f))
+
+        // gwiazdy: przy clear-night, nieliczne przy rzadkich chmurach nocą
+        val rzadkieChmury = e.rodzaj == "clouds" && n < 0.5
+        val gwiazdy = if (e.rodzaj == "clear-night") 30 else if (rzadkieChmury && wNocy) 8 else 0
+        for (k in 0 until gwiazdy) {
+            val x = ((k * 97) % 1000) / 1000.0 * w
+            val y = ((k * 61) % 1000) / 1000.0 * h * 0.6
+            val czestotliwosc = 0.6 + (k % 7) * 0.2
+            val a = (if (rzadkieChmury) 0.5 else 1.0) * (0.5 + 0.45 * sin(t * czestotliwosc * 2 * PI + k))
+            drawCircle(Color.White.copy(alpha = a.toFloat().coerceIn(0f, 1f)), pt(1.0), Offset(x.toFloat() + pt(1.0), y.toFloat() + pt(1.0)))
+        }
+        // sierp księżyca z poświatą
+        if (wNocy && (e.rodzaj == "clear-night" || rzadkieChmury)) {
+            val c = Offset((w * 0.8).toFloat(), pt(46.0))
+            val jasny = kolor(0xf4f1de)
+            drawCircle(
+                Brush.radialGradient(0f to jasny.copy(alpha = 0.25f), 10f / 46f to jasny.copy(alpha = 0.25f), 1f to jasny.copy(alpha = 0f), center = c, radius = pt(46.0)),
+                pt(46.0), c,
+            )
+            // sierp: tarcza bez drugiego koła (różnica ścieżek, żeby nie było widać jego brzegu)
+            val ksiezyc = Path.combine(
+                PathOperation.Difference,
+                Path().apply { addOval(Rect(Offset(c.x - pt(20.0), c.y - pt(20.0)), Size(pt(40.0), pt(40.0)))) },
+                Path().apply { addOval(Rect(Offset(c.x - pt(8.0), c.y - pt(26.0)), Size(pt(40.0), pt(40.0)))) },
+            )
+            drawPath(ksiezyc, jasny)
+        }
+        // słońce z 8 bladymi promieniami (obrót ok. 1 na 40 s) i złoty pył
+        if (!wNocy && (e.rodzaj == "clear-day" || rzadkieChmury)) {
+            val c = Offset((w * 0.8).toFloat(), (h * 0.2).toFloat())
+            val k0 = if (oZmierzchu) kolor(0xffd2a0) else kolor(0xfff3b0)
+            rotate(Math.toDegrees(t / 40 * 2 * PI).toFloat() % 360f, c) {
+                for (r in 0 until 8) {
+                    val a = r / 8.0 * 2 * PI
+                    drawPath(Path().apply {
+                        moveTo(c.x, c.y)
+                        lineTo(c.x + (cos(a - 0.08) * 90 * p).toFloat(), c.y + (sin(a - 0.08) * 90 * p).toFloat())
+                        lineTo(c.x + (cos(a + 0.08) * 90 * p).toFloat(), c.y + (sin(a + 0.08) * 90 * p).toFloat())
+                        close()
+                    }, k0.copy(alpha = 0.12f))
+                }
+            }
+            drawCircle(
+                Brush.radialGradient(0f to k0.copy(alpha = 0.5f), 18f / 60f to k0.copy(alpha = 0.5f), 1f to k0.copy(alpha = 0f), center = c, radius = pt(60.0)),
+                pt(60.0), c,
+            )
+            drawCircle(k0, pt(24.0), c)
+            if (e.rodzaj == "clear-day") {
+                for (k in 0 until 7) {
+                    val v = 4 + (k % 4) * 2.0
+                    val y = h - (((k * 89) % 1000) / 1000.0 * h + t * v * p) % h
+                    val x = ((k * 151) % 1000) / 1000.0 * w + sin(t * 0.5 + k) * 8 * p
+                    drawCircle(kolor(0xffd76a).copy(alpha = 0.7f), pt(1.2), Offset((x + 1.2 * p).toFloat(), (y + 1.2 * p).toFloat()))
+                }
+            }
+        }
+        // chmury: kolory według pory, przy deszczu i burzy ciemne
+        val ileChmur = when (e.rodzaj) {
+            "clouds" -> 3 + Math.round(4 * n).toInt()
+            "drizzle" -> 3
+            "rain", "rain-heavy", "storm", "sleet" -> 5
+            "snow" -> 4
+            "wind" -> 2
+            else -> 0
+        }
+        val kolorChmur = when {
+            deszczowo -> if (wNocy) rgb(58, 66, 88) else rgb(96, 106, 128)
+            wNocy -> rgb(118, 132, 168)
+            oZmierzchu -> rgb(244, 210, 196)
+            else -> rgb(238, 242, 248)
+        }
+        for (k in 0 until ileChmur) {
+            val szer = (100 + (k % 3) * 30) * p
+            val v = (4 + k % 6) * (if (e.wietrznie) 2.5 else 1.0) * p
+            val x = (k * 137 * p + t * v) % (w + szer * 2) - szer
+            val y = (10 + (k * 53) % 60) * p
+            drawPath(s.chmura(Rect(Offset(x.toFloat(), y.toFloat()), Size(szer.toFloat(), (szer * 0.42).toFloat()))), kolorChmur.copy(alpha = 0.8f))
+        }
+        // krople: mżawka, deszcz, ulewa, burza, deszcz ze śniegiem
+        val (krople, dlugosc, predkosc) = when (e.rodzaj) {
+            "drizzle" -> Triple(18 + (24 * n).toInt(), 6.0, 260.0)
+            "rain" -> Triple(30 + (36 * n).toInt(), 11.0, 460.0)
+            "rain-heavy" -> Triple(36 + (36 * n).toInt(), 16.0, 620.0)
+            "storm" -> Triple(60, 16.0, 620.0)
+            "sleet" -> Triple(21, 10.0, 420.0)
+            else -> Triple(0, 0.0, 0.0)
+        }
+        val skos = if (e.wietrznie) 0.35 else 0.12
+        val kolorKropli = (if (wNocy) rgb(178, 198, 235) else rgb(205, 222, 245)).copy(alpha = 0.75f)
+        for (k in 0 until minOf(krople, 70)) {
+            val x0 = ((k * 151) % 1000) / 1000.0 * (w + 60 * p) - 30 * p
+            val v = predkosc * (0.85 + (k % 5) * 0.06) * p
+            val y = (((k * 89) % 1000) / 1000.0 * h + t * v) % (h + 20 * p) - 10 * p
+            val x = x0 + y * skos
+            drawLine(kolorKropli, Offset(x.toFloat(), y.toFloat()), Offset((x + dlugosc * p * skos).toFloat(), (y + dlugosc * p).toFloat()), pt(1.3))
+        }
+        // płatki śniegu (1–3,6 dp), kołyszą się, przy wietrze znoszone w prawo
+        val platki = if (e.rodzaj == "snow") 24 + (36 * n).toInt() else if (e.rodzaj == "sleet") 18 else 0
+        val kolorPlatkow = (if (wNocy) rgb(232, 240, 255) else Color.White).copy(alpha = 0.9f)
+        for (k in 0 until minOf(platki, 70)) {
+            val r = (0.5 + (k % 5) * 0.32) * p
+            val v = (18 + (k % 7) * 5.6) * p
+            val y = (((k * 89) % 1000) / 1000.0 * h + t * v) % (h + 10 * p) - 5 * p
+            val dryf = if (e.wietrznie) t * 20 * p else 0.0
+            val x = (((k * 151) % 1000) / 1000.0 * w + sin(t + k) * 10 * p + dryf) % w
+            drawCircle(kolorPlatkow, r.toFloat(), Offset((x + r).toFloat(), (y + r).toFloat()))
+        }
+        // wiatr: jasne, lekko wygięte smugi
+        if (e.rodzaj == "wind") {
+            val smuga = Color.White.copy(alpha = if (wNocy) 0.25f else 0.45f)
+            for (k in 0 until 10 + (5 * n).toInt()) {
+                val v = (160 + (k % 8) * 20) * p
+                val x = (((k * 151) % 1000) / 1000.0 * w + t * v) % (w + 120 * p) - 60 * p
+                val y = ((k * 89) % 1000) / 1000.0 * h * 0.75
+                drawPath(Path().apply {
+                    moveTo(x.toFloat(), y.toFloat())
+                    quadraticTo((x + 25 * p).toFloat(), (y + 4 * p).toFloat(), (x + 50 * p).toFloat(), (y - 3 * p).toFloat())
+                }, smuga, style = Stroke(pt(1.2)))
+            }
+        }
+        // jesienne liście (tylko gdy serwer je włączy)
+        if (e.liscie) {
+            val barwy = listOf(kolor(0xf2b705), kolor(0xe88d14), kolor(0xd9531e), kolor(0xb8291d))
+            val krycie = if (wNocy) 0.55f else 0.85f
+            for (k in 0 until if (e.rodzaj == "wind") 8 else 6) {
+                val v = (14 + (k % 5) * 4) * p
+                val y = (((k * 89) % 1000) / 1000.0 * h + t * v) % (h + 10 * p) - 5 * p
+                val boczny = (if (e.rodzaj == "wind") t * (120 + k * 10) else sin(t * 0.8 + k) * 18) * p
+                val x = (((k * 151) % 1000) / 1000.0 * w + boczny) % (w + 20 * p)
+                translate(x.toFloat(), y.toFloat()) {
+                    rotate(Math.toDegrees(t * 2 + k).toFloat() % 360f, Offset.Zero) {
+                        drawOval(barwy[k % 4].copy(alpha = krycie), Offset(-pt(4.5), -pt(2.0)), Size(pt(9.0), pt(4.0)))
+                    }
+                }
+            }
+        }
+        s.panorama(w.toFloat(), h.toFloat())
+        // mgła: 5 półprzezroczystych pasm na przemian w lewo i w prawo i mleczny dół, bez gwiazd i liści
+        if (e.rodzaj == "fog") {
+            val kolorMgly = when {
+                wNocy -> rgb(168, 180, 204)
+                oZmierzchu -> rgb(236, 218, 214)
+                else -> rgb(236, 240, 245)
+            }
+            drawRect(
+                Brush.verticalGradient(listOf(kolorMgly.copy(alpha = 0f), kolorMgly.copy(alpha = 0.35f)), startY = (h * 0.5).toFloat(), endY = h.toFloat()),
+                Offset(0f, (h * 0.5).toFloat()), Size(w.toFloat(), (h * 0.5).toFloat()),
+            )
+            for (k in 0 until 5) {
+                val v = (5 + k * 1.5) * (if (k % 2 == 0) 1 else -1) * p
+                val x = (t * v) % (120 * p) - 120 * p
+                val y = h * (0.22 + k * 0.14)
+                // miękkie pasmo jak na iPhonie (c0d5b2c): przezroczyste u góry i u dołu, najgęstsze w środku
+                val krycie = (0.16 + k * 0.035).toFloat()
+                val wys = pt(56.0)
+                drawRect(
+                    Brush.verticalGradient(
+                        listOf(kolorMgly.copy(alpha = 0f), kolorMgly.copy(alpha = krycie), kolorMgly.copy(alpha = 0f)),
+                        startY = y.toFloat(), endY = y.toFloat() + wys,
+                    ),
+                    Offset(x.toFloat(), y.toFloat()), Size((w + 240 * p).toFloat(), wys),
+                )
+            }
+        }
+        if (oZmierzchu) drawRect(Color(1f, 150 / 255f, 90 / 255f, 0.07f))
+        // burza: łagodny błysk całego tła, pierwszy 6 s od pojawienia się sceny, potem co 14 s, gaśnie przez 0,6 s
+        if (e.rodzaj == "storm" && ruch && t > 6) {
+            val x = (t - 6) % 14
+            if (x < 0.6) drawRect(Color.White.copy(alpha = (0.2 * (1 - x / 0.6)).toFloat()))
         }
     }
 }

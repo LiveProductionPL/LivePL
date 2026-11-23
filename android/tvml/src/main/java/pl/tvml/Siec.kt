@@ -51,7 +51,7 @@ object Siec {
             polaczenie.readTimeout = 20000
             polaczenie.setRequestProperty("User-Agent", agent)
             polaczenie.setRequestProperty("Referer", BAZA)
-            polaczenie.setRequestProperty("Accept-Language", "pl-PL,pl;q=0.9")
+            polaczenie.setRequestProperty("Accept-Language", Jezyk.naglowek)
             polaczenie.setRequestProperty("Accept", "application/json")
             if (zapis?.exists() == true && etagPlik?.exists() == true) {
                 polaczenie.setRequestProperty("If-None-Match", etagPlik.readText())
@@ -82,9 +82,13 @@ object Siec {
 
     private fun parsuj(tekst: String): Any = JSONTokener(tekst).nextValue()
 
-    /** Trasa API v1, np. v1("articles", mapOf("limit" to "20")). */
+    /**
+     * Trasa API v1, np. v1("articles", mapOf("limit" to "20")). Każde zapytanie ma lang= (API 1.8.0) z wybranym językiem,
+     * chyba że [parametry] podają własny (oryginał po polsku). Pamięć podręczna jest więc osobna dla każdego języka.
+     */
     suspend fun v1(trasa: String, parametry: Map<String, String> = emptyMap()): Any {
-        val zapytanie = parametry.toSortedMap().entries.joinToString("&") { "${it.key}=${koduj(it.value)}" }
+        val zJezykiem = if ("lang" in parametry) parametry else parametry + ("lang" to Jezyk.biezacy)
+        val zapytanie = zJezykiem.toSortedMap().entries.joinToString("&") { "${it.key}=${koduj(it.value)}" }
         val kolejnosc = dzialajacaBaza?.let { d -> listOf(d) + bazyApi.filter { it != d } } ?: bazyApi
         var ostatni: Exception = java.io.IOException("brak API")
         for (baza in kolejnosc) {
@@ -104,6 +108,42 @@ object Siec {
 
     suspend fun v1Obiekt(trasa: String, parametry: Map<String, String> = emptyMap()): JSONObject? =
         runCatching { v1(trasa, parametry) as? JSONObject }.getOrNull()
+
+    /**
+     * POST z JSON-em do API (głos w sondzie): kod HTTP i odpowiedź, bez pamięci podręcznej.
+     * Bez identyfikatorów instalacji i urządzenia: serwer ich nie potrzebuje i nie przyjmuje.
+     */
+    suspend fun v1Wyslij(trasa: String, cialo: JSONObject): Pair<Int, JSONObject> = withContext(Dispatchers.IO) {
+        val kolejnosc = dzialajacaBaza?.let { d -> listOf(d) + bazyApi.filter { it != d } } ?: bazyApi
+        var ostatni: Exception = java.io.IOException("brak API")
+        for (baza in kolejnosc) {
+            val laczenie = if (baza.endsWith("route=")) "&" else "?"
+            val polaczenie = URL(BAZA + baza + trasa + laczenie + "lang=" + Jezyk.biezacy).openConnection() as HttpURLConnection
+            try {
+                polaczenie.requestMethod = "POST"
+                polaczenie.doOutput = true
+                polaczenie.connectTimeout = 15000
+                polaczenie.readTimeout = 20000
+                polaczenie.setRequestProperty("User-Agent", agent)
+                polaczenie.setRequestProperty("Referer", BAZA)
+                polaczenie.setRequestProperty("Accept", "application/json")
+                polaczenie.setRequestProperty("Accept-Language", Jezyk.naglowek)
+                polaczenie.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                polaczenie.outputStream.use { it.write(cialo.toString().toByteArray(Charsets.UTF_8)) }
+                val kod = polaczenie.responseCode
+                if (kod == 404 && baza != kolejnosc.last()) continue
+                val strumien = if (kod >= 400) polaczenie.errorStream else polaczenie.inputStream
+                val tekst = strumien?.bufferedReader()?.use { it.readText() }.orEmpty()
+                return@withContext kod to (runCatching { JSONObject(tekst) }.getOrNull() ?: JSONObject())
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                ostatni = e
+            } finally {
+                polaczenie.disconnect()
+            }
+        }
+        throw ostatni
+    }
 
     suspend fun staryObiekt(sciezka: String): JSONObject? = runCatching { json(sciezka) as? JSONObject }.getOrNull()
     suspend fun staraLista(sciezka: String): List<JSONObject> = runCatching { (json(sciezka) as? JSONArray)?.obiekty() }.getOrNull() ?: emptyList()

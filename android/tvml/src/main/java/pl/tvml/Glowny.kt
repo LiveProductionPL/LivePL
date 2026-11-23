@@ -83,8 +83,8 @@ fun Glowny(m: Magazyn) {
         }
     }
 
-    if (m.arkuszPogody) Arkusz("Pogoda", { m.arkuszPogody = false }, przewijany = false) { Box(Modifier.fillMaxHeight(0.92f)) { PogodaEkran(m) } }
-    if (m.arkuszWideo) Arkusz("Wideo", { m.arkuszWideo = false }, przewijany = false) { Box(Modifier.fillMaxHeight(0.92f)) { WideoEkran(m) } }
+    if (m.arkuszPogody) Arkusz(tl("app.weather", "Pogoda"), { m.arkuszPogody = false }, przewijany = false) { Box(Modifier.fillMaxHeight(0.92f)) { PogodaEkran(m) } }
+    if (m.arkuszWideo) Arkusz(tl("app.video", "Wideo"), { m.arkuszWideo = false }, przewijany = false) { Box(Modifier.fillMaxHeight(0.92f)) { WideoEkran(m) } }
     if (m.arkuszSzukaj) SzukajArkusz(m)
 }
 
@@ -94,6 +94,9 @@ private fun klucz(e: Ekran): String = when (e) {
     Ekran.Gminy -> "gminy"
     Ekran.Zapisane -> "zapisane"
     is Ekran.Lista -> "l${e.trasa}${e.parametry}"
+    is Ekran.Strona -> "s${e.slug}"
+    Ekran.Ogloszenia -> "ogloszenia"
+    is Ekran.JednoWydarzenie -> "w${e.wydarzenie.id}"
 }
 
 @Composable
@@ -111,19 +114,22 @@ private fun TrescZakladki(m: Magazyn, z: ZakladkaApp) {
 private fun EkranZakladki(m: Magazyn, e: Ekran) {
     when (e) {
         is Ekran.Tekst -> ArtykulEkran(m, e.artykul)
-        is Ekran.ZGminy -> ListaArtykulow(e.gmina.nazwa, e.gmina.herb, "Brak wiadomości z tej gminy.") { m.gmina(e.gmina) }
+        is Ekran.ZGminy -> ListaArtykulow(e.gmina.nazwa, e.gmina.herb, tl("app.noNewsCommune", "Brak wiadomości z tej gminy.")) { m.gmina(e.gmina) }
         Ekran.Gminy -> ListaGmin(m)
-        Ekran.Zapisane -> ListaArtykulow("Zapisane", pusta = "Nie masz zapisanych artykułów. Zapiszesz je ikoną zakładki w artykule.") {
+        Ekran.Zapisane -> ListaArtykulow(tl("app.saved", "Zapisane"), pusta = tl("app.savedEmpty", "Nie masz zapisanych artykułów. Zapiszesz je ikoną zakładki w artykule.")) {
             m.zapisane.take(30).mapNotNull { m.artykul(it) }
         }
         is Ekran.Lista -> ListaArtykulow(e.tytul) { m.lista(e.trasa, e.parametry) }
+        is Ekran.Strona -> PodstronaEkran(m, e.slug)
+        Ekran.Ogloszenia -> OgloszeniaEkran(m)
+        is Ekran.JednoWydarzenie -> WydarzenieEkran(m, e.wydarzenie)
     }
 }
 
 /** Arkusz od dołu z tytułem i przyciskiem „Gotowe”, jak .sheet na iPhonie. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Arkusz(tytul: String, zamknij: () -> Unit, przycisk: String = "Gotowe", przewijany: Boolean = true, tresc: @Composable ColumnScope.() -> Unit) {
+fun Arkusz(tytul: String, zamknij: () -> Unit, przycisk: String = tl("app.done", "Gotowe"), przewijany: Boolean = true, tresc: @Composable ColumnScope.() -> Unit) {
     val b = LocalBarwy.current
     val stan = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(onDismissRequest = zamknij, sheetState = stan, containerColor = b.tlo, contentColor = b.tekst, dragHandle = null) {

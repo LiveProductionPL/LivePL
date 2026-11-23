@@ -153,7 +153,8 @@ if [ -n "$APK_TVML" ]; then
   adb install -r "$APK_TVML" > /dev/null
   tvml() {
     adb shell am force-stop "$T"
-    adb shell am start -W -n "$T/pl.tvml.MainActivity" "$@" > /dev/null
+    # zrzuty po polsku niezależnie od języka emulatora (TVML ma wybór PL/UK/EN, domyślnie jak w systemie)
+    adb shell am start -W -n "$T/pl.tvml.MainActivity" --es jezyk pl "$@" > /dev/null
   }
   przygotuj "$T"
   tvml; sleep 12; zrzut "$OBRAZY_T/phoneScreenshots/1.png"

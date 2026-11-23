@@ -3,7 +3,6 @@ package pl.tvml
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -28,12 +28,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -44,12 +47,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -92,8 +99,8 @@ fun Baner(m: Magazyn) {
             ) {
                 Box(
                     Modifier
-                        .clickable(role = Role.Button, onClickLabel = "Strona główna") { m.naStart() }
-                        .semantics { contentDescription = "Telewizja TVML, strona główna" },
+                        .clickable(role = Role.Button, onClickLabel = tl("app.tab.home", "Strona główna")) { m.naStart() }
+                        .semantics { contentDescription = tl("app.homeLogo", "Telewizja TVML, strona główna") },
                 ) {
                     Image(painterResource(motyw.logo), null, Modifier.height(40.dp).width(86.dp))
                     OzdobaLogo(motyw, Modifier.align(Alignment.TopEnd))
@@ -106,7 +113,7 @@ fun Baner(m: Magazyn) {
                         .background(Color.White.copy(alpha = 0.12f))
                         .clickable(role = Role.Button) { m.pokaz(ZakladkaApp.Cel.Pogoda) }
                         .padding(horizontal = 12.dp)
-                        .semantics(mergeDescendants = true) { contentDescription = "Pogoda: " + (m.pogoda?.let { Pogoda.stopnie(it.temperatura) + "C" } ?: "") },
+                        .semantics(mergeDescendants = true) { contentDescription = tl("app.weather", "Pogoda") + ": " + (m.pogoda?.let { Pogoda.stopnie(it.temperatura) + "C" } ?: "") },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
@@ -118,8 +125,8 @@ fun Baner(m: Magazyn) {
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(Color.White.copy(alpha = 0.12f))
-                        .clickable(role = Role.Button, onClickLabel = "Szukaj") { m.arkuszSzukaj = true }
-                        .semantics { contentDescription = "Szukaj" },
+                        .clickable(role = Role.Button, onClickLabel = tl("app.search", "Szukaj")) { m.arkuszSzukaj = true }
+                        .semantics { contentDescription = tl("app.search", "Szukaj") },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(Ikony.szukaj, null, tint = Color.White, modifier = Modifier.size(20.dp))
@@ -148,7 +155,7 @@ fun PasekZyczen(pasek: Motyw.Pasek, motyw: Motyw, modifier: Modifier = Modifier)
         if (doKiedy != null) {
             val teraz by produceState(ZonedDateTime.now(Daty.strefa)) { while (true) { delay(1000); value = ZonedDateTime.now(Daty.strefa) } }
             Text(
-                "● ODLICZANIE DO ${doKiedy.year} • ${odliczanie(teraz, doKiedy)}",
+                "● " + tl("app.countdownTo", "Odliczanie do {year}").replace("{year}", doKiedy.year.toString()).uppercase(Jezyk.locale) + " • ${odliczanie(teraz, doKiedy)}",
                 color = motyw.zlotoPaska, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
             )
         } else pasek.stopka?.let {
@@ -162,36 +169,83 @@ fun odliczanie(od: ZonedDateTime, koniec: ZonedDateTime): String {
     return "%dD %02d:%02d:%02d".format(s / 86400, (s % 86400) / 3600, (s % 3600) / 60, s % 60)
 }
 
-/** Pasek „NA ŻYWO”: najnowsze wiadomości przesuwają się jak na stronie. Stuknięcie otwiera pierwszą z nich. */
+/**
+ * Pasek pod banerem: etykieta z panelu (config.ticker.label, np. „NAJNOWSZE”), a kropka i „NA ŻYWO” tylko przy
+ * transmisji (config.ticker.live). Wiadomości przesuwają się jak na stronie i każda otwiera swój artykuł
+ * (wcześniej stuknięcie w dowolne miejsce paska otwierało zawsze pierwszy).
+ */
 @Composable
 fun NaZywo(m: Magazyn) {
     val b = LocalBarwy.current
     val ciemny = LocalCiemny.current
-    val tekst = m.pasek.joinToString("     •     ") { it.tytul }
+    val etykieta = if (m.pasekNaZywo) tl("app.live", "NA ŻYWO").uppercase(Jezyk.locale) else m.etykietaPaska.uppercase(Jezyk.locale)
     Row(
-        Modifier
-            .fillMaxWidth()
-            .height(40.dp)
-            .background(b.karta)
-            .clickable(role = Role.Button) { m.pasek.firstOrNull()?.let { m.otworz(it) } }
-            .semantics(mergeDescendants = true) { contentDescription = "${m.etykietaPaska}: ${m.pasek.firstOrNull()?.tytul.orEmpty()}" },
+        Modifier.fillMaxWidth().height(40.dp).background(b.karta),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
-            Modifier.fillMaxHeight().background(m.motyw.naZywo.w(ciemny)).padding(horizontal = 12.dp),
+            Modifier.fillMaxHeight().background(m.motyw.naZywo.w(ciemny)).padding(horizontal = 12.dp)
+                .semantics { heading() },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Box(Modifier.size(8.dp).clip(CircleShape).background(Color.White))
-            Text(m.etykietaPaska, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+            if (m.pasekNaZywo) Box(Modifier.size(8.dp).clip(CircleShape).background(Color.White))
+            Text(etykieta, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
         }
-        Text(
-            tekst,
-            Modifier.weight(1f).padding(start = 10.dp).basicMarquee(iterations = Int.MAX_VALUE, initialDelayMillis = 0, velocity = 40.dp),
-            color = b.tekst, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
-        )
+        PrzewijaneWiadomosci(m.pasek, Modifier.weight(1f).fillMaxHeight())
     }
     Box(Modifier.fillMaxWidth().height(1.dp).background(b.ramka))
+}
+
+/**
+ * Wiadomości paska przesuwane w lewo (40 dp na sekundę), w pętli. Przesunięcie zmienia położenie wierszy, a nie tylko
+ * rysunek, więc stuknięcie trafia w tę wiadomość, którą widać; kopia do zapętlenia wskazuje te same artykuły.
+ */
+@Composable
+private fun PrzewijaneWiadomosci(lista: List<Artykul>, modifier: Modifier) {
+    val gestosc = LocalDensity.current
+    var szerokoscPola by remember { mutableIntStateOf(0) }
+    var szerokoscTekstu by remember(lista) { mutableIntStateOf(0) }
+    val przewijaj = szerokoscPola in 1 until szerokoscTekstu
+    val odstep = 60.dp
+    val odstepPx = with(gestosc) { odstep.roundToPx() }
+    val predkosc = with(gestosc) { 40.dp.toPx() }
+    val czas = if (przewijaj) czasAnimacji() else null
+    val start = remember(lista, przewijaj) { System.nanoTime() / 1e9 }
+    Box(modifier.clipToBounds().onSizeChanged { szerokoscPola = it.width }, contentAlignment = Alignment.CenterStart) {
+        Row(
+            Modifier.fillMaxHeight().wrapContentWidth(Alignment.Start, unbounded = true).offset {
+                // czytane przy rozmieszczaniu, więc animacja nie przebudowuje paska co klatkę
+                val okres = szerokoscTekstu + odstepPx
+                val t = (czas?.value ?: start) - start
+                IntOffset(if (przewijaj && okres > 0) -((t * predkosc) % okres).toInt() else 0, 0)
+            },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Wiadomosci(lista, Modifier.fillMaxHeight().onSizeChanged { szerokoscTekstu = it.width })
+            if (przewijaj) {
+                Spacer(Modifier.width(odstep))
+                Wiadomosci(lista, Modifier.fillMaxHeight().clearAndSetSemantics { })
+            }
+        }
+    }
+}
+
+@Composable
+private fun Wiadomosci(lista: List<Artykul>, modifier: Modifier) {
+    val m = LocalMagazyn.current
+    val b = LocalBarwy.current
+    Row(modifier.padding(start = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        lista.forEachIndexed { i, a ->
+            if (i > 0) Text("•", Modifier.padding(horizontal = 14.dp).clearAndSetSemantics { }, color = b.slaby, fontSize = 13.sp)
+            Box(
+                Modifier.fillMaxHeight().clickable(role = Role.Button, onClickLabel = tl("app.readMore", "Czytaj")) { m.otworz(a) }.padding(horizontal = 4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(a.tytul, color = b.tekst, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
+            }
+        }
+    }
 }
 
 /** Śnieg albo iskry w banerze, delikatnie opadające. */

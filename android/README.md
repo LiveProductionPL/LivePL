@@ -139,9 +139,24 @@ wersja 2.0 jak na iPhonie i w API (`minAppVersion.android`). Kod: [tvml/src/main
 - **Wszystko z panelu tvml.pl** przez API dla aplikacji ([tvml.pl/api/v1](https://tvml.pl/api/v1/config), zapasowo
   `tvml-app.php?route=`, a bez API stare akcje strony): zakładki z `config.tabs` (`home`, `video`, `weather`,
   `more`, `subportal:slug`; „Więcej” jest zawsze), bloki Startu z `config.home` w tej kolejności (nieznane typy,
-  np. sondy i ogłoszenia, aplikacja pomija), wersja wyglądu i jej kolory z `config.theme` (API 1.1), pasek
-  „NA ŻYWO” z `config.ticker`, imieniny z `config.today`, gminy, subportale i strony redakcji.
+  np. ogłoszenia, aplikacja pomija), wersja wyglądu i jej kolory z `config.theme` (API 1.1), pasek pod banerem
+  z `config.ticker`, imieniny z `config.today`, gminy, subportale i strony redakcji (`config.pages`).
   Odpowiedzi z ETag wracają jako 304, a bez internetu aplikacja pokazuje ostatnie pobrane dane.
+- **Bez artykułów sponsorowanych** (Karol, 22.11.2026): aplikacja pomija bloki z kategorią `artykuly-sponsorowane`
+  albo `props.sponsored` i artykuły z `flags.sponsored` albo z tej kategorii (serwer od API 1.7 też je ukrywa).
+- **Pasek pod banerem:** etykieta z `config.ticker.label` (np. „NAJNOWSZE”), kropka i „NA ŻYWO” tylko przy
+  `config.ticker.live`; każda wiadomość otwiera swój artykuł.
+- **Sonda albo kalendarz wydarzeń** (blok `poll`, `/api/v1/spotlight`): trwająca sonda z wyborem i „Zagłosuj”,
+  wyniki dopiero po głosie, głos zapamiętany tylko w telefonie (bez identyfikatorów); bez sondy kalendarz miesiąca
+  z kropkami w dniach z wydarzeniami i listą wybranego dnia (domyślnie dziś, `/api/v1/events?from=D&to=D`).
+  Wydarzenie otwiera się w aplikacji (`/api/v1/events/{id}`: opis, organizator, bilety), a z artykułem: artykuł.
+  Osobny blok `events` aplikacja pokazuje tylko bez bloku `poll`.
+- **Więcej:** podstrony z `config.pages` w sekcjach „TVML” i „Dokumenty” (pole `section`, API 1.7.1) otwierają się
+  w aplikacji: wersja dla aplikacji (`appUrl`, `&motyw=jasny|ciemny`), a zapasowo treść z `/api/v1/pages/<slug>`
+  w kolorach aplikacji; WebView bez JavaScriptu, linki do podstron i artykułów w aplikacji, reszta w systemie.
+  Strony w budowie się nie pokazują (`ready`, `app`; dla starszych odpowiedzi: tekst krótszy niż 40 znaków
+  i `mapa-strony`). Ogłoszenia drobne i Fotorelacje natywnie, tylko gdy coś w nich jest. Stopka
+  z `config.about.footer`.
 - **Subportale** (Sport, Muzyka, Kultura, Na sygnale) czyta przez kategorię subportalu z panelu
   (`config.subportals[].category`, pusta = nazwa subportalu): `muzyka` to `muzyka-tvml` (`?category=muzyka`
   jest puste), a `na-sygnale` nie ma w panelu kategorii ani tagu (`?subportal=na-sygnale` jest puste).
@@ -149,8 +164,8 @@ wersja 2.0 jak na iPhonie i w API (`minAppVersion.android`). Kod: [tvml/src/main
   pogoda, szukaj, pasek życzeń z odliczaniem, śnieg albo iskry, przewijany pasek „NA ŻYWO”.
 - **Artykuł:** „Wróć”, rozmiar tekstu (trzy), udostępnianie, pasek postępu czytania; „Odsłuchaj” czyta polskim
   głosem telefonu (silnik mowy Androida), „Zapisz” i „Komentarze” po prawej, tagi na końcu. Filmy z treści
-  i z kanału grają w aplikacji (youtube-nocookie na stronie osadzającej z adresem tvml.pl, bo YouTube wymaga
-  nagłówka Referer), z pełnym ekranem i „Otwórz w YouTube”.
+  i z kanału grają w aplikacji (youtube-nocookie na stronie osadzającej z adresem tvml.pl i z parametrem `origin`,
+  bo bez strony osadzającej YouTube pokazuje „Błąd 153”), z pełnym ekranem i „Otwórz w YouTube”.
 - **Pogoda:** scena z leszczyńskim Ratuszem rysowana natywnie (stan ze stacji, pora dnia, pora roku, wersja),
   teraz, 24 godziny i 14 dni.
 - **Ikona zimowa i świąteczna** (`config.theme.appIcon`: `winter`, `xmas`, `default`): trzy `activity-alias`
@@ -159,15 +174,24 @@ wersja 2.0 jak na iPhonie i w API (`minAppVersion.android`). Kod: [tvml/src/main
   głównym zostaje i tylko zmienia wygląd; niektóre inne launchery mogą ją przy zmianie zdjąć z ekranu głównego.
   Ikony powstają z ikon TVML na iPhonie (`npx electron android/narzedzia/grafiki-tvml.js <folder z ikonami iOS>`),
   z warstwą jednobarwną do ikon motywowych.
+- **Języki** (API 1.8.0): w „Więcej” → „Język”: „Jak w systemie” (ukraiński albo angielski telefon, inaczej polski),
+  Polski, Українська, English, tylko języki z `config.languages`. Każde zapytanie do `/api/v1` ma `lang=`, więc
+  treść tłumaczy redakcja, a zapis odpowiedzi jest osobny dla każdego języka. Napisy na ekranach są w słownikach
+  `config.i18n` (klucze `app.*`, te same co na stronie i w TVML na iPhonie) zapisanych w telefonie; po polsku
+  i bez klucza zostaje dotychczasowy tekst polski ([Jezyk.kt](tvml/src/main/java/pl/tvml/Jezyk.kt)).
+  Daty po ukraińsku i angielsku z formatów systemu.
+  Tłumaczenie w przygotowaniu: jedno zdanie nad polskim tekstem; w przetłumaczonym artykule „Pokaż oryginał
+  po polsku” i bez „Odsłuchaj” (lektor czyta po polsku). Zmiana języka buduje ekrany od nowa, bez restartu.
 - **Agent** `TVMLApp/2.0 (Android 16)`: tvml.pl ma dla niego wyjątek w liczniku odsłon.
 - **Osobny klucz podpisu** (`tvml.keystore`), nie ten co LivePL (sekcja „Klucze podpisu”).
 - **Bez śledzenia** i bez identyfikatora reklamowego; jedyne uprawnienie to internet. Na razie bez formularzy
-  (zgłoszenia, komentarze, sondy i ogłoszenia otwierają tvml.pl w karcie przeglądarki) i bez powiadomień:
+  (zgłoszenia, komentarze, wydarzenia i ogłoszenia dodaje się na tvml.pl w karcie przeglądarki) i bez powiadomień:
   wejdą z kolejnym krokiem API (Play Integrity, FCM).
 - **Linki** `https://tvml.pl/artykul/<id>` otwierają artykuł w aplikacji, gdy tvml.pl poda `assetlinks.json`
   dla pakietu (sesja TVML Connect, za zgodą Karola).
 - Do zrzutów: `adb shell am start -n pl.tvml/pl.tvml.MainActivity --es ekran pogoda|artykul|wideo|wiecej|szukaj`,
-  `--es motyw zima|czapeczka|wigilia|sylwester|listopad|zaloba`, `--es wyglad dzien|noc`, `--es ikona zwykla|zima|swieta`.
+  `--es motyw zima|czapeczka|wigilia|sylwester|listopad|zaloba`, `--es wyglad dzien|noc`, `--es ikona zwykla|zima|swieta`,
+  `--es jezyk pl|uk|en|system` (skrypty zrzutów podają `pl`).
 - Ok. 2 MB (wydanie po R8).
 
 ## Budowanie bez Android Studio

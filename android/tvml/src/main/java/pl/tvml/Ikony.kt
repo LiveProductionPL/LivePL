@@ -49,6 +49,10 @@ object Ikony {
     val zakladkaPelna = ikona("!M6 3h12v18l-6-4-6 4z", "M6 3h12v18l-6-4-6 4z")
     val komentarze = ikona("M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z")
     val odtworz = ikona("!M8 5v14l11-7z")
+    val kalendarz = ikona("M5 5h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z", "M4 10h16M8 3v4M16 3v4")
+    val miejsce = ikona("M12 21s-7-6.1-7-11.5a7 7 0 0 1 14 0C19 14.9 12 21 12 21z", kolo(12f, 9.5f, 2.5f))
+    val osoby = ikona(kolo(9f, 8f, 3.5f), "M2.5 20a6.5 6.5 0 0 1 13 0", "M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8")
+    val bilet = ikona("M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4z", "M14 7v2M14 11v2M14 15v2")
     val youtube = ikona("M6 5h12a4 4 0 0 1 4 4v6a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V9a4 4 0 0 1 4-4z", "!M10 9.5v5l4.5-2.5z")
 
     /** Ikona zakładki z panelu (tabs[].icon). */

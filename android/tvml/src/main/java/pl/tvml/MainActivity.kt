@@ -13,6 +13,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.lifecycle.lifecycleScope
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
@@ -26,7 +27,7 @@ import okhttp3.OkHttpClient
  * tvml.pl/app/panel (zakładki, bloki Startu, wersja wyglądu z kolorami i ikoną, pasek „NA ŻYWO”, imieniny).
  *
  * Do zrzutów ekranu: --es ekran pogoda|artykul|wideo|wiecej|szukaj, --es motyw zima|czapeczka|wigilia|…,
- * --es wyglad dzien|noc, --es ikona zwykla|zima|swieta.
+ * --es wyglad dzien|noc, --es ikona zwykla|zima|swieta, --es jezyk pl|uk|en|system.
  */
 class MainActivity : ComponentActivity() {
     private lateinit var m: Magazyn
@@ -36,6 +37,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Siec.przygotuj(this)
+        Jezyk.przygotuj(this)
         SingletonImageLoader.setSafe { kontekst ->
             val klient = OkHttpClient.Builder()
                 .addInterceptor { lancuch -> lancuch.proceed(lancuch.request().newBuilder().header("User-Agent", Siec.agent).build()) }
@@ -64,7 +66,8 @@ class MainActivity : ComponentActivity() {
             val barwy = if (ciemny) Barwy.noc else Barwy.dzien
             MaterialTheme(colorScheme = if (ciemny) darkColorScheme(surface = barwy.karta, background = barwy.tlo) else lightColorScheme(surface = barwy.karta, background = barwy.tlo)) {
                 CompositionLocalProvider(LocalBarwy provides barwy, LocalCiemny provides ciemny, LocalMagazyn provides m) {
-                    Glowny(m)
+                    // zmiana języka buduje ekrany od nowa (bez restartu aplikacji), więc listy i strony pobierają się w nowym języku
+                    key(Jezyk.biezacy) { Glowny(m) }
                 }
             }
         }
@@ -77,7 +80,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // jak na iPhonie: po powrocie do aplikacji odświeżenie (najwyżej co 2 minuty)
+        // jak na iPhonie: po powrocie do aplikacji odświeżenie (najwyżej co 2 minuty); przy „Jak w systemie” także nowy język telefonu
+        m.sprawdzJezyk()
         m.odswiez()
     }
 
@@ -91,6 +95,7 @@ class MainActivity : ComponentActivity() {
     private fun argumenty(i: Intent, start: Boolean) {
         Motyw.zArgumentu(i.getStringExtra("motyw"))?.let { m.motywTestowy = it; m.motyw = it }
         i.getStringExtra("wyglad")?.let { m.ustawWyglad(it) }
+        i.getStringExtra("jezyk")?.let { m.ustawJezyk(it) }
         i.getStringExtra("ikona")?.let { n -> ikonaTestowa = IkonaAplikacji.Rodzaj.entries.firstOrNull { it.name.equals(n, ignoreCase = true) } }
         // link do artykułu: https://tvml.pl/artykul/123[-tytul]
         i.data?.lastPathSegment?.takeIf { i.data?.pathSegments?.firstOrNull() == "artykul" }

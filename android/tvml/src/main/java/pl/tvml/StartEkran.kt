@@ -119,7 +119,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.blok(m: Magazyn, blok
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Ikony.alarm, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                Text("  Zgłoś zdarzenie (Alert TVML)", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text("  " + tl("app.reportIncident", "Zgłoś zdarzenie (Alert TVML)"), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
         }
         "video" -> {
@@ -175,6 +175,23 @@ private fun androidx.compose.foundation.lazy.LazyListScope.blok(m: Magazyn, blok
         "social" -> {
             tytul()
             item(key = blok.id) { Spolecznosc() }
+        }
+        // sonda tylko wtedy, gdy trwa, a w pozostałym czasie w tym miejscu kalendarz wydarzeń (/api/v1/spotlight)
+        "poll" -> when (val s = m.spotlight[blok.id]) {
+            is Spotlight.ZSonda -> {
+                if (!blok.ukryjTytul) item(key = "${blok.id}-tytul") { Naglowek(blok.tytul.ifEmpty { tl("app.poll", "Sonda") }) }
+                item(key = "${blok.id}-sonda-${s.sonda.id}") { WidokSondy(m, s.sonda, blok) }
+            }
+            is Spotlight.ZKalendarzem -> {
+                if (!blok.ukryjTytul) item(key = "${blok.id}-tytul-kalendarz") { Naglowek(tl("app.events", "Kalendarz wydarzeń")) }
+                item(key = "${blok.id}-kalendarz") { KalendarzWydarzen(m, s.kalendarz) }
+            }
+            null -> {}
+        }
+        // przy bloku poll kalendarz jest w miejscu nieaktywnej sondy, więc osobnego bloku nie powtarzamy
+        "events" -> if (m.wydarzenia.isNotEmpty() && m.bloki.none { it.typ == "poll" }) {
+            if (!blok.ukryjTytul) item(key = "${blok.id}-tytul") { Naglowek(blok.tytul.ifEmpty { tl("app.events", "Kalendarz wydarzeń") }) }
+            item(key = blok.id) { ListaWydarzen(m, m.wydarzenia.take(if (blok.limit > 0) blok.limit else 5)) }
         }
     }
 }
@@ -257,14 +274,14 @@ fun KafelPogody(m: Magazyn) {
     Box(
         Modifier.fillMaxWidth().height(110.dp).clip(RoundedCornerShape(18.dp))
             .clickable(role = Role.Button) { m.pokaz(ZakladkaApp.Cel.Pogoda) }
-            .semantics(mergeDescendants = true) { contentDescription = "Pogoda w Lesznie: ${p?.let { Pogoda.stopnie(it.temperatura) } ?: ""}, ${p?.opis.orEmpty()}" },
+            .semantics(mergeDescendants = true) { contentDescription = tl("app.weatherLeszno", "Pogoda w Lesznie") + ": ${p?.let { Pogoda.stopnie(it.temperatura) } ?: ""}, ${p?.opis.orEmpty()}" },
         contentAlignment = Alignment.CenterStart,
     ) {
-        ScenaPogody(StanPogody.z(p?.ikona ?: "cloud"), PoraDnia.teraz(p?.dzien ?: true), m.motyw.scena(), Modifier.matchParentSize())
+        ScenaPogody(StanPogody.z(p?.ikona ?: "cloud"), PoraDnia.teraz(p?.dzien ?: true), m.motyw.scena(), Modifier.matchParentSize(), EfektPogody.doSceny(p, m.motyw))
         Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp).clearAndSetSemantics { }, verticalAlignment = Alignment.CenterVertically) {
             val styl = TextStyle(color = Color.White, shadow = cienNapisu)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("POGODA W LESZNIE", style = styl.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp))
+                Text(tl("app.weatherLeszno", "Pogoda w Lesznie").uppercase(Jezyk.locale), style = styl.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp))
                 Text(p?.let { Pogoda.stopnie(it.temperatura) + "C" } ?: "–", style = styl.copy(fontSize = 30.sp, fontWeight = FontWeight.Black))
                 Text(p?.opis.orEmpty(), style = styl.copy(fontSize = 13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
@@ -301,7 +318,7 @@ fun ListaKategorii(m: Magazyn, slug: String, tytul: String) {
 
 /** Wiadomości z jednej gminy powiatu albo dowolna lista z API (fotorelacje, najczęściej czytane, zapisane). */
 @Composable
-fun ListaArtykulow(tytul: String, herb: String? = null, pusta: String = "Brak wiadomości.", wczytaj: suspend () -> List<Artykul>) {
+fun ListaArtykulow(tytul: String, herb: String? = null, pusta: String = tl("app.noResults", "Brak wiadomości."), wczytaj: suspend () -> List<Artykul>) {
     val b = LocalBarwy.current
     var lista by remember { mutableStateOf<List<Artykul>?>(null) }
     LaunchedEffect(tytul) { lista = wczytaj() }
@@ -328,7 +345,7 @@ fun ListaGmin(m: Magazyn) {
     val b = LocalBarwy.current
     LazyColumn(Modifier.fillMaxSize().background(b.tlo), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item(key = "wroc") { Wroc() }
-        item(key = "tytul") { Naglowek("Gminy powiatu", wielkosc = 26) }
+        item(key = "tytul") { Naglowek(tl("app.communes", "Gminy powiatu"), wielkosc = 26) }
         if (m.gminy.isEmpty()) item(key = "laduje") { Postep() }
         items(m.gminy, key = { it.id }) { g ->
             Row(

@@ -48,7 +48,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 val cienNapisu = Shadow(Color.Black.copy(alpha = 0.45f), Offset(0f, 1f), 12f)
 
@@ -63,17 +62,17 @@ fun PogodaEkran(m: Magazyn) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(
                 Modifier.fillMaxWidth().height(300.dp).clip(RoundedCornerShape(18.dp))
-                    .semantics(mergeDescendants = true) { contentDescription = "Pogoda w Lesznie: ${p?.let { Pogoda.stopnie(it.temperatura) + "C" } ?: ""}, ${p?.opis.orEmpty()}" },
+                    .semantics(mergeDescendants = true) { contentDescription = tl("app.weatherLeszno", "Pogoda w Lesznie") + ": ${p?.let { Pogoda.stopnie(it.temperatura) + "C" } ?: ""}, ${p?.opis.orEmpty()}" },
             ) {
-                ScenaPogody(StanPogody.z(p?.ikona ?: "cloud"), PoraDnia.teraz(p?.dzien ?: true), m.motyw.scena(), Modifier.fillMaxSize())
+                ScenaPogody(StanPogody.z(p?.ikona ?: "cloud"), PoraDnia.teraz(p?.dzien ?: true), m.motyw.scena(), Modifier.fillMaxSize(), EfektPogody.doSceny(p, m.motyw))
                 Column(Modifier.padding(18.dp).clearAndSetSemantics { }, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     val styl = TextStyle(color = Color.White, shadow = cienNapisu)
                     Text(p?.let { Pogoda.stopnie(it.temperatura) + "C" } ?: "–", style = styl.copy(fontSize = 52.sp, fontWeight = FontWeight.Black, lineHeight = 56.sp))
                     Text(p?.opis.orEmpty(), style = styl.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold))
-                    Text("Odczuwalna " + (p?.let { Pogoda.stopnie(it.odczuwalna) + "C" } ?: "–"), style = styl.copy(fontSize = 13.sp))
+                    Text(tl("app.feelsLike", "Odczuwalna") + " " + (p?.let { Pogoda.stopnie(it.odczuwalna) + "C" } ?: "–"), style = styl.copy(fontSize = 13.sp))
                 }
                 Text(
-                    "POGODA W LESZNIE",
+                    tl("app.weatherLeszno", "Pogoda w Lesznie").uppercase(Jezyk.locale),
                     Modifier.align(Alignment.TopEnd).padding(14.dp).clip(RoundedCornerShape(9.dp)).background(Color.Black.copy(alpha = 0.45f))
                         .padding(horizontal = 9.dp, vertical = 5.dp).clearAndSetSemantics { },
                     color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
@@ -92,15 +91,18 @@ fun PogodaEkran(m: Magazyn) {
                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     Text(m.dzisiaj?.etykieta ?: Daty.dzisiaj(), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     val imieniny = m.dzisiaj?.imieniny.orEmpty()
-                    if (imieniny.isNotEmpty()) Text("Imieniny: ${imieniny.joinToString(", ")}", color = kolor(0xc9d3e3), fontSize = 12.sp)
-                    Text("Wschód ${p?.wschod?.ifEmpty { null } ?: "–"} · zachód ${p?.zachod?.ifEmpty { null } ?: "–"}", color = kolor(0xc9d3e3), fontSize = 12.sp)
+                    if (imieniny.isNotEmpty()) Text(tl("app.nameDays", "Imieniny") + ": ${imieniny.joinToString(", ")}", color = kolor(0xc9d3e3), fontSize = 12.sp)
+                    Text(
+                        tl("app.sunriseSunset", "Wschód {sunrise} · zachód {sunset}")
+                            .replace("{sunrise}", p?.wschod?.ifEmpty { null } ?: "–").replace("{sunset}", p?.zachod?.ifEmpty { null } ?: "–"),
+                        color = kolor(0xc9d3e3), fontSize = 12.sp)
                 }
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Pomiar("Wiatr", p?.wiatr?.let { String.format(Locale.US, "%.1f km/h %s", it, p.kierunek).replace('.', ',').trim() } ?: "–", Modifier.weight(1f))
-                Pomiar("Wilgotność", p?.wilgotnosc?.let { "${Math.round(it)}%" } ?: "–", Modifier.weight(1f))
-                Pomiar("Ciśnienie", p?.cisnienie?.let { String.format(Locale.US, "%.1f hPa", it).replace('.', ',') } ?: "–", Modifier.weight(1f))
+                Pomiar(tl("app.wind", "Wiatr"), p?.wiatr?.let { String.format(Jezyk.locale, "%.1f km/h %s", it, p.kierunek).trim() } ?: "–", Modifier.weight(1f))
+                Pomiar(tl("app.humidity", "Wilgotność"), p?.wilgotnosc?.let { "${Math.round(it)}%" } ?: "–", Modifier.weight(1f))
+                Pomiar(tl("app.pressure", "Ciśnienie"), p?.cisnienie?.let { String.format(Jezyk.locale, "%.1f hPa", it) } ?: "–", Modifier.weight(1f))
             }
 
             val godziny = p?.godziny.orEmpty()

@@ -75,7 +75,7 @@ fun WideoEkran(m: Magazyn) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item(key = "naglowek") {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Wideo", Modifier.weight(1f), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Black, fontFamily = Szeryf)
+                    Text(tl("app.video", "Wideo"), Modifier.weight(1f), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Black, fontFamily = Szeryf)
                     Icon(Ikony.youtube, null, tint = szaryWideo, modifier = Modifier.size(16.dp))
                     Text(" YouTube @TVMLlive", color = szaryWideo, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
@@ -88,11 +88,11 @@ fun WideoEkran(m: Magazyn) {
                             AsyncImage(f.obraz, null, Modifier.matchParentSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
                             Box(Modifier.matchParentSize().background(Brush.verticalGradient(0.4f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.75f))))
                             Text(
-                                "WYRÓŻNIONE", Modifier.padding(12.dp).clip(RoundedCornerShape(6.dp)).background(kolor(0xc8102e)).padding(horizontal = 8.dp, vertical = 4.dp),
+                                tl("app.featured", "Wyróżnione").uppercase(Jezyk.locale), Modifier.padding(12.dp).clip(RoundedCornerShape(6.dp)).background(kolor(0xc8102e)).padding(horizontal = 8.dp, vertical = 4.dp),
                                 color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp,
                             )
                             Box(Modifier.align(Alignment.Center).size(64.dp).clip(CircleShape).background(Barwy.zloto.copy(alpha = 0.95f)), contentAlignment = Alignment.Center) {
-                                Icon(Ikony.odtworz, "Odtwórz", tint = kolor(0x1d1400), modifier = Modifier.size(26.dp))
+                                Icon(Ikony.odtworz, tl("app.playVideo", "Odtwórz"), tint = kolor(0x1d1400), modifier = Modifier.size(26.dp))
                             }
                         }
                         Text(f.tytul, color = Color.White, fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.Bold)
@@ -121,7 +121,7 @@ fun KafelFilmu(f: Film, modifier: Modifier = Modifier, zPodpisem: Boolean = true
     var otwarty by rememberSaveable { mutableStateOf(false) }
     Column(
         modifier.then(if (wlasnyKlik) Modifier.clickable(role = Role.Button) { otwarty = true } else Modifier)
-            .semantics(mergeDescendants = true) { contentDescription = "Film: ${f.tytul}" },
+            .semantics(mergeDescendants = true) { contentDescription = tl("app.videoItem", "Film") + ": ${f.tytul}" },
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp)).background(kolor(0x1c2840)), contentAlignment = Alignment.Center) {
@@ -137,7 +137,8 @@ fun KafelFilmu(f: Film, modifier: Modifier = Modifier, zPodpisem: Boolean = true
 
 /**
  * Film z YouTube bez ciasteczek śledzących (youtube-nocookie), na czarnym tle, z pełnym ekranem.
- * YouTube wymaga strony osadzającej (nagłówek Referer), więc odtwarzacz stoi na stronie o adresie tvml.pl.
+ * YouTube od 2025 r. wymaga strony osadzającej (inaczej „Błąd 153”), więc odtwarzacz stoi na stronie o adresie
+ * https://tvml.pl, a iframe ma parametr origin i referrerpolicy. Zapasowo „Otwórz w YouTube”.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -147,7 +148,7 @@ fun Odtwarzacz(id: String, zamknij: () -> Unit) {
         Column(Modifier.fillMaxSize().background(Color.Black)) {
             Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "Otwórz w YouTube",
+                    tl("app.openYoutube", "Otwórz w YouTube"),
                     Modifier.clip(CircleShape).clickable(role = Role.Button) {
                         runCatching { kontekst.startActivity(Intent(Intent.ACTION_VIEW, "https://www.youtube.com/watch?v=$id".toUri())) }
                     }.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -155,7 +156,7 @@ fun Odtwarzacz(id: String, zamknij: () -> Unit) {
                 )
                 Box(Modifier.weight(1f))
                 Text(
-                    "Gotowe",
+                    tl("app.done", "Gotowe"),
                     Modifier.clip(CircleShape).clickable(role = Role.Button, onClick = zamknij).padding(horizontal = 12.dp, vertical = 10.dp),
                     color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold,
                 )
@@ -190,7 +191,7 @@ fun Odtwarzacz(id: String, zamknij: () -> Unit) {
                         }
                         val strona = """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
                             |<style>html,body{margin:0;height:100%;background:#000}iframe{position:absolute;inset:0;width:100%;height:100%;border:0}</style></head>
-                            |<body><iframe src="https://www.youtube-nocookie.com/embed/$id?autoplay=1&playsinline=1&rel=0" referrerpolicy="strict-origin-when-cross-origin"
+                            |<body><iframe src="https://www.youtube-nocookie.com/embed/$id?autoplay=1&playsinline=1&rel=0&origin=https%3A%2F%2Ftvml.pl" referrerpolicy="strict-origin-when-cross-origin"
                             |allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></body></html>""".trimMargin()
                         loadDataWithBaseURL(Siec.BAZA, strona, "text/html", "utf-8", null)
                     }

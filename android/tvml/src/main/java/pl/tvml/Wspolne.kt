@@ -131,7 +131,7 @@ fun Wroc() {
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Icon(Ikony.wstecz, null, tint = b.tekst, modifier = Modifier.size(20.dp))
-        Text("Wróć", color = b.tekst, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Text(tl("app.back", "Wróć"), color = b.tekst, fontSize = 15.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -162,11 +162,19 @@ fun otworzStrone(kontekst: Context, adres: String) {
     }
 }
 
+/** Adres spoza aplikacji (inne strony, poczta, telefon, YouTube) w aplikacji systemowej albo domyślnej przeglądarce. */
+fun otworzWSystemie(kontekst: Context, adres: android.net.Uri) {
+    try {
+        kontekst.startActivity(Intent(Intent.ACTION_VIEW, adres))
+    } catch (_: ActivityNotFoundException) {
+    }
+}
+
 fun udostepnij(kontekst: Context, tytul: String, adres: String) {
     val i = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
         putExtra(Intent.EXTRA_SUBJECT, tytul)
         putExtra(Intent.EXTRA_TEXT, "$tytul\n$adres")
     }
-    kontekst.startActivity(Intent.createChooser(i, "Udostępnij"))
+    kontekst.startActivity(Intent.createChooser(i, tl("app.share", "Udostępnij")))
 }

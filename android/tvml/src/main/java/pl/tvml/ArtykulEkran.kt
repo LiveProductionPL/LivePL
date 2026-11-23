@@ -33,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -44,9 +45,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.util.Locale
 
@@ -65,10 +70,18 @@ fun ArtykulEkran(m: Magazyn, poczatkowy: Artykul) {
     val lektor = remember { Lektor(kontekst.applicationContext) }
     DisposableEffect(Unit) { onDispose { lektor.zamknij() } }
     LaunchedEffect(poczatkowy.id) { if (pelny == null) pelny = m.artykul(poczatkowy.id) }
-    val a = pelny ?: poczatkowy
+    // „Pokaż oryginał po polsku” w przetłumaczonym artykule: ten sam artykuł z lang=pl, a drugie stuknięcie wraca do tłumaczenia
+    var oryginal by remember(poczatkowy.id) { mutableStateOf<Artykul?>(null) }
+    var pokazOryginal by remember(poczatkowy.id) { mutableStateOf(false) }
+    val zakresArtykulu = rememberCoroutineScope()
+    val tlumaczenie = pelny ?: poczatkowy
+    val a = if (pokazOryginal) oryginal ?: tlumaczenie else tlumaczenie
+    // tekst po polsku przy innym języku aplikacji (bez tłumaczenia albo oryginał): TalkBack czyta go polskim głosem
+    val polskiTekst = Jezyk.biezacy != "pl" && (a.jezyk == "pl" || pokazOryginal)
+    fun pl(t: String): AnnotatedString = if (polskiTekst) AnnotatedString(t, SpanStyle(localeList = LocaleList("pl-PL"))) else AnnotatedString(t)
     val wielkosc = listOf(16, 18, 21)[m.rozmiar.coerceIn(0, 2)]
     val przewijanie = rememberScrollState()
-    val bloki = remember(pelny) { pelny?.tresc?.let { Html.bloki(it) } }
+    val bloki = remember(pelny, oryginal, pokazOryginal) { (if (pokazOryginal && oryginal != null) oryginal else pelny)?.tresc?.let { Html.bloki(it) } }
 
     Column(Modifier.fillMaxSize().background(b.karta)) {
         // pasek artykułu z postępem czytania
@@ -79,17 +92,17 @@ fun ArtykulEkran(m: Magazyn, poczatkowy: Artykul) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(Ikony.wstecz, null, tint = b.tekst, modifier = Modifier.size(20.dp))
-                    Text("Wróć", color = b.tekst, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text(tl("app.back", "Wróć"), color = b.tekst, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.weight(1f))
                 Box(
                     Modifier.size(44.dp).clip(CircleShape).clickable(role = Role.Button) { m.ustawRozmiar((m.rozmiar + 1) % 3) }
-                        .semantics { contentDescription = "Rozmiar tekstu" },
+                        .semantics { contentDescription = tl("app.textSize", "Rozmiar tekstu") },
                     contentAlignment = Alignment.Center,
                 ) { Text("Aa", color = b.tekst, fontSize = 15.sp, fontWeight = FontWeight.Bold) }
                 Box(
                     Modifier.size(44.dp).clip(CircleShape).clickable(role = Role.Button) { udostepnij(kontekst, a.tytul, a.link) }
-                        .semantics { contentDescription = "Udostępnij" },
+                        .semantics { contentDescription = tl("app.share", "Udostępnij") },
                     contentAlignment = Alignment.Center,
                 ) { Icon(Ikony.udostepnij, null, tint = b.tekst, modifier = Modifier.size(20.dp)) }
             }
@@ -105,34 +118,56 @@ fun ArtykulEkran(m: Magazyn, poczatkowy: Artykul) {
 
         Column(Modifier.fillMaxSize().verticalScroll(przewijanie).padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (a.kategoria.isNotEmpty()) EtykietaKategorii(a)
-            Text(a.tytul, color = b.tekst, fontSize = (wielkosc + 10).sp, lineHeight = (wielkosc + 14).sp, fontWeight = FontWeight.Black, fontFamily = Szeryf)
+            Text(pl(a.tytul), color = b.tekst, fontSize = (wielkosc + 10).sp, lineHeight = (wielkosc + 14).sp, fontWeight = FontWeight.Black, fontFamily = Szeryf)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(Modifier.size(36.dp).clip(CircleShape).background(Barwy.granat), contentAlignment = Alignment.Center) {
                     Text(inicjaly(a.autor), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(a.autor.ifEmpty { "Redakcja TVML" }, color = b.tekst, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text(a.autor.ifEmpty { tl("app.newsroom", "Redakcja TVML") }, color = b.tekst, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     Text(opisDaty(a, pelny), color = b.slaby, fontSize = 12.sp)
                 }
             }
+            // przetłumaczony artykuł: oryginał po polsku na życzenie (zwykły odnośnik, bez notki o tłumaczeniu)
+            if (tlumaczenie.przetlumaczony) {
+                Text(
+                    if (pokazOryginal) tl("app.showTranslation", "Pokaż tłumaczenie") else tl("app.originalPolish", "Pokaż oryginał po polsku"),
+                    Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) {
+                        if (pokazOryginal) pokazOryginal = false
+                        else zakresArtykulu.launch {
+                            if (oryginal == null) oryginal = m.artykul(poczatkowy.id, jezyk = "pl")
+                            pokazOryginal = oryginal != null
+                        }
+                    }.padding(vertical = 4.dp),
+                    color = b.link, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                )
+            }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
+                // lektor czyta polskim głosem, więc w przetłumaczonym tekście go nie ma (tak robi strona)
+                if (a.jezyk == "pl") Row(
                     Modifier.height(40.dp).clip(CircleShape).background(Barwy.granat)
-                        .clickable(role = Role.Button) { lektor.przelacz(tekstDoCzytania(a, pelny)) }.padding(horizontal = 14.dp),
+                        .clickable(role = Role.Button) { lektor.przelacz(tekstDoCzytania(a, if (pokazOryginal) oryginal else pelny)) }.padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Icon(if (lektor.mowi) Ikony.stop else Ikony.glosnik, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                    Text(if (lektor.mowi) "Zatrzymaj" else "Odsłuchaj", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(if (lektor.mowi) tl("app.stopListening", "Zatrzymaj") else tl("app.listen", "Odsłuchaj"), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.weight(1f))
                 val zapisany = a.id in m.zapisane
-                PrzyciskObrysowany(if (zapisany) Ikony.zakladkaPelna else Ikony.zakladka, if (zapisany) "Usuń z zapisanych" else "Zapisz") { m.przelaczZapis(a) }
-                PrzyciskObrysowany(Ikony.komentarze, "Komentarze: ${a.komentarze}") { komentarze = true }
+                PrzyciskObrysowany(if (zapisany) Ikony.zakladkaPelna else Ikony.zakladka, if (zapisany) tl("app.unsave", "Usuń z zapisanych") else tl("app.save", "Zapisz")) { m.przelaczZapis(a) }
+                PrzyciskObrysowany(Ikony.komentarze, tl("app.comments", "Komentarze") + ": ${a.komentarze}") { komentarze = true }
             }
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Obraz(a.miniatura(1200), Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(14.dp)))
                 if (a.zrodloZdjecia.isNotEmpty()) Text(a.zrodloZdjecia, color = b.slaby, fontSize = 12.sp)
+            }
+            // tłumaczenie w przygotowaniu: jedno zdanie w wybranym języku nad polskim tekstem, bez paska i ikony
+            if (a.tlumaczenieWDrodze && !pokazOryginal) {
+                Text(
+                    tl("app.translationPending", "Tłumaczenie w przygotowaniu. Poniżej oryginalna wersja po polsku."),
+                    color = b.slaby, fontSize = 14.sp, lineHeight = 19.sp,
+                )
             }
             if (bloki != null) {
                 SelectionContainer {
@@ -140,19 +175,19 @@ fun ArtykulEkran(m: Magazyn, poczatkowy: Artykul) {
                         bloki.forEachIndexed { i, blok ->
                             when (blok) {
                                 is Html.Blok.Akapit -> Text(
-                                    blok.tekst, color = b.tekst, fontSize = wielkosc.sp, lineHeight = (wielkosc * 1.5f).sp,
+                                    pl(blok.tekst), color = b.tekst, fontSize = wielkosc.sp, lineHeight = (wielkosc * 1.5f).sp,
                                     fontWeight = if (i == 0) FontWeight.SemiBold else FontWeight.Normal,
                                 )
-                                is Html.Blok.Srodtytul -> Text(blok.tekst, color = b.tekst, fontSize = (wielkosc + 4).sp, fontWeight = FontWeight.Black, fontFamily = Szeryf)
+                                is Html.Blok.Srodtytul -> Text(pl(blok.tekst), color = b.tekst, fontSize = (wielkosc + 4).sp, fontWeight = FontWeight.Black, fontFamily = Szeryf)
                                 is Html.Blok.Obraz -> Obraz(Siec.obraz(blok.adres, 1200), Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(14.dp)))
                                 is Html.Blok.Film -> Box(
                                     Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(14.dp))
-                                        .clickable(role = Role.Button, onClickLabel = "Odtwórz film") { film = blok.id },
+                                        .clickable(role = Role.Button, onClickLabel = tl("app.playVideo", "Odtwórz film")) { film = blok.id },
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Obraz("https://i.ytimg.com/vi/${blok.id}/hqdefault.jpg", Modifier.matchParentSize())
                                     Box(Modifier.size(60.dp).clip(CircleShape).background(Barwy.zloto), contentAlignment = Alignment.Center) {
-                                        Icon(Ikony.odtworz, "Odtwórz film", tint = kolor(0x1d1400), modifier = Modifier.size(28.dp))
+                                        Icon(Ikony.odtworz, tl("app.playVideo", "Odtwórz film"), tint = kolor(0x1d1400), modifier = Modifier.size(28.dp))
                                     }
                                 }
                             }
@@ -160,7 +195,7 @@ fun ArtykulEkran(m: Magazyn, poczatkowy: Artykul) {
                     }
                 }
             } else {
-                Text(a.lead, color = b.tekst, fontSize = wielkosc.sp, lineHeight = (wielkosc * 1.5f).sp, fontWeight = FontWeight.SemiBold)
+                Text(pl(a.lead), color = b.tekst, fontSize = wielkosc.sp, lineHeight = (wielkosc * 1.5f).sp, fontWeight = FontWeight.SemiBold)
                 Postep()
             }
             if (a.tagi.isNotEmpty()) {
@@ -196,8 +231,8 @@ private fun opisDaty(a: Artykul, pelny: Artykul?): String {
     val czesci = mutableListOf<String>()
     a.data?.let { czesci += Daty.dzien(it) }
     val slowa = (pelny?.tresc?.let { Html.tekst(it) } ?: a.lead).split(' ').count { it.isNotBlank() }
-    czesci += "czytanie ok. ${maxOf(1, slowa / 200)} min"
-    if (a.odslony > 0) czesci += "${a.odslony} odsłon"
+    czesci += tl("app.readingMinutes", "czytanie ok. {n} min", maxOf(1, slowa / 200))
+    if (a.odslony > 0) czesci += Jezyk.liczba("app.views", a.odslony.toLong(), Triple("odsłona", "odsłony", "odsłon"))
     return czesci.joinToString(" · ")
 }
 
@@ -225,7 +260,7 @@ class Lektor(private val kontekst: Context) {
             czeka = akapity
             tts = TextToSpeech(kontekst) { stan ->
                 gotowy = stan == TextToSpeech.SUCCESS
-                if (!gotowy) { mowi = false; komunikat("Telefon nie ma silnika mowy."); return@TextToSpeech }
+                if (!gotowy) { mowi = false; komunikat(tl("app.ttsMissing", "Telefon nie ma silnika mowy.")); return@TextToSpeech }
                 tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                     override fun onStart(id: String?) {}
                     override fun onDone(id: String?) { if (id == "koniec") naGlownym { mowi = false } }
@@ -243,7 +278,7 @@ class Lektor(private val kontekst: Context) {
         val jezyk = t.setLanguage(Locale.forLanguageTag("pl-PL"))
         if (jezyk == TextToSpeech.LANG_MISSING_DATA || jezyk == TextToSpeech.LANG_NOT_SUPPORTED) {
             mowi = false
-            komunikat("Brak polskiego głosu. Dodasz go w ustawieniach telefonu: Zamiana tekstu na mowę.")
+            komunikat(tl("app.ttsNoPolish", "Brak polskiego głosu. Dodasz go w ustawieniach telefonu: Zamiana tekstu na mowę."))
             return
         }
         // silnik mowy przyjmuje ograniczoną długość tekstu, więc akapit po akapicie
@@ -280,11 +315,11 @@ fun Komentarze(m: Magazyn, a: Artykul, zamknij: () -> Unit) {
     val kontekst = LocalContext.current
     var lista by remember { mutableStateOf<List<JSONObject>?>(null) }
     LaunchedEffect(a.id) { lista = m.komentarze(a) }
-    Arkusz("Komentarze", zamknij) {
+    Arkusz(tl("app.comments", "Komentarze"), zamknij) {
         val l = lista
         when {
             l == null -> Postep()
-            l.isEmpty() -> Text("Nie ma jeszcze komentarzy.", color = b.slaby, fontSize = 15.sp, modifier = Modifier.padding(vertical = 12.dp))
+            l.isEmpty() -> Text(tl("app.noComments", "Nie ma jeszcze komentarzy."), color = b.slaby, fontSize = 15.sp, modifier = Modifier.padding(vertical = 12.dp))
             else -> l.forEach { k ->
                 Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(k.s("author_name").ifEmpty { k.s("author") }, color = b.tekst, fontSize = 14.sp, fontWeight = FontWeight.Bold)
@@ -295,7 +330,7 @@ fun Komentarze(m: Magazyn, a: Artykul, zamknij: () -> Unit) {
             }
         }
         Text(
-            "Dodaj komentarz na tvml.pl",
+            tl("app.addComment", "Dodaj komentarz na tvml.pl"),
             Modifier.padding(vertical = 16.dp).clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button) { otworzStrone(kontekst, a.link) }.padding(4.dp),
             color = b.link, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
         )
