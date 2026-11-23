@@ -9,5 +9,6 @@ contextBridge.exposeInMainWorld('instalator', {
   naPostep: (fn) => ipcRenderer.on('postep', (e, d) => fn(d)),
   uruchomLivePL: () => ipcRenderer.send('instalator:uruchom-livepl'),
   zamknij: () => ipcRenderer.send('instalator:zamknij'),
+  restartuj: () => ipcRenderer.send('instalator:restart'),
   minimalizuj: () => ipcRenderer.send('instalator:minimalizuj')
 });

@@ -82,7 +82,17 @@ async function instaluj() {
   const w = await I.instaluj({ pulpit, ca });
   trwa = false;
   if (!w.ok) {
-    $('#blad-opis').textContent = w.blad;
+    // po nieudanej próbie instalator sprząta resztki i proponuje ponowne uruchomienie komputera
+    let opis = w.blad;
+    if (w.restart) {
+      opis += '\n\nUsunąłem pozostałości po tej próbie (pliki tymczasowe' + (w.wpisUsuniety ? ' i wpis LivePL w rejestrze Windows' : '') + '). ' +
+        'Uruchom ponownie komputer i zainstaluj LivePL jeszcze raz.';
+      if (!w.wpisUsuniety) {
+        opis += ` Wpisu w rejestrze nie dało się usunąć. Jeśli błąd wróci po ponownym uruchomieniu, usuń go ręcznie: Win+R → regedit → ${w.klucz.replace('HKCU', 'HKEY_CURRENT_USER')} → Usuń.`;
+      }
+    }
+    $('#blad-opis').textContent = opis;
+    $('#blad-restart').hidden = !w.restart;
     $('#blad-ponow').onclick = instaluj;
     pokaz('ekran-blad');
     return;
@@ -95,7 +105,11 @@ async function instaluj() {
     blad: ' Nie udało się dodać urzędu LivePL do Windows.' + pozniej,
     test: ' (Test: urzędu LivePL nie dodawano do Windows.)'
   }[w.ca] || '';
-  $('#gotowe-opis').textContent = 'Znajdziesz go w menu Start' + (pulpit ? ' i na pulpicie.' : '.') + oCa + ' Miłej pracy!';
+  const oRejestrze = w.rejestr === 'blad'
+    ? ' Windows nie pozwolił dodać LivePL do listy programów (Ustawienia → Aplikacje). LivePL działa normalnie; ' +
+      'żeby pojawił się na liście, uruchom ponownie komputer i zainstaluj go jeszcze raz.'
+    : '';
+  $('#gotowe-opis').textContent = 'Znajdziesz go w menu Start' + (pulpit ? ' i na pulpicie.' : '.') + oCa + oRejestrze + ' Miłej pracy!';
   $('#gotowe-uruchom').hidden = false;
   pokaz('ekran-gotowe');
 }
@@ -123,6 +137,7 @@ async function odinstaluj() {
 $('#start-instaluj').addEventListener('click', instaluj);
 $('#odinstaluj-tak').addEventListener('click', odinstaluj);
 $('#gotowe-uruchom').addEventListener('click', () => I.uruchomLivePL());
+$('#blad-restart').addEventListener('click', () => { if (!trwa) I.restartuj(); });
 for (const id of ['#zamknij', '#start-anuluj', '#odinstaluj-anuluj', '#gotowe-zamknij', '#blad-zamknij']) {
   $(id).addEventListener('click', () => { if (!trwa) I.zamknij(); });
 }

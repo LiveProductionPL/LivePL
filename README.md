@@ -227,6 +227,8 @@ Stronę app.livepl.eu przygotowuje `node ../app-livepl/przygotuj.mjs ..\Wydania\
 
 Instalator kopiuje nową wersję obok (`LivePL.nowa-…`) i dopiero na końcu podmienia folder programu. Gdy coś zablokuje plik (np. antywirus LivePL.exe), poprzednia wersja zostaje, a komunikat mówi, co kliknąć w Zabezpieczeniach Windows. Krótkie blokady przy skanowaniu nowego pliku instalator sam ponawia.
 
+Wpis w „Aplikacjach i funkcjach” (rejestr, `HKCU\…\Uninstall\LivePL`): gdy zapis się nie uda (np. „Odmowa dostępu” przez pozostałość po wcześniejszej instalacji), instalator raz usuwa stary wpis i zapisuje go od nowa. Jeśli i to nie wyjdzie, instalacja i tak się kończy (LivePL działa), a komunikat mówi, jak dodać go do listy programów. Gdy instalacja się nie uda, instalator usuwa pozostałości (foldery `LivePL.nowa-…`/`LivePL.stara-…` i, jeśli nie został działający LivePL, jego wpis w rejestrze) i proponuje ponowne uruchomienie komputera przyciskiem „Uruchom ponownie komputer” (Windows daje 15 sekund, przerwanie: `shutdown /a`). Wpis, którego nie da się usunąć, komunikat każe usunąć w `regedit`.
+
 PowerShell (certyfikaty, urząd LivePL, YubiKey, BitLocker) LivePL uruchamia jawnie przez `-Command`, bez zakodowanych poleceń i bez `-ExecutionPolicy Bypass`: programy antywirusowe dla firm, np. Bitdefender Endpoint Security, uznają zakodowane polecenia za zachowanie wirusa i usuwają cały program.
 
 Test instalatora bez dotykania systemu: `--cel=<folder>` instaluje do tego folderu bez skrótów, wpisu w Windows i certyfikatu. Zmienna `LIVEPL_PAKIET_ADRES` (tylko `https://` albo `http://127.0.0.1`) każe instalatorowi internetowemu pobrać pakiet z innego adresu, a suma i tak musi się zgadzać.

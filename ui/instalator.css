@@ -234,3 +234,6 @@ h1 { font-size: 26px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.01em
 .gotowe-ik .ik { width: 36px; height: 36px; stroke-width: 2.2; }
 .gotowe-ik.zly { background: color-mix(in srgb, var(--czerwony) 14%, transparent); color: var(--czerwony-jasny); }
 .ekran.srodek .przyciski { margin-top: 10px; }
+
+/* opis błędu z akapitem o sprzątaniu i ponownym uruchomieniu komputera */
+#blad-opis { white-space: pre-line; }

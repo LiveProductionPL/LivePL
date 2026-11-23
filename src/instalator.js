@@ -166,6 +166,35 @@ function skrot(folder) {
   });
 }
 
+// Usuwa wpis LivePL z „Aplikacji i funkcji”. true = nie ma wpisu (usunięty albo nie było).
+async function usunWpis() {
+  if (TEST_CEL) return true;
+  try {
+    await wykonaj('reg.exe', ['delete', KLUCZ_ODINSTALOWANIA, '/f']);
+    return true;
+  } catch {
+    try { await wykonaj('reg.exe', ['query', KLUCZ_ODINSTALOWANIA]); return false; } catch { return true; }
+  }
+}
+
+// Wpis w Windows. Gdy zapis się nie uda (np. pozostałość po poprzedniej instalacji z blokadą albo zmienionymi
+// uprawnieniami, „Odmowa dostępu”), raz usuwa stary wpis i zapisuje od nowa. Błąd nie psuje instalacji:
+// pliki już są na miejscu i LivePL działa, brakuje tylko pozycji na liście programów.
+async function zarejestrujBezpiecznie(rozmiar) {
+  try {
+    await zarejestruj(rozmiar);
+    return 'ok';
+  } catch {
+    await usunWpis();
+    try {
+      await zarejestruj(rozmiar);
+      return 'ok';
+    } catch {
+      return 'blad';
+    }
+  }
+}
+
 async function zarejestruj(rozmiar) {
   if (TEST_CEL) return;
   const wpisy = [
@@ -193,6 +222,7 @@ async function zarejestruj(rozmiar) {
 async function instaluj(opcje) {
   const postep = (ulamek, opis) => wyslij('postep', { ulamek: Math.max(0, Math.min(1, ulamek)), opis });
   const bylaStara = fs.existsSync(EXE);
+  let podmieniona = false; // nowa wersja już w folderze programu (po tym kroku stara nie wraca)
   try {
     postep(0, 'Zamykam LivePL, jeśli działa…');
     await zamknijDzialajace();
@@ -226,12 +256,13 @@ async function instaluj(opcje) {
       try { usun(nowa); } catch { /* sprzątnie następna instalacja */ }
       throw e;
     }
+    podmieniona = true;
     if (jestStara) { try { usun(stara); } catch { /* sprzątnie następna instalacja */ } }
     postep(0.94, 'Tworzę skróty…');
     skrot(SKROTY.start);
     if (opcje && opcje.pulpit) skrot(SKROTY.pulpit);
     postep(0.97, 'Rejestruję LivePL w Windows…');
-    await zarejestruj(rozmiar);
+    const rejestr = await zarejestrujBezpiecznie(rozmiar);
     // urząd LivePL tylko dla tego użytkownika: Windows sam pokazuje okno z odciskiem do potwierdzenia.
     // Brak zgody nie psuje instalacji, LivePL zaproponuje to jeszcze raz po starcie.
     let ca = null;
@@ -249,10 +280,25 @@ async function instaluj(opcje) {
       }
     }
     postep(1, 'Gotowe');
-    return { ok: true, cel: CEL, ca };
+    return { ok: true, cel: CEL, ca, rejestr };
   } catch (e) {
-    return { ok: false, blad: opisBledu(e, bylaStara && fs.existsSync(EXE)) };
+    // Nie udało się: sprzątamy resztki (foldery LivePL.nowa-/stara-, a gdy nie został działający LivePL, także
+    // jego wpis w rejestrze) i prosimy o ponowne uruchomienie komputera. Karol, 23.11: wyczyszczenie rejestru
+    // i restart pomogły na komputerze szkolnym, gdzie antywirus trzymał pliki i wpis.
+    const staraDziala = !podmieniona && bylaStara && fs.existsSync(EXE);
+    sprzatnijResztki();
+    const wpisUsuniety = staraDziala ? true : await usunWpis();
+    return { ok: false, blad: opisBledu(e, staraDziala), restart: !TEST_CEL, wpisUsuniety, klucz: KLUCZ_ODINSTALOWANIA };
   }
+}
+
+// Ponowne uruchomienie komputera po nieudanej instalacji, tylko po kliknięciu przycisku. Windows pokazuje
+// zapowiedź i daje 15 sekund (można przerwać poleceniem shutdown /a).
+function restartujKomputer() {
+  if (TEST_CEL) return; // testy nie restartują komputera
+  spawn('shutdown.exe', ['/r', '/t', '15', '/c', 'LivePL: ponowne uruchomienie komputera po nieudanej instalacji. Potem zainstaluj LivePL jeszcze raz.'], {
+    detached: true, stdio: 'ignore', windowsHide: true
+  }).unref();
 }
 
 async function odinstaluj(opcje) {
@@ -315,6 +361,7 @@ function uruchom(tryb) {
     app.quit();
   });
   ipcMain.on('instalator:zamknij', () => app.quit());
+  ipcMain.on('instalator:restart', () => { restartujKomputer(); app.quit(); });
   ipcMain.on('instalator:minimalizuj', () => { if (okno) okno.minimize(); });
 
   app.on('window-all-closed', () => app.quit());
