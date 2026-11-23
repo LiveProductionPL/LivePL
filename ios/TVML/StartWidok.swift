@@ -533,45 +533,75 @@ struct Obraz: View {
 }
 
 /// Kafel pogody na Start: ta sama scena co na ekranie Pogoda, w mniejszym wydaniu.
+/// U góry napis, pod nim data i imieniny (jak pasek daty na tvml.pl), niżej temperatura i prognoza;
+/// panorama w trybie kafelka stoi niżej, więc drzewa są pod tekstem, a nie za nim.
 struct KafelPogody: View {
     @EnvironmentObject private var m: Magazyn
     @Environment(\.dynamicTypeSize) private var rozmiarTekstu
 
+    /// „Poniedziałek, 23 listopada · Imieniny: Michała, Grzegorza”; data z config.today (po uk/en przetłumaczona),
+    /// imiona zawsze po polsku, święto (gdy jest) przed imieninami jak na stronie.
+    private var dataIImieniny: String {
+        let d = m.dzisiaj
+        var data = d?.etykieta ?? ""
+        // rok jest zbędny na karcie: „… 2026”, „… 2026 р.”
+        data = data.replacingOccurrences(of: #"\s*\d{4}(\s*р\.)?\s*$"#, with: "", options: .regularExpression)
+        if data.isEmpty {
+            data = Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(Jezyk.locale()))
+        }
+        data = data.prefix(1).uppercased(with: Jezyk.locale()) + data.dropFirst()
+        var czesci = [data]
+        if let swieto = d?.swieto { czesci.append(swieto) }
+        if let imiona = d?.imieniny, !imiona.isEmpty {
+            czesci.append(Napisy.t("app.nameDays", "Imieniny") + ": " + imiona.joined(separator: ", "))
+        }
+        return czesci.joined(separator: " · ")
+    }
+
     var body: some View {
         Button { m.pokaz(.pogoda) } label: {
-            ZStack(alignment: .leading) {
-                ScenaPogody(stan: StanPogody.z(ikony: m.pogoda?.ikona ?? "cloud"),
-                            pora: PoraDnia.teraz(dzien: m.pogoda?.dzien ?? true),
-                            scena: m.motyw.scena(miesiac: Calendar.current.component(.month, from: .now)),
-                            efekt: m.pogoda?.efekt, okolicznosciowy: m.motyw.rodzaj != .zwykly)
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie").uppercased(with: Jezyk.locale())).czcionka(11, .bold).kerning(1)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie").uppercased(with: Jezyk.locale())).czcionka(11, .bold).kerning(1)
+                Text(dataIImieniny).czcionka(12, .semibold)
+                    .lineLimit(1).truncationMode(.tail).minimumScaleFactor(0.85)
+                    .padding(.top, 3)
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 0) {
                         Text(m.pogoda.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–").czcionka(30, .heavy)
-                        Text(m.pogoda?.opis ?? "").czcionka(13)
+                        Text(m.pogoda?.opis ?? "").czcionka(13).lineLimit(1)
                     }
-                    Spacer()
+                    Spacer(minLength: 8)
                     // przy bardzo dużym tekście prognoza na 3 dni nie mieści się obok temperatury (jest na ekranie Pogoda)
                     if !rozmiarTekstu.isAccessibilitySize {
-                    HStack(spacing: 12) {
-                        ForEach((m.pogoda?.dni ?? []).dropFirst().prefix(3)) { d in
-                            VStack(spacing: 2) {
-                                Text(d.nazwa).czcionka(12).opacity(0.85)
-                                Text(Pogoda.stopnie(d.max)).czcionka(12, .bold)
+                        HStack(spacing: 12) {
+                            ForEach((m.pogoda?.dni ?? []).dropFirst().prefix(3)) { d in
+                                VStack(spacing: 2) {
+                                    Text(d.nazwa).czcionka(12).opacity(0.85)
+                                    Text(Pogoda.stopnie(d.max)).czcionka(12, .bold)
+                                }
                             }
                         }
                     }
-                    }
                 }
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.45), radius: 6)
-                .padding(.horizontal, 18)
+                .padding(.top, 4)
             }
-            .frame(minHeight: 110)
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.45), radius: 6)
+            .padding(.horizontal, 18)
+            .padding(.top, 12)
+            // pas na dole na ziemię i drzewa panoramy (w trybie kafelka sięgają ok. 33 pkt w górę)
+            .padding(.bottom, 36)
+            .frame(maxWidth: .infinity, minHeight: 110, alignment: .topLeading)
+            .background {
+                ScenaPogody(stan: StanPogody.z(ikony: m.pogoda?.ikona ?? "cloud"),
+                            pora: PoraDnia.teraz(dzien: m.pogoda?.dzien ?? true),
+                            scena: m.motyw.scena(miesiac: Calendar.current.component(.month, from: .now)),
+                            efekt: m.pogoda?.efekt, okolicznosciowy: m.motyw.rodzaj != .zwykly, kafel: true)
+            }
             .clipShape(RoundedRectangle(cornerRadius: 18))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie") + ": \(m.pogoda.map { Pogoda.stopnie($0.temperatura) } ?? ""), \(m.pogoda?.opis ?? "")")
+        .accessibilityLabel(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie") + ": \(m.pogoda.map { Pogoda.stopnie($0.temperatura) } ?? ""), \(m.pogoda?.opis ?? ""). " + dataIImieniny)
     }
 }
 

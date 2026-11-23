@@ -573,7 +573,7 @@ final class Magazyn: ObservableObject {
     }
     private var ostatnio: Date?
 
-    struct Dzisiaj: Equatable { let etykieta: String; let imieniny: [String] }
+    struct Dzisiaj: Equatable { let etykieta: String; let imieniny: [String]; var swieto: String? = nil }
 
     struct KategoriaMenu: Hashable {
         let nazwa: String
@@ -663,7 +663,12 @@ final class Magazyn: ObservableObject {
                          .init(nazwa: aktualnosci.isEmpty ? "Aktualności" : aktualnosci, slug: "aktualnosci")] + sub
         }
         let d0 = konf.slownik("today")
-        if !d0.s("label").isEmpty { dzisiaj = Dzisiaj(etykieta: d0.s("label"), imieniny: (d0["nameDays"] as? [String]) ?? []) }
+        if !d0.s("label").isEmpty {
+            // holiday: null albo nazwa święta (na wszelki wypadek także obiekt z polem name)
+            let swieto = (d0["holiday"] as? String) ?? (d0["holiday"] as? Slownik)?.s("name")
+            dzisiaj = Dzisiaj(etykieta: d0.s("label"), imieniny: (d0["nameDays"] as? [String]) ?? [],
+                              swieto: swieto?.trimmingCharacters(in: .whitespaces).isEmpty == false ? swieto : nil)
+        }
         komunikat = Komunikat(konf.slownik("message"))
         let minimalna = konf.slownik("minAppVersion").s("ios")
         wymaganaAktualizacja = !minimalna.isEmpty && Wersja.starsza(Wersja.biezaca, niz: minimalna)

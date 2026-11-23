@@ -167,6 +167,9 @@ struct ScenaPogody: View {
     var efekt: EfektPogody? = nil
     /// Aktywny motyw okolicznościowy z panelu: wtedy jego scena, bez nakładki pogody.
     var okolicznosciowy = false
+    /// Kafel na Start: panorama niżej (ziemia prawie schowana) i nie większa niż ok. 1,2 raza,
+    /// żeby drzewa stały w pasie pod tekstem, a nie za temperaturą i prognozą.
+    var kafel = false
     @Environment(\.accessibilityReduceMotion) private var bezRuchu
     @State private var start = Date().timeIntervalSinceReferenceDate
 
@@ -553,14 +556,16 @@ struct ScenaPogody: View {
 
     /// Panorama Leszna z Ratuszem (siatka 358 × 130 jak w projekcie), z drzewami i ozdobami pory roku lub wersji.
     private func panorama(ctx: inout GraphicsContext, w: CGFloat, h: CGFloat) {
-        let s = w / 358
-        let gora = h - 130 * s
-        func r(_ x: CGFloat, _ y: CGFloat, _ sz: CGFloat, _ wy: CGFloat) -> CGRect { CGRect(x: x * s, y: gora + y * s, width: sz * s, height: wy * s) }
-        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * s, y: gora + y * s) }
+        // kafel: skala najwyżej 1,2 (na iPadzie miasto na środku, a nie powiększone na pół karty)
+        let s = kafel ? min(w / 358, 1.2) : w / 358
+        let lewo = (w - 358 * s) / 2
+        let gora = h - (kafel ? 116 : 130) * s
+        func r(_ x: CGFloat, _ y: CGFloat, _ sz: CGFloat, _ wy: CGFloat) -> CGRect { CGRect(x: lewo + x * s, y: gora + y * s, width: sz * s, height: wy * s) }
+        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: lewo + x * s, y: gora + y * s) }
         let miasto = noc ? Color(hex: "#0a1226") : Color(hex: "#1c2b45")
         let ratusz = noc ? Color(hex: "#101a33") : Color(hex: "#223456")
         let ziemia = zimowo ? (noc ? Color(hex: "#c9d6e4") : Color(hex: "#eef3f8")) : (noc ? Color(hex: "#0b1020") : Color(hex: "#2a2620"))
-        ctx.fill(Path(r(0, 108, 358, 22)), with: .color(ziemia))
+        ctx.fill(Path(CGRect(x: 0, y: gora + 108 * s, width: w, height: h - gora - 108 * s)), with: .color(ziemia))
         var domy = Path()
         for (x, y, sz) in [(0.0, 82.0, 46.0), (50, 76, 24), (106, 80, 26), (296, 84, 26)] as [(CGFloat, CGFloat, CGFloat)] {
             domy.addRect(r(x, y, sz, 108 - y))
