@@ -625,7 +625,14 @@ struct KartaPogody: View {
         return pora == .noc
     }
     private var paleta: PaletaBelki {
-        PaletaBelki.dla(scenaKarty ?? WyborSceny.Scena(), noc: noc, rok: Calendar.current.component(.year, from: Date()))
+        let p = PaletaBelki.dla(scenaKarty ?? WyborSceny.Scena(), noc: noc, rok: Calendar.current.component(.year, from: Date()))
+        guard let s = scenaKarty, s.panorama, s.svg == nil else { return p }
+        // panorama Leszna: belka w kolorze jej ziemi według pory roku (zimą i w Święta śnieg, wtedy ciemny tekst)
+        let jasna = ScenaPogody.zimowa(scena)
+        return PaletaBelki(tlo: ScenaPogody.kolorZiemi(scena: scena, noc: noc), akcent: p.akcent,
+                           data: jasna ? Color(hex: "#0f172a") : Color.white,
+                           drugaLinia: jasna ? Color(hex: "#334155") : Color(hex: "#e2e8f0"),
+                           medal: p.medal, obwodka: p.obwodka, ikona: p.ikona)
     }
 
     var body: some View {
@@ -671,7 +678,7 @@ struct KartaPogody: View {
         } else {
             ScenaPogody(stan: stan, pora: pora, scena: scena, efekt: efekt,
                         okolicznosciowy: okolicznosciowy, kafel: true, czas: czas,
-                        scenaStrony: scenaKarty?.strony, warunki: warunki)
+                        scenaStrony: scenaKarty?.doRysowania, warunki: warunki)
         }
     }
 
@@ -1015,9 +1022,8 @@ struct KalendarzWidok: View {
                     if let d { komorka(d) } else { Color.clear.frame(height: 36) }
                 }
             }
-            Text(naglowekDnia).czcionka(14, .bold).foregroundStyle(Barwy.tekst)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityAddTraits(.isHeader)
+            // bez nagłówka wybranego dnia („Poniedziałek, 23 listopada · dziś”) – Karol, 23.11: „tego nie powinno być”;
+            // wybrany dzień widać w siatce kalendarza
             if let lista = listaDnia, !lista.isEmpty {
                 VStack(spacing: 0) {
                     ForEach(Array(lista.enumerated()), id: \.element.id) { i, w in

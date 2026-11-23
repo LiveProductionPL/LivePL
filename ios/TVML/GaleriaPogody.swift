@@ -16,6 +16,8 @@ enum GaleriaPogody {
         let scena: ScenaStrony
         let efekt: EfektPogody?
         let warunki: WarunkiSceny
+        /// panorama Leszna aplikacji („leszno-panorama”) w danej porze roku; nil = scena ze strony
+        var panoramaRoku: Motyw.Scena? = nil
     }
 
     /// Chwile animacji do tła (chmury, fale, fajerwerki, płomienie są wtedy w innych miejscach).
@@ -52,18 +54,30 @@ enum GaleriaPogody {
                 }
             }
         }
+        // panorama Leszna aplikacji (domyślna scena w zwykłe dni, gdy serwer poda leszno-panorama)
+        let poryRoku: [(String, Motyw.Scena)] = [("jesien", .jesien), ("lato", .lato), ("zima", .zima)]
+        for (nr, pr) in poryRoku {
+            for faza in ["day", "night"] {
+                let dzien = faza == "day"
+                let e = dzien ? "clear-day" : "clear-night"
+                let j: Slownik = ["effect": e, "intensity": 0.5, "windy": false, "phase": faza, "leaves": pr == .jesien]
+                let ef = EfektPogody(j)
+                let w = WarunkiSceny.z(stan: dzien ? "sunny" : "clear-night", efekt: ef, dzien: dzien, ustawienia: nil, karta: false, bezRuchu: false)
+                lista.append(Wariant(nazwa: "leszno-panorama-\(nr)-\(faza)-\(e)", scena: .autumnForest, efekt: ef, warunki: w, panoramaRoku: pr))
+            }
+        }
         return lista
     }
 
     private static func karta(_ v: Wariant?, czas: Double, warstwa: KartaPogody.Warstwa) -> some View {
-        let scena = WyborSceny.Scena(id: v?.scena.rawValue ?? "autumn-forest")
+        let scena = WyborSceny.Scena(id: v?.panoramaRoku != nil ? "leszno-panorama" : (v?.scena.rawValue ?? "autumn-forest"))
         // najdłuższe teksty, jakie zwykle bywają na karcie (temperatura z minusem, święto, trzy imiona)
         return KartaPogody(temperatura: "−12,4°C", opis: "Zachmurzenie duże",
                            prognoza: [(nazwa: "Wt", max: "−10,7°"), (nazwa: "Śr", max: "−11,4°"), (nazwa: "Cz", max: "−9,6°")],
                            data: "Poniedziałek, 11 listopada",
                            wyroznienie: PaletaBelki.linie(scena, swieto: "Narodowe Święto Niepodległości", imieniny: nil).wyroznienie,
                            imieniny: PaletaBelki.linie(scena, swieto: nil, imieniny: "Imieniny: Bartłomieja, Marcina, Prota").imieniny,
-                           stan: .chmury, pora: (v?.warunki.noc ?? false) ? .noc : .dzien, scena: .jesien,
+                           stan: .chmury, pora: (v?.warunki.noc ?? false) ? .noc : .dzien, scena: v?.panoramaRoku ?? .jesien,
                            efekt: v?.efekt, okolicznosciowy: false,
                            scenaKarty: scena, warunki: v?.warunki,
                            czas: czas, warstwa: warstwa)

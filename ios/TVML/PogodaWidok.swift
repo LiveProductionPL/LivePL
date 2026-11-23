@@ -18,7 +18,7 @@ struct PogodaWidok: View {
                         pora: PoraDnia.teraz(dzien: p?.dzien ?? true),
                         scena: m.motyw.scena(miesiac: Calendar.current.component(.month, from: .now)),
                         efekt: p?.efekt, okolicznosciowy: m.motyw.rodzaj != .zwykly,
-                        scenaStrony: s.strony, warunki: warunki)
+                        scenaStrony: s.doRysowania, warunki: warunki)
         }
     }
 
