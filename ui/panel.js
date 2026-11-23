@@ -172,10 +172,38 @@ function ekranUstawienia() {
   f.appendChild(poz('tarcza', 'Bezpieczny DNS', { dalej: true, klik: () => { ekran = 'dns'; rysuj(); } }));
   f.appendChild(poz('ai', 'Dostęp dla AI (Claude i inne)', { dalej: true, klik: () => { ekran = 'ai'; rysuj(); } }));
   f.appendChild(poz('tlumacz', 'Tłumacz stron', { dalej: true, klik: () => { ekran = 'tlumacz-ustawienia'; rysuj(); } }));
+  f.appendChild(poz('kod', 'Wtyczki', { dalej: true, klik: () => { ekran = 'wtyczki'; rysuj(); P.akcja('wtyczki-sprawdz'); } }));
   f.appendChild(poz('przywroc', 'Uruchom LivePL ponownie', { akcja: 'restart' }));
   f.appendChild(kreska());
   f.appendChild(poz('kosz', 'Wyczyść pamięć podręczną', { akcja: 'pamiec' }));
   f.appendChild(poz('wyloguj', 'Wyloguj ze wszystkich stron', { czerwona: true, dalej: true, klik: () => { ekran = 'wyloguj'; rysuj(); } }));
+  return f;
+}
+
+// ustawienia → Wtyczki: dodatki i poprawki stron od Live Production, bez nowej wersji LivePL (src/wtyczki.js)
+function ekranWtyczki() {
+  const f = document.createDocumentFragment();
+  f.appendChild(naglowek('Wtyczki', 'ustawienia'));
+  const W = D.wtyczki || { wtyczki: [] };
+  f.appendChild(el('div', 'opis', 'Dodatki i poprawki stron od Live Production, podpisane kluczem LivePL. Przychodzą same, bez nowej wersji przeglądarki. Włączona wtyczka działa od razu, wyłączona znika po odświeżeniu strony.'));
+  if (!W.wtyczki.length) {
+    f.appendChild(el('div', 'opis' + (W.blad ? ' zly' : ''), W.blad ? 'Nie udało się pobrać listy wtyczek: ' + W.blad : 'Na razie nie ma żadnych wtyczek.'));
+  }
+  for (const w of W.wtyczki) {
+    const b = el('button', 'poz');
+    b.type = 'button';
+    b.setAttribute('role', 'menuitemcheckbox');
+    b.setAttribute('aria-checked', String(!!w.wlaczona));
+    const pole = el('span', 'pole' + (w.wlaczona ? ' wl' : ''));
+    pole.appendChild(ikonaEl('znacznik'));
+    b.append(pole, el('span', 'tekst', w.nazwa + (w.wersja ? ` (${w.wersja})` : '')));
+    b.addEventListener('click', () => { w.wlaczona = !w.wlaczona; P.akcja('wtyczka', w.id); rysuj(); });
+    f.appendChild(b);
+    f.appendChild(el('div', 'opis slaby-maly', [w.opis, 'Strony: ' + w.strony].filter(Boolean).join(' · ')));
+  }
+  f.appendChild(kreska());
+  f.appendChild(poz('przywroc', 'Sprawdź teraz', { akcja: 'wtyczki-sprawdz' }));
+  if (W.sprawdzono) f.appendChild(el('div', 'opis slaby-maly', 'Sprawdzono: ' + new Date(W.sprawdzono).toLocaleString('pl-PL')));
   return f;
 }
 
@@ -1240,6 +1268,7 @@ function rysuj() {
   const ekrany = {
     menu: ekranMenu,
     ustawienia: ekranUstawienia,
+    wtyczki: ekranWtyczki,
     wyloguj: ekranWyloguj,
     'o-programie': ekranOProgramie,
     pobrane: ekranPobrane,

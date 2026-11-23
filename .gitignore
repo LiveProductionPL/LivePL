@@ -20,3 +20,6 @@ dist/
 # publiczne certyfikaty urzędu LivePL są częścią programu
 !assets/ca/*.crt
 !assets/ca/posrednie/*.crt
+
+# lista wtyczek do wgrania (npm run wtyczki)
+wydanie-wtyczki/

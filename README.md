@@ -208,6 +208,24 @@ Klucz do podpisywania leży w `%USERPROFILE%\LivePL-klucze\aktualizacje-prywatny
 
 Aktualizacje obejmują kod programu (`src`, `ui`, `assets`, `programy.json`). Nowy silnik wymaga nowego instalatora, a LivePL sam o tym powie.
 
+## Wtyczki
+
+Małe dodatki i poprawki stron bez nowej wersji przeglądarki: style CSS i skrypty dla wybranych stron. LivePL pobiera listę z `aktualizacje.livepl.eu/livepl/wtyczki/` przy starcie i co 4 godziny, sprawdza jej podpis (ten sam klucz co aktualizacje), zapisuje ją u siebie i dokłada włączone wtyczki do pasujących stron po wczytaniu. Skrypt wtyczki działa w izolowanym świecie: widzi DOM strony, ale nie jej zmienne. Starszej listy niż zapisana LivePL nie przyjmie. Użytkownik włącza i wyłącza wtyczki w menu ⋮ → Ustawienia → Wtyczki.
+
+Nowa wtyczka to folder `wtyczki/<id>/` (małe litery, cyfry, myślniki) z plikiem `wtyczka.json` i co najmniej jednym z `styl.css`, `skrypt.js` (każdy do 200 kB):
+
+```json
+{ "nazwa": "Czytelny App Store Connect", "opis": "…", "wersja": "1", "domyslnie": true, "strony": ["appstoreconnect.apple.com", "*.apple.com"] }
+```
+
+Strony: `host` dokładnie, `*.domena` (domena i poddomeny) albo `*` (każda strona). Publikacja:
+
+```
+npm run wtyczki
+```
+
+Polecenie składa i podpisuje `wydanie-wtyczki/lista.json` i `lista.json.sig` i dokłada `wgraj-livepl-wtyczki.sh`. Na serwerze: `sudo bash wgraj-livepl-wtyczki.sh <folder> <sha lista.json> <sha lista.json.sig>`.
+
 ## Instalatory
 
 ```

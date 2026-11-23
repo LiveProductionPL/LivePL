@@ -11,6 +11,7 @@ const {
 const path = require('path');
 const { execFile, execFileSync } = require('child_process');
 const aktualizacje = require('./aktualizacje');
+const wtyczki = require('./wtyczki');
 const naszeCA = require('./nasze-ca');
 const certOsobisty = require('./certyfikat-osobisty');
 const yubikey = require('./yubikey');
@@ -64,7 +65,8 @@ const ustawienia = {
   dymekZasobnika: false,
   ostatnia: null,
   motyw: 'auto', // auto (od zachodu do wschodu słońca noc, w dzień jak Windows), dzien, noc
-  ai: 'wylaczony' // dostęp dla AI (Claude i inne przez MCP): wylaczony, czytanie, pelny
+  ai: 'wylaczony', // dostęp dla AI (Claude i inne przez MCP): wylaczony, czytanie, pelny
+  wtyczki: {} // włączone i wyłączone wtyczki LivePL: { id: true/false }, bez wpisu = jak domyślnie
 };
 const plikUstawien = () => path.join(app.getPath('userData'), 'ustawienia.json');
 let zapisUstawien = null;
@@ -995,6 +997,7 @@ function podepnij(k) {
     wyslijStan();
   });
   wc.on('did-start-loading', () => { k.laduje = true; wyslijStan(); });
+  wtyczki.podepnij(wc); // włączone wtyczki LivePL na pasujących stronach (po dom-ready)
   // tło pod stroną według tego, dokąd karta idzie: WWW białe, nasze strony w kolorze motywu (tloStrony)
   wc.on('did-start-navigation', (e, url, wMiejscu, glowna) => {
     // Electron 25+: szczegóły w samym zdarzeniu; stare argumenty zostają na zapas
@@ -1582,6 +1585,7 @@ function danePanelu() {
     podpis: panelStan.podpis || null,
     ssl: sslKarty(k),
     aktualizacja: { ...aktualizacje.stan(), kopia: aktualizacje.kopia(), auto: ustawienia.autoAktualizacje !== false },
+    wtyczki: wtyczki.stan(),
     folderPobranych: folderPobranych(),
     folderDanych: app.getPath('userData'),
     pobrane: pobrane.slice(0, 12).map(p => ({ id: p.id, nazwa: p.nazwa, stan: p.stan, procent: p.procent || 0 })),
@@ -1865,6 +1869,18 @@ function akcjaPanelu(nazwa, arg) {
     case 'aktualizacje-uruchom': uruchomPonownie(); break;
     case 'aktualizacje-przywroc': if (aktualizacje.zaplanujPowrot()) uruchomPonownie(); break;
     case 'auto-aktualizacje': ustawienia.autoAktualizacje = ustawienia.autoAktualizacje === false; zapiszUstawienia(); break;
+    case 'wtyczka': {
+      // włączenie działa od razu na otwartej stronie, wyłączenie po jej odświeżeniu (panel to mówi)
+      const w = wtyczki.stan().wtyczki.find(x => x.id === String(arg || ''));
+      if (!w) break;
+      ustawienia.wtyczki = { ...(ustawienia.wtyczki || {}), [w.id]: !w.wlaczona };
+      zapiszUstawienia();
+      const ka = karty.get(aktywnaId);
+      if (!w.wlaczona && ka && !ka.nowa) wtyczki.zastosuj(ka.wc, w.id);
+      wyslijDoPanelu();
+      break;
+    }
+    case 'wtyczki-sprawdz': wtyczki.sprawdz(); break;
     case 'folder-pobranych': otworzFolderPobranych(); break;
     case 'pobrany-otworz': {
       const p = pobrane.find(x => x.id === arg);
@@ -2565,6 +2581,13 @@ app.whenReady().then(() => {
   // aktualizacje: kilka sekund po włączeniu, potem co 4 godziny (jeśli włączone). Nowa wersja:
   // okienko „Jest nowa wersja. Pobrać?”; po pobraniu „Uruchomić ponownie?”. Bez zgody nic się nie pobiera.
   const zaproponowano = new Set();
+  // wtyczki LivePL: zapisana lista od razu, nowa z serwera chwilę po starcie i co 4 godziny (jak aktualizacje)
+  wtyczki.start({
+    czyWlaczona: (id) => (ustawienia.wtyczki || {})[id],
+    sluchacz: () => { if (panelStan) wyslijDoPanelu(); }
+  });
+  setTimeout(() => wtyczki.sprawdz(), 8000);
+  setInterval(() => wtyczki.sprawdz(), 4 * 60 * 60 * 1000);
   aktualizacje.start((s) => {
     if ((s.stan === 'dostepna' || s.stan === 'gotowa') && !zaproponowano.has(s.stan + s.wersja)) {
       zaproponowano.add(s.stan + s.wersja);
