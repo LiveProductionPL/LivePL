@@ -22,6 +22,8 @@ struct ArtykulWidok: View {
     private var zrodlo: Artykul? { oryginal ?? pelny }
     /// Tekst po polsku przy wybranym innym języku: tłumaczenie w przygotowaniu albo oryginał na życzenie.
     private var poPolsku: Bool { !Jezyk.polski && (oryginal != nil || zrodlo?.tlumaczenieWToku == true) }
+    /// Serwer tłumaczy artykuł teraz (translationEta "now"): pobieramy go ponownie, póki ekran jest widoczny.
+    private var czekaNaTlumaczenie: Bool { oryginal == nil && pelny?.tlumaczenieZaChwile == true }
     private var wielkosc: CGFloat { [16, 18, 21][min(max(rozmiar, 0), 2)] }
 
     var body: some View {
@@ -114,7 +116,9 @@ struct ArtykulWidok: View {
 
                     if zrodlo?.tlumaczenieWToku == true && !Jezyk.polski {
                         // jedno zdanie zwykłym tekstem, bez paska i ikony ostrzeżenia
-                        Text(zrodlo?.tlumaczenieRano == true
+                        Text(zrodlo?.tlumaczenieZaChwile == true
+                             ? Napisy.t("app.translationPendingNow", "Tłumaczenie w przygotowaniu, za chwilę. Poniżej oryginalna wersja po polsku.")
+                             : zrodlo?.tlumaczenieRano == true
                              ? Napisy.t("app.translationPendingNight", "Tłumaczenie w przygotowaniu, będzie rano. Poniżej oryginalna wersja po polsku.")
                              : Napisy.t("app.translationPending", "Tłumaczenie w przygotowaniu. Poniżej oryginalna wersja po polsku."))
                             .czcionka(13).foregroundStyle(Barwy.slaby)
@@ -169,6 +173,16 @@ struct ArtykulWidok: View {
         .toolbar(.hidden, for: .navigationBar)
         .task { if pelny == nil { pelny = await m.artykul(poczatkowy.id) } }
         .onDisappear { lektor.zatrzymaj() }
+        // tłumaczenie od razu (API 1.8.1): co 4,5 s, najwyżej ok. 90 s; po zamknięciu ekranu .task się kończy
+        .task(id: czekaNaTlumaczenie) {
+            guard czekaNaTlumaczenie else { return }
+            for _ in 0..<20 {
+                try? await Task.sleep(for: .seconds(4.5))
+                if Task.isCancelled { return }
+                // gotowe albo serwer zmienił termin (hour, morning): podmiana tytułu i treści bez przeładowania ekranu
+                if let a = await m.artykul(poczatkowy.id), !a.tlumaczenieZaChwile { pelny = a; return }
+            }
+        }
         // tłumaczenie mogło być gotowe, gdy aplikacja była w tle
         .onChange(of: faza) { _, nowa in
             guard nowa == .active, oryginal == nil, pelny?.tlumaczenieWToku == true else { return }

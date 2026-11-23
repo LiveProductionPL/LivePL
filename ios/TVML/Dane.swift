@@ -331,6 +331,8 @@ struct Artykul: Identifiable, Hashable {
     let tlumaczenieWToku: Bool
     /// translationEta: "morning" = tłumaczenie będzie rano (prośba w nocy), inaczej zwykle w ciągu godziny
     let tlumaczenieRano: Bool
+    /// translationEta: "now" = serwer tłumaczy w tej chwili (API 1.8.1), artykuł trzeba pobrać ponownie
+    let tlumaczenieZaChwile: Bool
 
     /// Przyjmuje artykuł z API v1 (image i category jako obiekty) albo ze starych akcji tvml-db.php.
     init(_ j: Slownik) {
@@ -373,6 +375,7 @@ struct Artykul: Identifiable, Hashable {
         przetlumaczony = j.b("translated")
         tlumaczenieWToku = j.b("translationPending") && !j.b("translated")
         tlumaczenieRano = j.s("translationEta") == "morning"
+        tlumaczenieZaChwile = tlumaczenieWToku && j.s("translationEta") == "now"
     }
 
     /// Artykuły sponsorowane są w aplikacji wyłączone (Karol, 22.11.2026), niezależnie od panelu.
@@ -824,7 +827,7 @@ final class Magazyn: ObservableObject {
     }
 
     /// Zapisane artykuły na liście. Pobranie szczegółów w języku uk/en zamawia tłumaczenie (PR #94, tłumaczenie na żądanie),
-    /// więc lista bierze je z /articles?ids= (gdy serwer to obsługuje), a bez tego szczegóły po polsku.
+    /// więc lista bierze je z /articles?ids= (API 1.8.1, bez zamawiania), a przy starszym serwerze szczegóły po polsku.
     /// Tłumaczenie zamawia dopiero otwarcie artykułu.
     func zapisaneArtykuly() async -> [Artykul] {
         let ids = Array(zapisane.prefix(30))
