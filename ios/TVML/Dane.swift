@@ -646,7 +646,8 @@ final class Magazyn: ObservableObject {
             kategoriePortali[s.s("slug")] = s.s("category").isEmpty ? s.s("slug") : s.s("category")
         }
         let sub = konf.lista("subportals").map { s in
-            KategoriaMenu(nazwa: s.s("name").replacingOccurrences(of: "TVML.pl - ", with: ""), slug: s.s("slug"))
+            // „TVML.pl - Sport” albo po tłumaczeniu „TVML.pl – Спорт” (półpauza): na przycisku sama nazwa działu
+            KategoriaMenu(nazwa: s.s("name").replacingOccurrences(of: #"^TVML\.pl\s*[-–—]\s*"#, with: "", options: .regularExpression), slug: s.s("slug"))
         }
         let aktualnosci = konf.lista("categories").first { $0.s("slug") == "aktualnosci" }.map { Html.tekst($0.s("name")) } ?? ""
         if !sub.isEmpty {
