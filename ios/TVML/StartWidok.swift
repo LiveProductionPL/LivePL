@@ -533,14 +533,14 @@ struct Obraz: View {
 }
 
 /// Kafel pogody na Start: ta sama scena co na ekranie Pogoda, w mniejszym wydaniu.
-/// U góry napis, pod nim data i imieniny (jak pasek daty na tvml.pl), niżej temperatura i prognoza;
-/// panorama w trybie kafelka stoi niżej, więc drzewa są pod tekstem, a nie za nim.
+/// U góry napis, pod nim data (i święto), niżej temperatura i prognoza; drzewa w pasie pod tekstem,
+/// a imieniny na pasie ziemi na samym dole (jak pasek daty na tvml.pl).
 struct KafelPogody: View {
     @EnvironmentObject private var m: Magazyn
 
-    /// „Poniedziałek, 23 listopada · Imieniny: Michała, Grzegorza”; data z config.today (po uk/en przetłumaczona),
-    /// imiona zawsze po polsku, święto (gdy jest) przed imieninami jak na stronie.
-    private var dataIImieniny: String {
+    /// „Poniedziałek, 23 listopada”, przy święcie „… · Narodowe Święto Niepodległości”; data z config.today
+    /// (po uk/en przetłumaczona), bez roku, z wielkiej litery.
+    private var data: String {
         let d = m.dzisiaj
         var data = d?.etykieta ?? ""
         // rok jest zbędny na karcie: „… 2026”, „… 2026 р.”
@@ -549,12 +549,14 @@ struct KafelPogody: View {
             data = Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(Jezyk.locale()))
         }
         data = data.prefix(1).uppercased(with: Jezyk.locale()) + data.dropFirst()
-        var czesci = [data]
-        if let swieto = d?.swieto { czesci.append(swieto) }
-        if let imiona = d?.imieniny, !imiona.isEmpty {
-            czesci.append(Napisy.t("app.nameDays", "Imieniny") + ": " + imiona.joined(separator: ", "))
-        }
-        return czesci.joined(separator: " · ")
+        if let swieto = d?.swieto { data += " · " + swieto }
+        return data
+    }
+
+    /// „Imieniny: Michała, Grzegorza”; imiona zawsze po polsku.
+    private var imieniny: String? {
+        guard let imiona = m.dzisiaj?.imieniny, !imiona.isEmpty else { return nil }
+        return Napisy.t("app.nameDays", "Imieniny") + ": " + imiona.joined(separator: ", ")
     }
 
     var body: some View {
@@ -562,26 +564,27 @@ struct KafelPogody: View {
             KartaPogody(temperatura: m.pogoda.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–",
                         opis: m.pogoda?.opis ?? "",
                         prognoza: (m.pogoda?.dni ?? []).dropFirst().prefix(3).map { (nazwa: $0.nazwa, max: Pogoda.stopnie($0.max)) },
-                        dataIImieniny: dataIImieniny,
+                        data: data, imieniny: imieniny,
                         stan: StanPogody.z(ikony: m.pogoda?.ikona ?? "cloud"),
                         pora: PoraDnia.teraz(dzien: m.pogoda?.dzien ?? true),
                         scena: m.motyw.scena(miesiac: Calendar.current.component(.month, from: .now)),
                         efekt: m.pogoda?.efekt, okolicznosciowy: m.motyw.rodzaj != .zwykly)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie") + ": \(m.pogoda.map { Pogoda.stopnie($0.temperatura) } ?? ""), \(m.pogoda?.opis ?? ""). " + dataIImieniny)
+        .accessibilityLabel(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie") + ": \(m.pogoda.map { Pogoda.stopnie($0.temperatura) } ?? ""), \(m.pogoda?.opis ?? ""). " + data + (imieniny.map { ". " + $0 } ?? ""))
     }
 }
 
 /// Sama karta pogody ze Startu (bez danych z Magazynu), żeby dało się ją narysować w każdej scenie
-/// do sprawdzenia czytelności (GaleriaPogody, -galeria-pogody 1).
+/// do sprawdzenia czytelności (GaleriaPogody, -galeria-pogody YES).
 struct KartaPogody: View {
     enum Warstwa { case calosc, scena, tekst }
 
     let temperatura: String
     let opis: String
     let prognoza: [(nazwa: String, max: String)]
-    let dataIImieniny: String
+    let data: String
+    var imieniny: String? = nil
     let stan: StanPogody
     let pora: PoraDnia
     let scena: Motyw.Scena
@@ -593,10 +596,16 @@ struct KartaPogody: View {
     var warstwa: Warstwa = .calosc
     @Environment(\.dynamicTypeSize) private var rozmiarTekstu
 
+    /// Pas ziemi w kafelku ma stałą wysokość (ScenaPogody.pasZiemiKafla), na nim imieniny.
+    /// Zimą i w Święta ziemia jest jasna (śnieg), wtedy ciemny tekst, w pozostałych scenach jasny.
+    private var kolorNaZiemi: Color {
+        scena == .zima || scena == .swieta ? Color(hex: "#1e293b") : Color(hex: "#f6efe4")
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie").uppercased(with: Jezyk.locale())).czcionka(11, .bold).kerning(1)
-            Text(dataIImieniny).czcionka(12, .semibold)
+            Text(data).czcionka(12, .semibold)
                 .lineLimit(1).truncationMode(.tail).minimumScaleFactor(0.85)
                 .padding(.top, 3)
             HStack(alignment: .center) {
@@ -624,18 +633,28 @@ struct KartaPogody: View {
         .opacity(warstwa == .scena ? 0 : 1)
         .padding(.horizontal, 18)
         .padding(.top, 12)
-        // pas na dole na ziemię i drzewa panoramy (w trybie kafelka sięgają ok. 33 pkt w górę)
-        .padding(.bottom, 36)
+        // na dole pas drzew (ok. 25 pkt nad ziemią) i pas ziemi z imieninami
+        .padding(.bottom, ScenaPogody.pasZiemiKafla + 28)
         .frame(maxWidth: .infinity, minHeight: 110, alignment: .topLeading)
+        .overlay(alignment: .bottomLeading) {
+            if let imieniny {
+                Text(imieniny).czcionka(12, .semibold)
+                    .lineLimit(1).truncationMode(.tail).minimumScaleFactor(0.85)
+                    .foregroundStyle(kolorNaZiemi)
+                    .frame(height: ScenaPogody.pasZiemiKafla)
+                    .padding(.horizontal, 18)
+                    .opacity(warstwa == .scena ? 0 : 1)
+            }
+        }
         .background {
             if warstwa != .tekst {
                 ScenaPogody(stan: stan, pora: pora, scena: scena, efekt: efekt,
                             okolicznosciowy: okolicznosciowy, kafel: true, czas: czas)
-                    // przyciemnienie pod tekstem: mocniej u góry (napis, data, chmury), słabnie ku drzewom na dole
+                    // przyciemnienie pod tekstem: mocniej u góry (napis, data, chmury), słabnie ku drzewom, ziemia bez zmian
                     .overlay {
                         LinearGradient(stops: [.init(color: .black.opacity(0.34), location: 0),
-                                               .init(color: .black.opacity(0.22), location: 0.62),
-                                               .init(color: .black.opacity(0), location: 0.86)],
+                                               .init(color: .black.opacity(0.22), location: 0.6),
+                                               .init(color: .black.opacity(0), location: 0.82)],
                                        startPoint: .top, endPoint: .bottom)
                     }
             }

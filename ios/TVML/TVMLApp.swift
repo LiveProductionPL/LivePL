@@ -5,6 +5,8 @@ import SwiftUI
 /// razem z wersją ustawioną w panelu (zima, święta, Sylwester, 11 Listopada, żałoba).
 @main
 struct TVMLApp: App {
+    /// token APNs i dotknięcia powiadomień (Powiadomienia.swift)
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var delegat
     @StateObject private var magazyn = Magazyn()
     @AppStorage("tvml-wyglad") private var wyglad = "auto"
 
@@ -24,7 +26,7 @@ struct TVMLApp: App {
 struct Glowny: View {
     @EnvironmentObject private var m: Magazyn
     @Environment(\.scenePhase) private var faza
-    /// Do zrzutów ekranu: -ekran pogoda|artykul|wideo|wiecej|zakladka2 (druga zakładka z panelu), -motyw zima|wigilia|…
+    /// Do zrzutów ekranu: -ekran pogoda|artykul|wideo|wiecej|zakladka2 (druga zakładka z panelu)|powiadomienia, -motyw zima|wigilia|…
     private let ekranStartowy = UserDefaults.standard.string(forKey: "ekran")
     private let motywTestowy = Motyw.zArgumentu(UserDefaults.standard.string(forKey: "motyw"))
     /// Wybór języka z „Więcej” albo z flagi w nagłówku (ten sam zapis), zmiana obsłużona tutaj raz.
@@ -58,6 +60,7 @@ struct Glowny: View {
         .task {
             // CI: karta pogody we wszystkich scenach do Documents/galeria (sprawdzanie czytelności)
             if GaleriaPogody.wlaczona { await GaleriaPogody.zapisz() }
+            await Powiadomienia.shared.przyStarcie()
             await m.odswiez(wymus: true)
             if let motywTestowy { m.motyw = motywTestowy }
             switch ekranStartowy {
@@ -66,8 +69,15 @@ struct Glowny: View {
             case "wiecej": m.pokaz(.wiecej)
             case "artykul": if let pierwszy = m.najnowsze.first { m.otworz(pierwszy) }
             case "zakladka2": if m.zakladki.count > 1 { m.zakladka = m.zakladki[1].id }
+            case "powiadomienia": m.pokaz(.wiecej); m.otworz(EkranWiecej.powiadomienia)
             default: break
             }
+        }
+        // dotknięte powiadomienie push: artykuł z articleId (także gdy aplikacja dopiero się uruchamia)
+        .onReceive(Powiadomienia.shared.$doOtwarcia) { id in
+            guard let id else { return }
+            Powiadomienia.shared.doOtwarcia = nil
+            Task { if let a = await m.artykul(id) { m.otworz(a) } }
         }
         .onChange(of: faza) { _, nowa in
             guard nowa == .active else { return }

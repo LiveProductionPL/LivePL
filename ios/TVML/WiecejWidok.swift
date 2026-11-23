@@ -3,7 +3,7 @@ import SafariServices
 import WebKit
 
 /// Więcej: zapisane artykuły, działy tvml.pl, wygląd, rozmiar tekstu, strony redakcji i media społecznościowe.
-/// „Zgłoś zdarzenie”, sondy i powiadomienia przejdą tu natywnie razem z nowym API tvml.pl.
+/// Powiadomienia o nowych wpisach (push) w „Moje → Powiadomienia”.
 struct WiecejWidok: View {
     @EnvironmentObject private var m: Magazyn
     @AppStorage("tvml-wyglad") private var wyglad = "auto"
@@ -55,6 +55,12 @@ struct WiecejWidok: View {
                 NavigationLink(value: EkranWiecej.zapisane) {
                     Label(Napisy.t("app.savedArticles", "Zapisane artykuły"), systemImage: "bookmark")
                         .badge(m.zapisane.count)
+                }
+                // push o nowym wpisie (config.push.enabled i tematy z panelu)
+                if !m.tematyPush.isEmpty {
+                    NavigationLink(value: EkranWiecej.powiadomienia) {
+                        Label(Napisy.t("app.notifications", "Powiadomienia"), systemImage: "bell")
+                    }
                 }
             }
             if m.maOgloszenia || m.maFotorelacje {
@@ -206,7 +212,7 @@ struct SzukajWidok: View {
 
 /// Ekrany z „Więcej” w ścieżce nawigacji zakładki (przez wartość, tak jak artykuły i gminy).
 enum EkranWiecej: Hashable {
-    case zapisane, ogloszenia, fotorelacje
+    case zapisane, ogloszenia, fotorelacje, powiadomienia
     case strona(String)
     case wydarzenie(Wydarzenie)
 }
@@ -217,6 +223,7 @@ struct EkranWiecejWidok: View {
     var body: some View {
         switch ekran {
         case .zapisane: ZapisaneWidok()
+        case .powiadomienia: PowiadomieniaWidok().kolumna()
         case .ogloszenia: OgloszeniaWidok().kolumna()
         case .fotorelacje: FotorelacjeWidok().kolumna()
         case .strona(let slug): PodstronaWidok(slug: slug).kolumna()

@@ -63,7 +63,8 @@ enum GaleriaPogody {
         // najdłuższe teksty, jakie zwykle bywają na karcie (temperatura z minusem, dwa imiona)
         KartaPogody(temperatura: "−12,4°C", opis: "Zachmurzenie duże",
                     prognoza: [(nazwa: "Wt", max: "−10,7°"), (nazwa: "Śr", max: "−11,4°"), (nazwa: "Cz", max: "−9,6°")],
-                    dataIImieniny: "Poniedziałek, 23 listopada · Imieniny: Michała, Grzegorza",
+                    data: "Poniedziałek, 11 listopada · Narodowe Święto Niepodległości",
+                    imieniny: "Imieniny: Bartłomieja, Marcina, Prota",
                     stan: v?.stan ?? .chmury, pora: v?.pora ?? .dzien, scena: v?.scena ?? .jesien,
                     efekt: v?.efekt, okolicznosciowy: v?.okolicznosciowy ?? false, czas: czas, warstwa: warstwa)
             .frame(width: szerokosc)

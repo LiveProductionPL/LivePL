@@ -532,6 +532,8 @@ final class Magazyn: ObservableObject {
     @Published var gminy: [Gmina] = []
     @Published var kategorie: [KategoriaMenu] = KategoriaMenu.domyslne
     @Published var dzisiaj: Dzisiaj?
+    /// Tematy powiadomień z config.push.topics (pusto = serwer bez push albo jeszcze nie pobrano).
+    @Published var tematyPush: [TematPush] = []
     /// Komunikat redakcji z panelu (config.message) i prośba o aktualizację (config.minAppVersion.ios), od API 1.2.
     @Published var komunikat: Komunikat?
     /// Kategoria artykułów subportalu z panelu (config.subportals[].category, pusta = slug), np. muzyka → muzyka-tvml.
@@ -621,6 +623,9 @@ final class Magazyn: ObservableObject {
         // API 1.8.0: języki włączone w panelu i napisy aplikacji (config.i18n), zapisane też na czas bez sieci
         if let l = konf["languages"] as? [String] { Jezyk.ustawDostepne(l) }
         Napisy.ustaw(konf.slownik("i18n"))
+        // push o nowym wpisie: tematy z panelu, gdy serwer ma powiadomienia włączone
+        let push = konf.slownik("push")
+        tematyPush = push.b("enabled") ? push.lista("topics").compactMap(TematPush.init) : []
         if jezyk != Jezyk.biezacy { jezyk = Jezyk.biezacy }
         najnowsze = lista.lista("items").compactMap(Artykul.widoczny)
         if let m = Motyw.zV1(konf.slownik("theme"), wersjaApi: konf.s("apiVersion")) { motyw = m }
@@ -870,6 +875,8 @@ final class Magazyn: ObservableObject {
         spotlight = [:]
         await odswiez(wymus: true)
         await sprawdzStrony()
+        // powiadomienia w nowym języku (pole lang w POST devices)
+        Powiadomienia.shared.zglos()
     }
 
     func przelaczZapis(_ a: Artykul) {

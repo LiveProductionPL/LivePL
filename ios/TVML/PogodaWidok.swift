@@ -171,6 +171,8 @@ struct ScenaPogody: View {
     /// i ozdoby stały w pasie pod tekstem; słońce i księżyc w prawym górnym rogu nad datą, fajerwerki
     /// i błyskawica w przerwie między temperaturą a prognozą, chmury i mgła bledsze.
     var kafel = false
+    /// Wysokość pasa ziemi w kafelku (punkty); KartaPogody kładzie na nim imieniny.
+    static let pasZiemiKafla: CGFloat = 22
     /// Stała chwila animacji (galeria scen do sprawdzania czytelności); nil = scena żyje.
     var czas: Double? = nil
     @Environment(\.accessibilityReduceMotion) private var bezRuchu
@@ -582,7 +584,8 @@ struct ScenaPogody: View {
         // kafel: skala najwyżej 1,2 (na iPadzie miasto na środku, a nie powiększone na pół karty)
         let s = kafel ? min(w / 358, 1.2) : w / 358
         let lewo = (w - 358 * s) / 2
-        let gora = h - (kafel ? 116 : 130) * s
+        // kafel: pas ziemi ma stałą wysokość, bo stoją na nim imieniny (KartaPogody)
+        let gora = kafel ? h - Self.pasZiemiKafla - 108 * s : h - 130 * s
         func r(_ x: CGFloat, _ y: CGFloat, _ sz: CGFloat, _ wy: CGFloat) -> CGRect { CGRect(x: lewo + x * s, y: gora + y * s, width: sz * s, height: wy * s) }
         func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: lewo + x * s, y: gora + y * s) }
         let miasto = noc ? Color(hex: "#0a1226") : Color(hex: "#1c2b45")

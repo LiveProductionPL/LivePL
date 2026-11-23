@@ -84,6 +84,7 @@ if [ -n "${5:-}" ] && [ -d "$5" ]; then
   # po polsku niezależnie od języka symulatora (-tvml-jezyk trafia do UserDefaults tylko na to uruchomienie)
   zrzut 12b-tvml-dzien-pl light -tvml-jezyk pl
   zrzut 13-tvml-pogoda light -ekran pogoda
+  zrzut 13b-tvml-powiadomienia light -ekran powiadomienia -tvml-jezyk pl
   zrzut 14-tvml-artykul light -ekran artykul
   # „Większy tekst” na poziomie AX3 (górna granica w aplikacji)
   xcrun simctl ui "$UDID" content_size accessibility-extra-large || true
