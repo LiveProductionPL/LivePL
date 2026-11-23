@@ -7,6 +7,7 @@ import WebKit
 struct ArtykulWidok: View {
     @EnvironmentObject private var m: Magazyn
     @Environment(\.dismiss) private var wroc
+    @Environment(\.scenePhase) private var faza
     let poczatkowy: Artykul
     @State private var pelny: Artykul?
     @StateObject private var lektor = Lektor()
@@ -113,7 +114,9 @@ struct ArtykulWidok: View {
 
                     if zrodlo?.tlumaczenieWToku == true && !Jezyk.polski {
                         // jedno zdanie zwykłym tekstem, bez paska i ikony ostrzeżenia
-                        Text(Napisy.t("app.translationPending", "Tłumaczenie w przygotowaniu. Poniżej oryginalna wersja po polsku."))
+                        Text(zrodlo?.tlumaczenieRano == true
+                             ? Napisy.t("app.translationPendingNight", "Tłumaczenie w przygotowaniu, będzie rano. Poniżej oryginalna wersja po polsku.")
+                             : Napisy.t("app.translationPending", "Tłumaczenie w przygotowaniu. Poniżej oryginalna wersja po polsku."))
                             .czcionka(13).foregroundStyle(Barwy.slaby)
                     }
                     if let tresc = zrodlo?.tresc {
@@ -166,6 +169,11 @@ struct ArtykulWidok: View {
         .toolbar(.hidden, for: .navigationBar)
         .task { if pelny == nil { pelny = await m.artykul(poczatkowy.id) } }
         .onDisappear { lektor.zatrzymaj() }
+        // tłumaczenie mogło być gotowe, gdy aplikacja była w tle
+        .onChange(of: faza) { _, nowa in
+            guard nowa == .active, oryginal == nil, pelny?.tlumaczenieWToku == true else { return }
+            Task { if let a = await m.artykul(poczatkowy.id) { pelny = a } }
+        }
         .sheet(isPresented: $komentarze) { KomentarzeWidok(artykul: a) }
         .sheet(item: Binding(get: { film.map { FilmId(id: $0) } }, set: { film = $0?.id })) { f in
             Odtwarzacz(adres: URL(string: "https://www.youtube-nocookie.com/embed/\(f.id)?playsinline=1&rel=0")!)

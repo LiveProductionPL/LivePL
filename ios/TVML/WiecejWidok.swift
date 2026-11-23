@@ -160,11 +160,7 @@ struct ZapisaneWidok: View {
         .background(Barwy.tlo)
         .toolbar(.hidden, for: .navigationBar)
         .task {
-            var wynik: [Artykul] = []
-            for id in m.zapisane.prefix(30) {
-                if let a = await m.artykul(id) { wynik.append(a) }
-            }
-            lista = wynik
+            lista = await m.zapisaneArtykuly()
             laduje = false
         }
     }

@@ -329,6 +329,8 @@ struct Artykul: Identifiable, Hashable {
     let przetlumaczony: Bool
     /// API 1.8.0: tłumaczenie jeszcze powstaje, więc tekst jest po polsku (translationPending)
     let tlumaczenieWToku: Bool
+    /// translationEta: "morning" = tłumaczenie będzie rano (prośba w nocy), inaczej zwykle w ciągu godziny
+    let tlumaczenieRano: Bool
 
     /// Przyjmuje artykuł z API v1 (image i category jako obiekty) albo ze starych akcji tvml-db.php.
     init(_ j: Slownik) {
@@ -370,6 +372,7 @@ struct Artykul: Identifiable, Hashable {
         sponsorowany = j.slownik("flags").b("sponsored")
         przetlumaczony = j.b("translated")
         tlumaczenieWToku = j.b("translationPending") && !j.b("translated")
+        tlumaczenieRano = j.s("translationEta") == "morning"
     }
 
     /// Artykuły sponsorowane są w aplikacji wyłączone (Karol, 22.11.2026), niezależnie od panelu.
@@ -818,6 +821,25 @@ final class Magazyn: ObservableObject {
         if let j = (try? await Siec.v1("articles/\(id)", jezyk.map { ["lang": $0] } ?? [:])) as? Slownik, j["id"] != nil { return Artykul(j) }
         guard let j = (try? await Siec.json("tvml-db.php?action=article&id=\(id)")) as? Slownik, j["id"] != nil else { return nil }
         return Artykul(j)
+    }
+
+    /// Zapisane artykuły na liście. Pobranie szczegółów w języku uk/en zamawia tłumaczenie (PR #94, tłumaczenie na żądanie),
+    /// więc lista bierze je z /articles?ids= (gdy serwer to obsługuje), a bez tego szczegóły po polsku.
+    /// Tłumaczenie zamawia dopiero otwarcie artykułu.
+    func zapisaneArtykuly() async -> [Artykul] {
+        let ids = Array(zapisane.prefix(30))
+        guard !ids.isEmpty else { return [] }
+        if let j = (try? await Siec.v1("articles", ["ids": ids.map(String.init).joined(separator: ","), "limit": String(ids.count)])) as? Slownik {
+            let lista = j.lista("items").map(Artykul.init)
+            if !lista.isEmpty && lista.allSatisfy({ ids.contains($0.id) }) {
+                return ids.compactMap { id in lista.first { $0.id == id } }
+            }
+        }
+        var wynik: [Artykul] = []
+        for id in ids {
+            if let a = await artykul(id, jezyk: Jezyk.polski ? nil : "pl") { wynik.append(a) }
+        }
+        return wynik
     }
 
     func szukaj(_ fraza: String) async -> [Artykul] {
