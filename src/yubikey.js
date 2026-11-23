@@ -5,6 +5,7 @@
 // (Win32_DeviceChangeEvent) i wypisuje „1” albo „0”, gdy coś się zmieniło. Bez uprawnień administratora.
 
 const { spawn } = require('child_process');
+const { argumenty } = require('./powershell'); // skrypt jawnie w -Command, bez kodowania i bez Bypass (zob. powershell.js)
 
 const SKRYPT = [
   "$ErrorActionPreference = 'SilentlyContinue'",
@@ -27,8 +28,7 @@ let ponowienia = 0;
 
 function obserwuj(sluchacz) {
   if (process.platform !== 'win32' || proces) return;
-  const kod = Buffer.from(SKRYPT, 'utf16le').toString('base64');
-  proces = spawn('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', kod], { windowsHide: true });
+  proces = spawn('powershell.exe', argumenty(SKRYPT), { windowsHide: true });
   let bufor = '';
   proces.stdout.on('data', (d) => {
     bufor += d.toString();
