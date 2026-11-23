@@ -542,7 +542,8 @@ struct KafelPogody: View {
             ZStack(alignment: .leading) {
                 ScenaPogody(stan: StanPogody.z(ikony: m.pogoda?.ikona ?? "cloud"),
                             pora: PoraDnia.teraz(dzien: m.pogoda?.dzien ?? true),
-                            scena: m.motyw.scena(miesiac: Calendar.current.component(.month, from: .now)))
+                            scena: m.motyw.scena(miesiac: Calendar.current.component(.month, from: .now)),
+                            efekt: m.pogoda?.efekt, okolicznosciowy: m.motyw.rodzaj != .zwykly)
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("POGODA W LESZNIE").czcionka(11, .bold).kerning(1)

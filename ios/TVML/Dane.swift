@@ -297,6 +297,29 @@ struct Film: Identifiable, Hashable {
     var osadzenie: URL? { URL(string: "https://www.youtube-nocookie.com/embed/\(id)?playsinline=1&rel=0") }
 }
 
+/// Efekt tła pogody liczony przez serwer (API 1.7.2, weather_effect.php): ten sam na stronie, w panelu i w aplikacji.
+struct EfektPogody: Equatable {
+    /// clear-day, clear-night, clouds, fog, drizzle, rain, rain-heavy, storm, snow, sleet, wind
+    let rodzaj: String
+    /// 0–1: gęstość cząstek, przy opadzie według natężenia ze stacji
+    let natezenie: Double
+    /// silny wiatr: krople skośnie, płatki znoszone, chmury szybciej
+    let wietrznie: Bool
+    /// jesienne liście jako dodatek (tylko jesienią i przy suchej pogodzie)
+    let liscie: Bool
+    /// day, dusk (do 45 min od wschodu albo zachodu), night
+    let faza: String
+
+    init?(_ j: Slownik) {
+        guard !j.s("effect").isEmpty else { return nil }
+        rodzaj = j.s("effect")
+        natezenie = min(max(j.d("intensity") ?? 0.5, 0), 1)
+        wietrznie = j.b("windy")
+        liscie = j.b("leaves")
+        faza = j.s("phase").isEmpty ? (j.b("isNight") ? "night" : "day") : j.s("phase")
+    }
+}
+
 struct Pogoda {
     struct Dzien: Identifiable { let id = UUID(); let nazwa: String; let ikona: String; let opis: String; let max: Double?; let min: Double?; let opad: Int }
     struct Godzina: Identifiable { let id = UUID(); let czas: String; let ikona: String; let temp: Double?; let opad: Int }
@@ -315,9 +338,12 @@ struct Pogoda {
     let zachod: String
     let dni: [Dzien]
     let godziny: [Godzina]
+    /// Efekt tła z serwera (API 1.7.2); nil przy starszym API, wtedy scena według ikony.
+    let efekt: EfektPogody?
 
     /// API v1 (state, isNight, daily, hourly w dniach) albo stare weather-full.
     init(_ j: Slownik) {
+        efekt = EfektPogody(j)
         let c = j.slownik("current")
         temperatura = c.d("temperature"); odczuwalna = c.d("feelsLike"); wilgotnosc = c.d("humidity")
         cisnienie = c.d("pressure"); wiatr = c.d("windKmh"); porywy = c.d("windGust")
