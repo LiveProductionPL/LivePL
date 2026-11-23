@@ -18,14 +18,14 @@ struct PogodaWidok: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(p.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–").czcionka(52, .heavy)
                         Text(p?.opis ?? "").czcionka(16, .semibold)
-                        Text("Odczuwalna " + (p.map { Pogoda.stopnie($0.odczuwalna) + "C" } ?? "–")).czcionka(13)
+                        Text(Napisy.t("app.feelsLike", "Odczuwalna") + " " + (p.map { Pogoda.stopnie($0.odczuwalna) + "C" } ?? "–")).czcionka(13)
                     }
                     .foregroundStyle(.white)
                     .shadow(color: .black.opacity(0.45), radius: 8)
                     .padding(18)
                     // przy bardzo dużym tekście plakietka zasłaniałaby temperaturę (i tak jesteśmy na ekranie Pogoda)
                     if !rozmiarTekstu.isAccessibilitySize {
-                        Text("POGODA W LESZNIE")
+                        Text(Napisy.t("app.weatherInLeszno", "Pogoda w Lesznie").uppercased(with: Jezyk.locale()))
                             .czcionka(11, .bold).foregroundStyle(.white)
                             .padding(.horizontal, 9).padding(.vertical, 5)
                             .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 9))
@@ -41,12 +41,12 @@ struct PogodaWidok: View {
                     Gwiazda().fill(Color(hex: "#e8c26a")).frame(width: 14, height: 14)
                         .frame(width: 30, height: 30).overlay(Circle().stroke(Color(hex: "#e8c26a"), lineWidth: 1.5))
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(m.dzisiaj?.etykieta ?? Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide).year().locale(Locale(identifier: "pl_PL"))))
+                        Text((Jezyk.polski ? m.dzisiaj?.etykieta : nil) ?? Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide).year().locale(Jezyk.locale())))
                             .czcionka(13, .bold)
                         if let imieniny = m.dzisiaj?.imieniny, !imieniny.isEmpty {
-                            Text("Imieniny: \(imieniny.joined(separator: ", "))").czcionka(12).foregroundStyle(Color(hex: "#c9d3e3"))
+                            Text(Napisy.t("app.nameDays", "Imieniny") + ": " + imieniny.joined(separator: ", ")).czcionka(12).foregroundStyle(Color(hex: "#c9d3e3"))
                         }
-                        Text("Wschód \(p?.wschod ?? "–") · zachód \(p?.zachod ?? "–")").czcionka(12).foregroundStyle(Color(hex: "#c9d3e3"))
+                        Text(Napisy.t("app.sunrise", "Wschód") + " \(p?.wschod ?? "–") · " + Napisy.t("app.sunset", "zachód").lowercased(with: Jezyk.locale()) + " \(p?.zachod ?? "–")").czcionka(12).foregroundStyle(Color(hex: "#c9d3e3"))
                     }
                 }
                 .foregroundStyle(.white)
@@ -55,9 +55,9 @@ struct PogodaWidok: View {
                 .background(m.motyw.naglowek.first ?? Barwy.granat, in: RoundedRectangle(cornerRadius: 14))
 
                 HStack(spacing: 8) {
-                    Pomiar(nazwa: "Wiatr", wartosc: p?.wiatr.map { String(format: "%.1f km/h %@", $0, p?.kierunek ?? "").replacingOccurrences(of: ".", with: ",") } ?? "–")
-                    Pomiar(nazwa: "Wilgotność", wartosc: p?.wilgotnosc.map { "\(Int($0.rounded()))%" } ?? "–")
-                    Pomiar(nazwa: "Ciśnienie", wartosc: p?.cisnienie.map { String(format: "%.1f hPa", $0).replacingOccurrences(of: ".", with: ",") } ?? "–")
+                    Pomiar(nazwa: Napisy.t("app.wind", "Wiatr"), wartosc: p?.wiatr.map { String(format: "%.1f km/h %@", $0, p?.kierunek ?? "").replacingOccurrences(of: ".", with: Jezyk.przecinek) } ?? "–")
+                    Pomiar(nazwa: Napisy.t("app.humidity", "Wilgotność"), wartosc: p?.wilgotnosc.map { "\(Int($0.rounded()))%" } ?? "–")
+                    Pomiar(nazwa: Napisy.t("app.pressure", "Ciśnienie"), wartosc: p?.cisnienie.map { String(format: "%.1f hPa", $0).replacingOccurrences(of: ".", with: Jezyk.przecinek) } ?? "–")
                 }
 
                 if let godziny = p?.godziny, !godziny.isEmpty {

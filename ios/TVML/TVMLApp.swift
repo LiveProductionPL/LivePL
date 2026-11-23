@@ -12,6 +12,8 @@ struct TVMLApp: App {
         WindowGroup {
             Glowny()
                 .environmentObject(magazyn)
+                // daty, liczby i systemowe napisy w języku aplikacji (pl, uk, en)
+                .environment(\.locale, Jezyk.locale(magazyn.jezyk))
                 // „Większy tekst” do poziomu AX3 (ponad dwa razy większy tekst); wyżej układ kart i pasków przestaje się mieścić
                 .dynamicTypeSize(...DynamicTypeSize.accessibility3)
                 .preferredColorScheme(wyglad == "dzien" ? .light : (wyglad == "noc" ? .dark : nil))
@@ -45,6 +47,8 @@ struct Glowny: View {
             }
             .tint(m.motyw.akcent)
         }
+        // zmiana języka w „Więcej” buduje ekrany od nowa (bez restartu); otwarte ekrany zostają w Magazynie
+        .id(m.jezyk)
         .background(Barwy.tlo)
         .overlay { if m.wymaganaAktualizacja { EkranAktualizacji() } }
         .sheet(isPresented: $m.arkuszPogody) { NavigationStack { PogodaWidok().toolbar(.hidden, for: .navigationBar) } }
@@ -125,7 +129,7 @@ struct Baner: View {
                         .frame(height: 40)
                         .overlay(alignment: .topTrailing) { OzdobaLogo(motyw: motyw) }
                 }
-                .accessibilityLabel("Telewizja TVML, strona główna")
+                .accessibilityLabel(Napisy.t("app.a11yHome", "Telewizja TVML, strona główna"))
                 Spacer()
                 Button { m.pokaz(.pogoda) } label: {
                     HStack(spacing: 6) {
@@ -136,14 +140,14 @@ struct Baner: View {
                     .padding(.horizontal, 12).frame(height: 36)
                     .background(.white.opacity(0.12), in: Capsule())
                 }
-                .accessibilityLabel("Pogoda")
+                .accessibilityLabel(Napisy.t("app.weather", "Pogoda"))
                 Button { szukaj = true } label: {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 17, weight: .semibold))
                         .frame(width: 44, height: 44)
                         .background(.white.opacity(0.12), in: Circle())
                 }
-                .accessibilityLabel("Szukaj")
+                .accessibilityLabel(Napisy.t("app.search", "Szukaj"))
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 10)
@@ -190,7 +194,7 @@ struct BanerKomunikatu: View {
                 Button { m.zamknieteKomunikaty.append(komunikat.id) } label: {
                     Image(systemName: "xmark").font(.system(size: 13, weight: .bold)).frame(width: 32, height: 32)
                 }
-                .accessibilityLabel("Zamknij komunikat")
+                .accessibilityLabel(Napisy.t("app.close", "Zamknij komunikat"))
             }
         }
         .foregroundStyle(napis)
@@ -220,11 +224,12 @@ struct EkranAktualizacji: View {
         VStack(spacing: 18) {
             Spacer()
             Image("LogoNoc").resizable().scaledToFit().frame(height: 56)
-            Text("Zaktualizuj aplikację TVML").czcionka(22, .bold)
-            Text("Ta wersja (\(Wersja.biezaca)) jest już nieaktualna. Pobierz nową z App Store, żeby dalej czytać wiadomości.")
+            Text(Napisy.t("app.forceUpdateTitle", "Zaktualizuj aplikację TVML")).czcionka(22, .bold)
+            Text(Napisy.t("app.forceUpdateText", "Ta wersja ({v}) jest już nieaktualna. Pobierz nową z App Store, żeby dalej czytać wiadomości.")
+                    .replacingOccurrences(of: "{v}", with: Wersja.biezaca))
                 .czcionka(15).multilineTextAlignment(.center).opacity(0.85)
             Button { otworz(URL(string: "https://apps.apple.com/app/id1468277905")!) } label: {
-                Text("Otwórz App Store").czcionka(16, .bold)
+                Text(Napisy.t("app.openAppStore", "Otwórz App Store")).czcionka(16, .bold)
                     .frame(maxWidth: 320).frame(height: 50)
                     .background(Color(hex: "#e29818"), in: RoundedRectangle(cornerRadius: 12))
                     .foregroundStyle(Color(hex: "#1d1400"))
@@ -285,7 +290,7 @@ struct NaZywo: View {
             HStack(spacing: 6) {
                 // kropka i „NA ŻYWO” tylko przy transmisji (config.ticker.live), inaczej etykieta z panelu, np. „NAJNOWSZE”
                 if m.pasekNaZywo { Circle().fill(.white).frame(width: 8, height: 8) }
-                Text(m.pasekNaZywo ? "NA ŻYWO" : m.etykietaPaska.uppercased()).czcionka(11, .heavy).kerning(1)
+                Text(m.pasekNaZywo ? Napisy.t("app.live", "NA ŻYWO") : m.etykietaPaska.uppercased(with: Jezyk.locale())).czcionka(11, .heavy).kerning(1)
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 12).frame(maxHeight: .infinity)
@@ -328,7 +333,7 @@ struct NaZywo: View {
         .background(Barwy.karta)
         .overlay(alignment: .bottom) { Barwy.ramka.frame(height: 1) }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(m.pasekNaZywo ? "Na żywo" : m.etykietaPaska)
+        .accessibilityLabel(m.pasekNaZywo ? Napisy.t("app.live", "Na żywo") : m.etykietaPaska)
     }
 }
 

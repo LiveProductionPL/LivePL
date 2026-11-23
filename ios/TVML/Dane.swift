@@ -27,6 +27,99 @@ extension Dictionary where Key == String, Value == Any {
     func lista(_ k: String) -> [Slownik] { self[k] as? [Slownik] ?? [] }
 }
 
+/// Język aplikacji (API 1.8.0): polski, ukraiński albo angielski. Domyślnie „Jak w systemie”: telefon po ukraińsku
+/// albo angielsku dostaje ten język, każdy inny polski. Wybór w „Więcej” (UserDefaults); język wyłączony w panelu → polski.
+enum Jezyk {
+    static let kluczWyboru = "tvml-jezyk"
+    static let wszystkie = ["pl", "uk", "en"]
+    /// Nazwy w ich własnym języku, jak w przełącznikach języka.
+    static let nazwy = ["pl": "Polski", "uk": "Українська", "en": "English"]
+
+    /// "system", "pl", "uk" albo "en"
+    static var wybor: String { UserDefaults.standard.string(forKey: kluczWyboru) ?? "system" }
+
+    /// Języki włączone w panelu (config.languages), zapamiętane; bez tej informacji wszystkie trzy.
+    static var dostepne: [String] {
+        let l = (UserDefaults.standard.stringArray(forKey: "tvml-jezyki") ?? []).filter { wszystkie.contains($0) }
+        return l.isEmpty ? wszystkie : l
+    }
+
+    static func ustawDostepne(_ l: [String]) {
+        let znane = wszystkie.filter { l.contains($0) }
+        if !znane.isEmpty { UserDefaults.standard.set(znane, forKey: "tvml-jezyki") }
+    }
+
+    /// Język telefonu: uk albo en, każdy inny (też rosyjski czy niemiecki) to polski.
+    static var systemowy: String {
+        let k = Locale.preferredLanguages.first.map { String($0.prefix(2)).lowercased() } ?? "pl"
+        return k == "uk" || k == "en" ? k : "pl"
+    }
+
+    static var biezacy: String {
+        let j = wybor == "system" ? systemowy : wybor
+        return dostepne.contains(j) ? j : "pl"
+    }
+
+    static var polski: Bool { biezacy == "pl" }
+    /// Separator dziesiętny: po angielsku kropka, po polsku i ukraińsku przecinek.
+    static var przecinek: String { biezacy == "en" ? "." : "," }
+
+    static func locale(_ j: String? = nil) -> Locale {
+        switch j ?? biezacy {
+        case "uk": return Locale(identifier: "uk_UA")
+        case "en": return Locale(identifier: "en_GB")
+        default: return Locale(identifier: "pl_PL")
+        }
+    }
+
+    private static var formatery: [String: DateFormatter] = [:]
+
+    /// DateFormatter w języku aplikacji i czasie polskim, jeden na wzór i język.
+    static func format(_ wzor: String, posix: Bool = false) -> DateFormatter {
+        let jezyk = posix ? "posix" : biezacy
+        let klucz = jezyk + "|" + wzor
+        if let f = formatery[klucz] { return f }
+        let f = DateFormatter()
+        f.locale = posix ? Locale(identifier: "en_US_POSIX") : locale(jezyk)
+        f.timeZone = TimeZone(identifier: "Europe/Warsaw")
+        f.dateFormat = wzor
+        formatery[klucz] = f
+        return f
+    }
+}
+
+/// Napisy aplikacji z config.i18n (te same słowniki co strona, klucze app.*). Aplikacja nie ma własnych tłumaczeń:
+/// po ukraińsku i angielsku tekst z serwera, a bez klucza (i po polsku) tekst wbudowany, taki jak dotąd.
+/// Ostatnie słowniki zostają w telefonie, więc bez sieci napisy też są.
+enum Napisy {
+    private static var slowniki: [String: [String: String]] =
+        (UserDefaults.standard.dictionary(forKey: "tvml-i18n") as? [String: [String: String]]) ?? [:]
+
+    static func ustaw(_ i: Slownik) {
+        var nowe: [String: [String: String]] = [:]
+        for (j, v) in i {
+            guard let s = v as? Slownik else { continue }
+            var teksty: [String: String] = [:]
+            for (k, t) in s { if let t = t as? String, !t.isEmpty { teksty[k] = t } }
+            if !teksty.isEmpty { nowe[j] = teksty }
+        }
+        guard !nowe.isEmpty else { return }
+        slowniki = nowe
+        UserDefaults.standard.set(nowe, forKey: "tvml-i18n")
+    }
+
+    static func t(_ klucz: String, _ polski: String) -> String {
+        let j = Jezyk.biezacy
+        guard j != "pl", let v = slowniki[j]?[klucz] else { return polski }
+        return v
+    }
+
+    /// {n} w tekście zastąpione liczbą, np. app.readingMinutes.
+    static func t(_ klucz: String, _ polski: String, n: Int) -> String {
+        t(klucz, polski).replacingOccurrences(of: "{n}", with: String(n))
+    }
+}
+
 enum Siec {
     static let baza = URL(string: "https://tvml.pl/")!
 
@@ -54,6 +147,9 @@ enum Siec {
     static var dzialajacaBaza: String?
 
     static func v1(_ trasa: String, _ parametry: [String: String] = [:]) async throws -> Any {
+        // API 1.8.0: język treści w każdym zapytaniu (bez lang serwer odpowiada po polsku)
+        var parametry = parametry
+        if parametry["lang"] == nil { parametry["lang"] = Jezyk.biezacy }
         var znaki = CharacterSet.alphanumerics
         znaki.insert(charactersIn: "-._~")
         let zapytanie = parametry.sorted { $0.key < $1.key }
@@ -80,7 +176,8 @@ enum Siec {
         let kolejnosc = dzialajacaBaza.map { d in [d] + bazyApi.filter { $0 != d } } ?? bazyApi
         var ostatni: Error = URLError(.badURL)
         for b in kolejnosc {
-            guard let url = URL(string: b + trasa, relativeTo: baza) else { continue }
+            let jezyk = (b.hasSuffix("route=") ? "&" : "?") + "lang=" + Jezyk.biezacy
+            guard let url = URL(string: b + trasa + jezyk, relativeTo: baza) else { continue }
             var z = URLRequest(url: url, timeoutInterval: 20)
             z.httpMethod = "POST"
             z.setValue(agent, forHTTPHeaderField: "User-Agent")
@@ -206,6 +303,10 @@ struct Artykul: Identifiable, Hashable {
     let sponsorowany: Bool
     /// Gotowe rozmiary obrazu z API v1 (400, 800, 1200).
     let warianty: [Int: String]
+    /// API 1.8.0: tytuł i treść w wybranym języku (translated)
+    let przetlumaczony: Bool
+    /// API 1.8.0: tłumaczenie jeszcze powstaje, więc tekst jest po polsku (translationPending)
+    let tlumaczenieWToku: Bool
 
     /// Przyjmuje artykuł z API v1 (image i category jako obiekty) albo ze starych akcji tvml-db.php.
     init(_ j: Slownik) {
@@ -245,6 +346,8 @@ struct Artykul: Identifiable, Hashable {
         tresc = t.isEmpty ? nil : t
         pilne = j.slownik("flags").b("urgent")
         sponsorowany = j.slownik("flags").b("sponsored")
+        przetlumaczony = j.b("translated")
+        tlumaczenieWToku = j.b("translationPending") && !j.b("translated")
     }
 
     /// Artykuły sponsorowane są w aplikacji wyłączone (Karol, 22.11.2026), niezależnie od panelu.
@@ -267,7 +370,7 @@ struct Artykul: Identifiable, Hashable {
     var kiedy: String {
         guard let data else { return "" }
         let f = RelativeDateTimeFormatter()
-        f.locale = Locale(identifier: "pl_PL")
+        f.locale = Jezyk.locale()
         f.unitsStyle = .full
         return f.localizedString(for: data, relativeTo: .now)
     }
@@ -370,7 +473,7 @@ struct Pogoda {
 
     static func stopnie(_ v: Double?) -> String {
         guard let v else { return "–" }
-        return String(format: "%.1f°", v).replacingOccurrences(of: ".", with: ",")
+        return String(format: "%.1f°", v).replacingOccurrences(of: ".", with: Jezyk.przecinek)
     }
 }
 
@@ -386,6 +489,8 @@ final class Magazyn: ObservableObject {
     @Published var wKategorii: [String: [Artykul]] = [:]
     @Published var blad: String?
     @Published var laduje = false
+    /// Język treści i napisów (pl, uk, en); zmiana przebudowuje ekrany.
+    @Published var jezyk = Jezyk.biezacy
     /// Zakładki z panelu (Aplikacja mobilna → Zakładki), a bez API domyślne z projektu.
     @Published var zakladki: [ZakladkaApp] = ZakladkaApp.domyslne
     @Published var zakladka = "home"
@@ -470,9 +575,9 @@ final class Magazyn: ObservableObject {
               let j = (try? JSONSerialization.jsonObject(with: odp.0)) as? Slownik,
               let w = j.lista("results").first?.s("version"), !w.isEmpty,
               Wersja.starsza(Wersja.biezaca, niz: w) else { nowaWersja = nil; return }
-        nowaWersja = Komunikat(["id": "aktualizacja-" + w, "title": "Nowa wersja TVML \(w)",
-                                "text": "Zaktualizuj aplikację w App Store, żeby mieć najnowsze funkcje.", "level": "info",
-                                "link": "https://apps.apple.com/app/id1468277905", "linkLabel": "Aktualizuj"])
+        nowaWersja = Komunikat(["id": "aktualizacja-" + w, "title": Napisy.t("app.newVersion", "Nowa wersja TVML {v}").replacingOccurrences(of: "{v}", with: w),
+                                "text": Napisy.t("app.updateAvailable", "Zaktualizuj aplikację w App Store, żeby mieć najnowsze funkcje."), "level": "info",
+                                "link": "https://apps.apple.com/app/id1468277905", "linkLabel": Napisy.t("app.update", "Aktualizuj")])
     }
 
     /// Nowe API (/api/v1): config, artykuły, najczęściej czytane, wideo, pogoda.
@@ -483,6 +588,10 @@ final class Magazyn: ObservableObject {
         async let d = Siec.v1("videos", ["limit": "12"])
         async let e = Siec.v1("weather")
         guard let lista = (try? await a) as? Slownik, let konf = (try? await k) as? Slownik else { return false }
+        // API 1.8.0: języki włączone w panelu i napisy aplikacji (config.i18n), zapisane też na czas bez sieci
+        if let l = konf["languages"] as? [String] { Jezyk.ustawDostepne(l) }
+        Napisy.ustaw(konf.slownik("i18n"))
+        if jezyk != Jezyk.biezacy { jezyk = Jezyk.biezacy }
         najnowsze = lista.lista("items").compactMap(Artykul.widoczny)
         if let m = Motyw.zV1(konf.slownik("theme"), wersjaApi: konf.s("apiVersion")) { motyw = m }
         let z = konf.lista("tabs").compactMap(ZakladkaApp.init)
@@ -517,7 +626,11 @@ final class Magazyn: ObservableObject {
         let sub = konf.lista("subportals").map { s in
             KategoriaMenu(nazwa: s.s("name").replacingOccurrences(of: "TVML.pl - ", with: ""), slug: s.s("slug"))
         }
-        if !sub.isEmpty { kategorie = [.init(nazwa: "Wszystko", slug: nil), .init(nazwa: "Aktualności", slug: "aktualnosci")] + sub }
+        let aktualnosci = konf.lista("categories").first { $0.s("slug") == "aktualnosci" }.map { Html.tekst($0.s("name")) } ?? ""
+        if !sub.isEmpty {
+            kategorie = [.init(nazwa: Napisy.t("app.all", "Wszystko"), slug: nil),
+                         .init(nazwa: aktualnosci.isEmpty ? "Aktualności" : aktualnosci, slug: "aktualnosci")] + sub
+        }
         let d0 = konf.slownik("today")
         if !d0.s("label").isEmpty { dzisiaj = Dzisiaj(etykieta: d0.s("label"), imieniny: (d0["nameDays"] as? [String]) ?? []) }
         komunikat = Komunikat(konf.slownik("message"))
@@ -566,7 +679,7 @@ final class Magazyn: ObservableObject {
             blad = nil
             ostatnio = Date()
         } catch {
-            if najnowsze.isEmpty { blad = "Nie udało się pobrać wiadomości. Sprawdź internet i przeciągnij w dół, żeby spróbować ponownie." }
+            if najnowsze.isEmpty { blad = Napisy.t("app.error", "Nie udało się pobrać wiadomości. Sprawdź internet i przeciągnij w dół, żeby spróbować ponownie.") }
         }
         if let lista = (try? await b) as? [Slownik] { najczytniejsze = lista.compactMap(Artykul.widoczny) }
         if let lista = (try? await c) as? [Slownik] { pasek = lista.compactMap(Artykul.widoczny) }
@@ -632,7 +745,7 @@ final class Magazyn: ObservableObject {
     /// Głos w sondzie (POST /api/v1/polls/{id}/vote). Zwraca komunikat dla czytelnika albo nil.
     func glosuj(sonda: Sonda, klucz: String, blok: BlokStartu) async -> String? {
         guard let wynik = try? await Siec.v1Wyslij("polls/" + sonda.id + "/vote", ["option": klucz]) else {
-            return "Brak połączenia. Spróbuj jeszcze raz."
+            return Napisy.t("app.voteOffline", "Brak połączenia. Spróbuj jeszcze raz.")
         }
         let (kod, j) = wynik
         if kod == 200 {
@@ -642,10 +755,10 @@ final class Magazyn: ObservableObject {
         }
         if kod == 409 {
             await wczytajSpotlight(blok)
-            return "Głosowanie w tej sondzie zostało zakończone."
+            return Napisy.t("app.pollClosed", "Głosowanie w tej sondzie zostało zakończone.")
         }
         let blad = j.slownik("error").s("message")
-        return blad.isEmpty ? "Nie udało się oddać głosu." : blad
+        return blad.isEmpty ? Napisy.t("app.voteError", "Nie udało się oddać głosu.") : blad
     }
 
     /// Wydarzenia jednego dnia (/api/v1/events?from=D&to=D, API 1.7); nil, gdy serwer jeszcze tego nie ma.
@@ -677,8 +790,9 @@ final class Magazyn: ObservableObject {
         wKategorii["_fotorelacje"] = j.lista("items").compactMap(Artykul.widoczny)
     }
 
-    func artykul(_ id: Int) async -> Artykul? {
-        if let j = (try? await Siec.v1("articles/\(id)")) as? Slownik, j["id"] != nil { return Artykul(j) }
+    /// jezyk: "pl" = polski oryginał przetłumaczonego artykułu (app.originalPolish)
+    func artykul(_ id: Int, jezyk: String? = nil) async -> Artykul? {
+        if let j = (try? await Siec.v1("articles/\(id)", jezyk.map { ["lang": $0] } ?? [:])) as? Slownik, j["id"] != nil { return Artykul(j) }
         guard let j = (try? await Siec.json("tvml-db.php?action=article&id=\(id)")) as? Slownik, j["id"] != nil else { return nil }
         return Artykul(j)
     }
@@ -688,6 +802,18 @@ final class Magazyn: ObservableObject {
         let q = fraza.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
         guard !q.isEmpty, let lista = (try? await Siec.json("tvml-db.php?action=search&q=\(q)&limit=20")) as? [Slownik] else { return [] }
         return lista.compactMap(Artykul.widoczny)
+    }
+
+    /// Zmiana języka w „Więcej”: odpowiedzi API różnią się językiem, więc wszystko pobiera się od nowa, bez restartu.
+    func zmienJezyk() async {
+        let nowy = Jezyk.biezacy
+        guard nowy != jezyk else { return }
+        jezyk = nowy
+        wKategorii = [:]
+        trescStron = [:]
+        spotlight = [:]
+        await odswiez(wymus: true)
+        await sprawdzStrony()
     }
 
     func przelaczZapis(_ a: Artykul) {
@@ -716,14 +842,14 @@ struct ZakladkaApp: Identifiable, Hashable {
     let ikona: String
     let cel: Cel
 
-    static let wiecej = ZakladkaApp(id: "more", tytul: "Więcej", ikona: "square.grid.2x2", cel: .wiecej)
-    static let domyslne: [ZakladkaApp] = [
-        ZakladkaApp(id: "home", tytul: "Start", ikona: "house", cel: .start),
+    static var wiecej: ZakladkaApp { ZakladkaApp(id: "more", tytul: Napisy.t("app.tab.more", "Więcej"), ikona: "square.grid.2x2", cel: .wiecej) }
+    static var domyslne: [ZakladkaApp] { [
+        ZakladkaApp(id: "home", tytul: Napisy.t("app.tab.home", "Start"), ikona: "house", cel: .start),
         ZakladkaApp(id: "sport", tytul: "Sport", ikona: "sportscourt", cel: .kategoria("sport")),
-        ZakladkaApp(id: "video", tytul: "Wideo", ikona: "play.rectangle", cel: .wideo),
-        ZakladkaApp(id: "weather", tytul: "Pogoda", ikona: "cloud.sun", cel: .pogoda),
+        ZakladkaApp(id: "video", tytul: Napisy.t("app.tab.video", "Wideo"), ikona: "play.rectangle", cel: .wideo),
+        ZakladkaApp(id: "weather", tytul: Napisy.t("app.tab.weather", "Pogoda"), ikona: "cloud.sun", cel: .pogoda),
         wiecej
-    ]
+    ] }
 
     init(id: String, tytul: String, ikona: String, cel: Cel) {
         self.id = id; self.tytul = tytul; self.ikona = ikona; self.cel = cel
@@ -765,7 +891,7 @@ struct Komunikat: Equatable {
         id = j.s("id").isEmpty ? tytul + "|" + tekst : j.s("id")
         poziom = ["info", "warning", "urgent"].contains(j.s("level")) ? j.s("level") : "info"
         link = j.s("link").isEmpty ? nil : URL(string: j.s("link"))
-        etykieta = j.s("linkLabel").isEmpty ? "Więcej" : j.s("linkLabel")
+        etykieta = j.s("linkLabel").isEmpty ? Napisy.t("app.readMore", "Więcej") : j.s("linkLabel")
     }
 
     var pilny: Bool { poziom == "urgent" }
@@ -832,8 +958,8 @@ struct BlokStartu: Identifiable, Hashable {
         BlokStartu(id: "hero", typ: "hero", tytul: "", ukryjTytul: true, limit: 5, kategoria: nil),
         BlokStartu(id: "weather", typ: "weather", tytul: "Pogoda", ukryjTytul: true, limit: 0, kategoria: nil),
         BlokStartu(id: "posts", typ: "posts", tytul: "Aktualności", ukryjTytul: false, limit: 10, kategoria: nil),
-        BlokStartu(id: "mostread", typ: "mostread", tytul: "Najczęściej czytane", ukryjTytul: false, limit: 5, kategoria: nil),
-        BlokStartu(id: "video", typ: "video", tytul: "Wideo", ukryjTytul: false, limit: 6, kategoria: nil)
+        BlokStartu(id: "mostread", typ: "mostread", tytul: Napisy.t("app.mostRead", "Najczęściej czytane"), ukryjTytul: false, limit: 5, kategoria: nil),
+        BlokStartu(id: "video", typ: "video", tytul: Napisy.t("app.video", "Wideo"), ukryjTytul: false, limit: 6, kategoria: nil)
     ]
 
     init(id: String, typ: String, tytul: String, ukryjTytul: Bool, limit: Int, kategoria: String?, filtr: String? = nil, ankieta: String? = nil) {
@@ -1058,8 +1184,8 @@ struct Wydarzenie: Identifiable, Hashable {
     /// „trwa”, „cały dzień” albo godzina rozpoczęcia, np. „18:00”.
     var godzina: String {
         let teraz = Date()
-        if let p = poczatek, p < teraz, (koniec ?? p) > teraz { return "trwa" }
-        if calyDzien { return "cały dzień" }
+        if let p = poczatek, p < teraz, (koniec ?? p) > teraz { return Napisy.t("app.eventNow", "trwa") }
+        if calyDzien { return Napisy.t("app.eventAllDay", "cały dzień") }
         return poczatek.map { Wydarzenie.fGodzina.string(from: $0) } ?? ""
     }
     var dzien: String { poczatek.map { Wydarzenie.fDzien.string(from: $0) } ?? "" }
@@ -1070,7 +1196,7 @@ struct Wydarzenie: Identifiable, Hashable {
     var dataPelna: String {
         guard let p = poczatek else { return "" }
         var t = Wydarzenie.fPelna.string(from: p)
-        if calyDzien { return t + " · cały dzień" }
+        if calyDzien { return t + " · " + Napisy.t("app.eventAllDay", "cały dzień") }
         t += " · " + Wydarzenie.fGodzina.string(from: p)
         if let k = koniec {
             var kal = Calendar(identifier: .gregorian)
@@ -1080,19 +1206,13 @@ struct Wydarzenie: Identifiable, Hashable {
         return t
     }
 
-    private static func format(_ wzor: String) -> DateFormatter {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "pl_PL")
-        f.timeZone = TimeZone(identifier: "Europe/Warsaw")
-        f.dateFormat = wzor
-        return f
-    }
-    static let fGodzina = format("HH:mm")
-    static let fDzien = format("d")
-    static let fMiesiac = format("LLL")
-    static let fTydzien = format("EEE")
-    static let fPelna = format("EEEE, d MMMM yyyy")
-    static let fISO = format("yyyy-MM-dd")
+    // nazwy dni i miesięcy w języku aplikacji
+    static var fGodzina: DateFormatter { Jezyk.format("HH:mm") }
+    static var fDzien: DateFormatter { Jezyk.format("d") }
+    static var fMiesiac: DateFormatter { Jezyk.format("LLL") }
+    static var fTydzien: DateFormatter { Jezyk.format("EEE") }
+    static var fPelna: DateFormatter { Jezyk.format("EEEE, d MMMM yyyy") }
+    static var fISO: DateFormatter { Jezyk.format("yyyy-MM-dd", posix: true) }
 }
 
 /// Sonda z /api/v1/spotlight albo /api/v1/polls/{id}: pytanie, odpowiedzi i wyniki (pokazywane dopiero po głosie).
@@ -1124,6 +1244,7 @@ struct Sonda {
 
     /// 1 głos, 2–4 głosy (bez 12–14), 5+ głosów.
     static func glosyTekst(_ n: Int) -> String {
+        guard Jezyk.polski else { return Napisy.t("app.votesCount", "Głosy: {n}", n: n) }
         if n == 1 { return "1 głos" }
         if (2...4).contains(n % 10) && !(12...14).contains(n % 100) { return "\(n) głosy" }
         return "\(n) głosów"
@@ -1131,12 +1252,8 @@ struct Sonda {
 
     /// „30 listopada, 20:00”, z rokiem tylko gdy inny niż bieżący.
     static func doKiedyTekst(_ d: Date) -> String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "pl_PL")
-        f.timeZone = TimeZone(identifier: "Europe/Warsaw")
         let innyRok = Calendar.current.component(.year, from: d) != Calendar.current.component(.year, from: Date())
-        f.dateFormat = innyRok ? "d MMMM yyyy, HH:mm" : "d MMMM, HH:mm"
-        return f.string(from: d)
+        return Jezyk.format(innyRok ? "d MMMM yyyy, HH:mm" : "d MMMM, HH:mm").string(from: d)
     }
 }
 

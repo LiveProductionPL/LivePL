@@ -81,7 +81,7 @@ struct BlokWidok: View {
             KafelPogody()
         case "alert":
             Button { strona = StronaWWW(sciezka: "") } label: {
-                Label("Zgłoś zdarzenie (Alert TVML)", systemImage: "exclamationmark.triangle.fill")
+                Label(Napisy.t("app.reportIncident", "Zgłoś zdarzenie (Alert TVML)"), systemImage: "exclamationmark.triangle.fill")
                     .czcionka(15, .bold).foregroundStyle(.white)
                     .frame(maxWidth: .infinity).frame(minHeight: 50)
                     .background(Color(hex: "#c8102e"), in: RoundedRectangle(cornerRadius: 14))
@@ -149,7 +149,7 @@ struct BlokWidok: View {
         case "events":
             // przy bloku poll kalendarz jest w miejscu nieaktywnej sondy, więc tu go nie powtarzamy
             if !m.wydarzenia.isEmpty && !m.bloki.contains(where: { $0.typ == "poll" }) {
-                if !blok.ukryjTytul { Naglowek(tytul: blok.tytul.isEmpty ? "Kalendarz wydarzeń" : blok.tytul) }
+                if !blok.ukryjTytul { Naglowek(tytul: blok.tytul.isEmpty ? Napisy.t("app.events", "Kalendarz wydarzeń") : blok.tytul) }
                 let lista = Array(m.wydarzenia.prefix(blok.limit > 0 ? blok.limit : 5))
                 VStack(spacing: 0) {
                     ForEach(Array(lista.enumerated()), id: \.element.id) { i, w in
@@ -159,14 +159,14 @@ struct BlokWidok: View {
                 }
                 .background(Barwy.karta, in: RoundedRectangle(cornerRadius: 14))
                 Button { strona = StronaWWW(sciezka: "wydarzenia") } label: {
-                    Text("Wszystkie wydarzenia na tvml.pl").czcionka(14, .semibold)
+                    Text(Napisy.t("app.eventsAll", "Wszystkie wydarzenia na tvml.pl")).czcionka(14, .semibold)
                 }
             }
         case "poll":
             BlokSpotlight(blok: blok, strona: $strona)
         case "classifieds":
             if !m.ogloszenia.isEmpty {
-                Naglowek(tytul: blok.tytul.isEmpty ? "Ogłoszenia drobne" : blok.tytul)
+                Naglowek(tytul: blok.tytul.isEmpty ? Napisy.t("app.classifieds", "Ogłoszenia drobne") : blok.tytul)
                 VStack(spacing: 0) {
                     ForEach(Array(m.ogloszenia.prefix(blok.limit > 0 ? blok.limit : 4).enumerated()), id: \.element.id) { i, o in
                         Button { ogloszenie = o } label: { WierszOgloszenia(ogloszenie: o) }.buttonStyle(.plain)
@@ -176,7 +176,7 @@ struct BlokWidok: View {
                 .background(Barwy.karta, in: RoundedRectangle(cornerRadius: 14))
                 .sheet(item: $ogloszenie) { OgloszenieWidok(ogloszenie: $0) }
                 Button { strona = StronaWWW(sciezka: "lista/ogloszenia") } label: {
-                    Text("Wszystkie ogłoszenia na tvml.pl").czcionka(14, .semibold)
+                    Text(Napisy.t("app.classifiedsAll", "Wszystkie ogłoszenia na tvml.pl")).czcionka(14, .semibold)
                 }
             }
         case "counties":
@@ -259,7 +259,7 @@ struct ListaGminy: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 Button { wroc() } label: {
-                    HStack(spacing: 2) { Image(systemName: "chevron.left"); Text("Wróć") }
+                    HStack(spacing: 2) { Image(systemName: "chevron.left"); Text(Napisy.t("app.back", "Wróć")) }
                         .font(.system(size: 15, weight: .bold)).foregroundStyle(Barwy.tekst).frame(height: 44)
                 }
                 HStack(spacing: 10) {
@@ -267,7 +267,7 @@ struct ListaGminy: View {
                     Text(gmina.nazwa).font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst)
                 }
                 if laduje { ProgressView().frame(maxWidth: .infinity, minHeight: 200) }
-                else if lista.isEmpty { Text("Brak wiadomości z tej gminy.").foregroundStyle(Barwy.slaby) }
+                else if lista.isEmpty { Text(Napisy.t("app.countyEmpty", "Brak wiadomości z tej gminy.")).foregroundStyle(Barwy.slaby) }
                 ForEach(lista) { a in
                     NavigationLink(value: a) { WierszArtykulu(artykul: a) }.buttonStyle(.plain)
                 }
@@ -498,7 +498,7 @@ struct OgloszenieWidok: View {
                     if !ogloszenie.tekst.isEmpty { Text(ogloszenie.tekst).czcionka(16).foregroundStyle(Barwy.tekst) }
                     if !ogloszenie.kontakt.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Kontakt").czcionka(13, .bold).foregroundStyle(Barwy.slaby)
+                            Text(Napisy.t("app.classifiedContact", "Kontakt")).czcionka(13, .bold).foregroundStyle(Barwy.slaby)
                             Text(ogloszenie.kontakt).czcionka(16).foregroundStyle(Barwy.tekst).textSelection(.enabled)
                         }
                         .padding(12)
@@ -509,9 +509,9 @@ struct OgloszenieWidok: View {
                 .padding(16)
             }
             .background(Barwy.tlo)
-            .navigationTitle("Ogłoszenie")
+            .navigationTitle(Napisy.t("app.classified", "Ogłoszenie"))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Gotowe") { zamknij() } } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(Napisy.t("app.done", "Gotowe")) { zamknij() } } }
         }
     }
 }
@@ -546,7 +546,7 @@ struct KafelPogody: View {
                             efekt: m.pogoda?.efekt, okolicznosciowy: m.motyw.rodzaj != .zwykly)
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("POGODA W LESZNIE").czcionka(11, .bold).kerning(1)
+                        Text(Napisy.t("app.weatherInLeszno", "Pogoda w Lesznie").uppercased(with: Jezyk.locale())).czcionka(11, .bold).kerning(1)
                         Text(m.pogoda.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–").czcionka(30, .heavy)
                         Text(m.pogoda?.opis ?? "").czcionka(13)
                     }
@@ -571,7 +571,7 @@ struct KafelPogody: View {
             .clipShape(RoundedRectangle(cornerRadius: 18))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Pogoda w Lesznie: \(m.pogoda.map { Pogoda.stopnie($0.temperatura) } ?? ""), \(m.pogoda?.opis ?? "")")
+        .accessibilityLabel(Napisy.t("app.weatherInLeszno", "Pogoda w Lesznie") + ": \(m.pogoda.map { Pogoda.stopnie($0.temperatura) } ?? ""), \(m.pogoda?.opis ?? "")")
     }
 }
 
@@ -623,7 +623,7 @@ struct BlokSpotlight: View {
         case .sonda(let s)?:
             WidokSondy(sonda: s, blok: blok)
         case .kalendarz(let k)?:
-            KalendarzWidok(kalendarz: k, tytul: blok.ukryjTytul ? nil : "Kalendarz wydarzeń", strona: $strona)
+            KalendarzWidok(kalendarz: k, tytul: blok.ukryjTytul ? nil : Napisy.t("app.events", "Kalendarz wydarzeń"), strona: $strona)
         case nil:
             EmptyView()
         }
@@ -641,7 +641,7 @@ struct WidokSondy: View {
     @State private var komunikat: String?
 
     var body: some View {
-        if !blok.ukryjTytul { Naglowek(tytul: blok.tytul.isEmpty ? "Sonda" : blok.tytul) }
+        if !blok.ukryjTytul { Naglowek(tytul: blok.tytul.isEmpty ? Napisy.t("app.poll", "Sonda") : blok.tytul) }
         VStack(alignment: .leading, spacing: 12) {
             Text(sonda.pytanie).font(Czcionka.naglowek(19)).foregroundStyle(Barwy.tekst)
             if let moj = m.glosy[sonda.id] {
@@ -670,7 +670,7 @@ struct WidokSondy: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel(sonda.pytanie)
                 Button { Task { await glosuj() } } label: {
-                    Text(wysyla ? "Wysyłam…" : "Zagłosuj").czcionka(15, .bold)
+                    Text(wysyla ? Napisy.t("app.sending", "Wysyłam…") : Napisy.t("app.vote", "Zagłosuj")).czcionka(15, .bold)
                         .foregroundStyle(m.motyw.napisNaAkcencie)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 46)
@@ -680,7 +680,7 @@ struct WidokSondy: View {
                 .disabled(wybor == nil || wysyla)
             }
             if let d = sonda.doKiedy {
-                Text("Sonda trwa do \(Sonda.doKiedyTekst(d))").czcionka(12).foregroundStyle(Barwy.slaby)
+                Text(Napisy.t("app.pollUntil", "Sonda trwa do {d}").replacingOccurrences(of: "{d}", with: Sonda.doKiedyTekst(d))).czcionka(12).foregroundStyle(Barwy.slaby)
             }
             if let k = komunikat { Text(k).czcionka(13).foregroundStyle(Barwy.slaby) }
         }
@@ -694,7 +694,7 @@ struct WidokSondy: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         Text(o.etykieta).czcionka(14, o.klucz == moj ? .bold : .regular).foregroundStyle(Barwy.tekst)
-                        if o.klucz == moj { Text("Twój głos").czcionka(11, .bold).foregroundStyle(m.motyw.akcent) }
+                        if o.klucz == moj { Text(Napisy.t("app.yourVote", "Twój głos")).czcionka(11, .bold).foregroundStyle(m.motyw.akcent) }
                         Spacer(minLength: 8)
                         Text("\(o.procent)%").czcionka(14, .semibold).foregroundStyle(Barwy.tekst)
                     }
@@ -708,9 +708,9 @@ struct WidokSondy: View {
                     .frame(height: 8)
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(o.etykieta), \(o.procent) procent, \(Sonda.glosyTekst(o.glosy))\(o.klucz == moj ? ", twój głos" : "")")
+                .accessibilityLabel("\(o.etykieta), \(o.procent)\(Jezyk.polski ? " procent" : "%"), \(Sonda.glosyTekst(o.glosy))\(o.klucz == moj ? ", " + Napisy.t("app.yourVote", "twój głos").lowercased() : "")")
             }
-            Text("Oddano \(Sonda.glosyTekst(sonda.razem))").czcionka(12).foregroundStyle(Barwy.slaby)
+            Text(Jezyk.polski ? "Oddano \(Sonda.glosyTekst(sonda.razem))" : Sonda.glosyTekst(sonda.razem)).czcionka(12).foregroundStyle(Barwy.slaby)
         }
     }
 
@@ -750,36 +750,27 @@ struct KalendarzWidok: View {
         f.dateFormat = "yyyy-MM-dd"
         return f
     }()
-    private static let nazwaMiesiaca: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "pl_PL")
-        f.timeZone = TimeZone(identifier: "Europe/Warsaw")
-        f.dateFormat = "LLLL yyyy"
-        return f
-    }()
-    private static let dzienSlownie: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "pl_PL")
-        f.timeZone = TimeZone(identifier: "Europe/Warsaw")
-        f.dateFormat = "d MMMM"
-        return f
-    }()
-    private static let dzienNaglowek: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "pl_PL")
-        f.timeZone = TimeZone(identifier: "Europe/Warsaw")
-        f.dateFormat = "EEEE, d MMMM"
-        return f
-    }()
+    // nazwy miesięcy i dni w języku aplikacji
+    private static var nazwaMiesiaca: DateFormatter { Jezyk.format("LLLL yyyy") }
+    private static var dzienSlownie: DateFormatter { Jezyk.format("d MMMM") }
+    private static var dzienNaglowek: DateFormatter { Jezyk.format("EEEE, d MMMM") }
+    /// Nagłówki kolumn od poniedziałku: po polsku jak dotąd, w innym języku skróty z systemu (Mon, Tue… / Пн, Вт…).
+    private static var dniTygodnia: [String] {
+        guard !Jezyk.polski else { return ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"] }
+        var c = Calendar(identifier: .gregorian)
+        c.locale = Jezyk.locale()
+        let s = c.shortStandaloneWeekdaySymbols.map { $0.prefix(1).uppercased() + $0.dropFirst() }
+        return s.count == 7 ? Array(s[1...] + s[..<1]) : ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"]
+    }
     /// „Niedziela, 22 listopada · dziś”
     private var naglowekDnia: String {
         guard let d = KalendarzWidok.iso.date(from: wybranyDzien) else { return wybranyDzien }
         let t = KalendarzWidok.dzienNaglowek.string(from: d)
-        return t.prefix(1).uppercased() + t.dropFirst() + (wybranyDzien == kalendarz.dzisiaj ? " · dziś" : "")
+        return t.prefix(1).uppercased() + t.dropFirst() + (wybranyDzien == kalendarz.dzisiaj ? " · " + Napisy.t("app.today", "dziś").lowercased() : "")
     }
     private var kal: Calendar {
         var c = Calendar(identifier: .gregorian)
-        c.locale = Locale(identifier: "pl_PL")
+        c.locale = Jezyk.locale()
         c.timeZone = TimeZone(identifier: "Europe/Warsaw") ?? .current
         c.firstWeekday = 2
         return c
@@ -807,18 +798,18 @@ struct KalendarzWidok: View {
             HStack {
                 Button { przesuniecie -= 1 } label: { Image(systemName: "chevron.left").frame(width: 44, height: 44) }
                     .disabled(przesuniecie <= 0)
-                    .accessibilityLabel("Poprzedni miesiąc")
+                    .accessibilityLabel(Napisy.t("app.prevMonth", "Poprzedni miesiąc"))
                 Spacer()
                 let nazwa = KalendarzWidok.nazwaMiesiaca.string(from: poczatekMiesiaca)
                 Text(nazwa.prefix(1).uppercased() + nazwa.dropFirst()).czcionka(15, .bold).foregroundStyle(Barwy.tekst)
                 Spacer()
                 Button { przesuniecie += 1 } label: { Image(systemName: "chevron.right").frame(width: 44, height: 44) }
                     .disabled(przesuniecie >= maksPrzesuniecie)
-                    .accessibilityLabel("Następny miesiąc")
+                    .accessibilityLabel(Napisy.t("app.nextMonth", "Następny miesiąc"))
             }
             .foregroundStyle(m.motyw.akcent)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 7), spacing: 4) {
-                ForEach(["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"], id: \.self) { d in
+                ForEach(KalendarzWidok.dniTygodnia, id: \.self) { d in
                     Text(d).czcionka(11, .semibold).foregroundStyle(Barwy.slaby)
                 }
                 ForEach(Array(komorki.enumerated()), id: \.offset) { _, d in
@@ -840,16 +831,16 @@ struct KalendarzWidok: View {
                 ProgressView().frame(maxWidth: .infinity, minHeight: 60)
             } else if dzienNaStronie {
                 Button { strona = StronaWWW(sciezka: "wydarzenia") } label: {
-                    Text("Szczegóły tego dnia są na tvml.pl").czcionka(14, .semibold)
+                    Text(Napisy.t("app.eventsDayOnSite", "Szczegóły tego dnia są na tvml.pl")).czcionka(14, .semibold)
                 }
             } else {
-                Text("Brak wydarzeń tego dnia.").czcionka(14).foregroundStyle(Barwy.slaby)
+                Text(Napisy.t("app.eventsNone", "Brak wydarzeń tego dnia.")).czcionka(14).foregroundStyle(Barwy.slaby)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             HStack {
-                Button { strona = StronaWWW(sciezka: "wydarzenia#dodaj") } label: { Text("Zgłoś wydarzenie").czcionka(14, .semibold) }
+                Button { strona = StronaWWW(sciezka: "wydarzenia#dodaj") } label: { Text(Napisy.t("app.eventSubmit", "Zgłoś wydarzenie")).czcionka(14, .semibold) }
                 Spacer()
-                Button { strona = StronaWWW(sciezka: "wydarzenia") } label: { Text("Wszystkie").czcionka(14, .semibold) }
+                Button { strona = StronaWWW(sciezka: "wydarzenia") } label: { Text(Napisy.t("app.eventsAllShort", "Wszystkie")).czcionka(14, .semibold) }
             }
         }
         .padding(14)
@@ -879,7 +870,7 @@ struct KalendarzWidok: View {
         .buttonStyle(.plain)
         .disabled(!maWydarzenia && !dzis)
         .accessibilityAddTraits(wybrany ? .isSelected : [])
-        .accessibilityLabel((data.map { KalendarzWidok.dzienSlownie.string(from: $0) } ?? d) + (maWydarzenia ? ": są wydarzenia" : "") + (dzis ? ", dziś" : ""))
+        .accessibilityLabel((data.map { KalendarzWidok.dzienSlownie.string(from: $0) } ?? d) + (maWydarzenia ? ": " + Napisy.t("app.hasEvents", "są wydarzenia") : "") + (dzis ? ", " + Napisy.t("app.today", "dziś").lowercased() : ""))
     }
 
     /// Wydarzenia wybranego dnia z /api/v1/events?from=D&to=D (także trwające wtedy, np. wystawy).
@@ -925,7 +916,7 @@ struct WydarzenieWidok: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 Button { wroc() } label: {
-                    HStack(spacing: 2) { Image(systemName: "chevron.left"); Text("Wróć") }
+                    HStack(spacing: 2) { Image(systemName: "chevron.left"); Text(Napisy.t("app.back", "Wróć")) }
                         .font(.system(size: 15, weight: .bold)).foregroundStyle(Barwy.tekst).frame(height: 44)
                 }
                 if let u = w.obraz {
@@ -946,7 +937,7 @@ struct WydarzenieWidok: View {
                     Text(w.opis).czcionka(16).foregroundStyle(Barwy.tekst).textSelection(.enabled)
                 }
                 Button { strona = StronaWWW(sciezka: "wydarzenia?id=\(w.id)") } label: {
-                    Text("Zobacz na tvml.pl").czcionka(14, .semibold)
+                    Text(Napisy.t("app.viewOnSite", "Zobacz na tvml.pl")).czcionka(14, .semibold)
                 }
             }
             .padding(16)

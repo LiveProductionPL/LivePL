@@ -8,6 +8,7 @@ struct WiecejWidok: View {
     @EnvironmentObject private var m: Magazyn
     @AppStorage("tvml-wyglad") private var wyglad = "auto"
     @AppStorage("tvml-rozmiar") private var rozmiar = 1
+    @AppStorage(Jezyk.kluczWyboru) private var wyborJezyka = "system"
     @State private var strona: StronaWWW?
 
     /// Podstrony w dwóch sekcjach, w tej kolejności. Nowe strony z panelu (z treścią) dochodzą na koniec „TVML”.
@@ -44,38 +45,49 @@ struct WiecejWidok: View {
         List {
             Section {
                 Button { strona = StronaWWW(sciezka: "") } label: {
-                    Label("Zgłoś zdarzenie (Alert TVML)", systemImage: "exclamationmark.triangle")
+                    Label(Napisy.t("app.reportIncident", "Zgłoś zdarzenie (Alert TVML)"), systemImage: "exclamationmark.triangle")
                         .czcionka(16, .bold).foregroundStyle(Color(hex: "#c8102e"))
                 }
             } footer: {
-                Text("Formularz jest na stronie głównej tvml.pl, przycisk „Zgłoś zdarzenie”.")
+                Text(Napisy.t("app.reportIncidentHint", "Formularz jest na stronie głównej tvml.pl, przycisk „Zgłoś zdarzenie”."))
             }
-            Section("Moje") {
+            Section(Napisy.t("app.mine", "Moje")) {
                 NavigationLink(value: EkranWiecej.zapisane) {
-                    Label("Zapisane artykuły", systemImage: "bookmark")
+                    Label(Napisy.t("app.savedArticles", "Zapisane artykuły"), systemImage: "bookmark")
                         .badge(m.zapisane.count)
                 }
             }
             if m.maOgloszenia || m.maFotorelacje {
-                Section("Na tvml.pl") {
+                Section(Napisy.t("app.onSite", "Na tvml.pl")) {
                     if m.maOgloszenia {
-                        NavigationLink(value: EkranWiecej.ogloszenia) { Label("Ogłoszenia drobne", systemImage: "list.bullet.rectangle") }
+                        NavigationLink(value: EkranWiecej.ogloszenia) { Label(Napisy.t("app.classifieds", "Ogłoszenia drobne"), systemImage: "list.bullet.rectangle") }
                     }
                     if m.maFotorelacje {
-                        NavigationLink(value: EkranWiecej.fotorelacje) { Label("Fotorelacje", systemImage: "photo.on.rectangle") }
+                        NavigationLink(value: EkranWiecej.fotorelacje) { Label(Napisy.t("app.photoReports", "Fotorelacje"), systemImage: "photo.on.rectangle") }
                     }
                 }
             }
-            Section("Wygląd") {
-                Picker("Tryb", selection: $wyglad) {
-                    Text("Jak w telefonie").tag("auto")
-                    Text("Dzień").tag("dzien")
-                    Text("Noc").tag("noc")
+            Section(Napisy.t("app.theme", "Wygląd")) {
+                Picker(Napisy.t("app.mode", "Tryb"), selection: $wyglad) {
+                    Text(Napisy.t("app.themeAuto", "Jak w telefonie")).tag("auto")
+                    Text(Napisy.t("app.themeLight", "Dzień")).tag("dzien")
+                    Text(Napisy.t("app.themeDark", "Noc")).tag("noc")
                 }
-                Picker("Rozmiar tekstu", selection: $rozmiar) {
-                    Text("Mały").tag(0)
-                    Text("Średni").tag(1)
-                    Text("Duży").tag(2)
+                Picker(Napisy.t("app.textSize", "Rozmiar tekstu"), selection: $rozmiar) {
+                    Text(Napisy.t("app.textSmall", "Mały")).tag(0)
+                    Text(Napisy.t("app.textMedium", "Średni")).tag(1)
+                    Text(Napisy.t("app.textLarge", "Duży")).tag(2)
+                }
+            }
+            // API 1.8.0: język treści i napisów; tylko języki włączone w panelu (config.languages)
+            if Jezyk.dostepne.count > 1 {
+                Section {
+                    Picker(Napisy.t("app.language", "Język"), selection: $wyborJezyka) {
+                        Text(Napisy.t("app.languageSystem", "Jak w systemie")).tag("system")
+                        ForEach(Jezyk.dostepne, id: \.self) { j in Text(Jezyk.nazwy[j] ?? j).tag(j) }
+                    }
+                } footer: {
+                    Text(Napisy.t("app.languageHint", "Treść artykułów tłumaczy redakcja. Teksty, których jeszcze nie przetłumaczono, są po polsku."))
                 }
             }
             let tvml = sekcjaTVML
@@ -84,9 +96,9 @@ struct WiecejWidok: View {
             }
             let dokumenty = sekcjaDokumenty
             if !dokumenty.isEmpty {
-                Section("Dokumenty") { ForEach(dokumenty) { s in pozycja(s) } }
+                Section(Napisy.t("app.documents", "Dokumenty")) { ForEach(dokumenty) { s in pozycja(s) } }
             }
-            Section("Obserwuj nas") {
+            Section(Napisy.t("app.followUs", "Obserwuj nas")) {
                 Link(destination: URL(string: "https://www.facebook.com/TVMLpl")!) { Label("Facebook", systemImage: "f.circle") }
                 Link(destination: URL(string: "https://www.youtube.com/@TVMLlive")!) { Label("YouTube", systemImage: "play.rectangle") }
                 Link(destination: URL(string: "https://www.instagram.com/tvmlpl/")!) { Label("Instagram", systemImage: "camera") }
@@ -101,6 +113,7 @@ struct WiecejWidok: View {
         .background(Barwy.tlo)
         .sheet(item: $strona) { s in Safari(url: URL(string: "https://tvml.pl/" + s.sciezka)!).ignoresSafeArea() }
         .task { if m.stronyGotowe == nil { await m.sprawdzStrony() } }
+        .onChange(of: wyborJezyka) { _, _ in Task { await m.zmienJezyk() } }
     }
 
     /// Podstrona redakcji otwiera się w aplikacji (treść z API), nie w przeglądarce.
@@ -129,13 +142,13 @@ struct ZapisaneWidok: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 Button { wroc() } label: {
-                    HStack(spacing: 2) { Image(systemName: "chevron.left"); Text("Wróć") }
+                    HStack(spacing: 2) { Image(systemName: "chevron.left"); Text(Napisy.t("app.back", "Wróć")) }
                         .font(.system(size: 15, weight: .bold)).foregroundStyle(Barwy.tekst).frame(height: 44)
                 }
-                Text("Zapisane").font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst)
+                Text(Napisy.t("app.saved", "Zapisane")).font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst)
                 if laduje { ProgressView().padding(40) }
                 else if lista.isEmpty {
-                    Text("Nie masz zapisanych artykułów. Zapiszesz je ikoną zakładki w artykule.")
+                    Text(Napisy.t("app.savedEmpty", "Nie masz zapisanych artykułów. Zapiszesz je ikoną zakładki w artykule."))
                         .czcionka(15).foregroundStyle(Barwy.slaby).padding(24)
                 }
                 ForEach(lista) { a in
@@ -168,7 +181,7 @@ struct SzukajWidok: View {
         NavigationStack {
             List {
                 if szuka { ProgressView() }
-                else if !fraza.isEmpty && wyniki.isEmpty { Text("Nic nie znaleziono.").foregroundStyle(Barwy.slaby) }
+                else if !fraza.isEmpty && wyniki.isEmpty { Text(Napisy.t("app.noResults", "Nic nie znaleziono.")).foregroundStyle(Barwy.slaby) }
                 ForEach(wyniki) { a in
                     Button {
                         zamknij()
@@ -181,9 +194,9 @@ struct SzukajWidok: View {
                     }
                 }
             }
-            .navigationTitle("Szukaj")
+            .navigationTitle(Napisy.t("app.search", "Szukaj"))
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $fraza, placement: .navigationBarDrawer(displayMode: .always), prompt: "Szukaj na tvml.pl")
+            .searchable(text: $fraza, placement: .navigationBarDrawer(displayMode: .always), prompt: Napisy.t("app.searchPlaceholder", "Szukaj na tvml.pl"))
             .onSubmit(of: .search) {
                 Task {
                     szuka = true
@@ -191,7 +204,7 @@ struct SzukajWidok: View {
                     szuka = false
                 }
             }
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Zamknij") { zamknij() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button(Napisy.t("app.close", "Zamknij")) { zamknij() } } }
         }
     }
 }
@@ -233,14 +246,14 @@ struct PodstronaWidok: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button { wroc() } label: {
-                HStack(spacing: 2) { Image(systemName: "chevron.left"); Text("Wróć") }
+                HStack(spacing: 2) { Image(systemName: "chevron.left"); Text(Napisy.t("app.back", "Wróć")) }
                     .font(.system(size: 15, weight: .bold)).foregroundStyle(Barwy.tekst).frame(height: 44)
             }
             .padding(.horizontal, 16)
             VStack(alignment: .leading, spacing: 4) {
                 Text(tytul).font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst).accessibilityAddTraits(.isHeader)
                 if let d = tresc?.aktualizacja {
-                    Text("Aktualizacja: \(PodstronaWidok.data.string(from: d))").czcionka(12).foregroundStyle(Barwy.slaby)
+                    Text(Napisy.t("app.updatedAt", "Aktualizacja:") + " " + PodstronaWidok.data.string(from: d)).czcionka(12).foregroundStyle(Barwy.slaby)
                 }
             }
             .padding(.horizontal, 16).padding(.bottom, 6)
@@ -248,7 +261,7 @@ struct PodstronaWidok: View {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let t = tresc {
                 if t.html.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text("Treść tej strony jest w przygotowaniu.").czcionka(15).foregroundStyle(Barwy.slaby).padding(16)
+                    Text(Napisy.t("app.pageInProgress", "Treść tej strony jest w przygotowaniu.")).czcionka(15).foregroundStyle(Barwy.slaby).padding(16)
                     Spacer()
                 } else {
                     HtmlWidok(zrodlo: .html(t.html), ciemny: schemat == .dark, link: obsluz)
@@ -418,13 +431,13 @@ struct OgloszeniaWidok: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 Button { wroc() } label: {
-                    HStack(spacing: 2) { Image(systemName: "chevron.left"); Text("Wróć") }
+                    HStack(spacing: 2) { Image(systemName: "chevron.left"); Text(Napisy.t("app.back", "Wróć")) }
                         .font(.system(size: 15, weight: .bold)).foregroundStyle(Barwy.tekst).frame(height: 44)
                 }
-                Text("Ogłoszenia drobne").font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst).accessibilityAddTraits(.isHeader)
+                Text(Napisy.t("app.classifieds", "Ogłoszenia drobne")).font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst).accessibilityAddTraits(.isHeader)
                 if laduje { ProgressView().frame(maxWidth: .infinity, minHeight: 200) }
                 else if lista.isEmpty {
-                    Text("Na razie nie ma ogłoszeń.").czcionka(15).foregroundStyle(Barwy.slaby).padding(.vertical, 12)
+                    Text(Napisy.t("app.classifiedsEmpty", "Na razie nie ma ogłoszeń.")).czcionka(15).foregroundStyle(Barwy.slaby).padding(.vertical, 12)
                 } else {
                     VStack(spacing: 0) {
                         ForEach(Array(lista.enumerated()), id: \.element.id) { i, o in
@@ -435,7 +448,7 @@ struct OgloszeniaWidok: View {
                     .background(Barwy.karta, in: RoundedRectangle(cornerRadius: 14))
                 }
                 Button { strona = StronaWWW(sciezka: "lista/ogloszenia") } label: {
-                    Text("Dodaj ogłoszenie na tvml.pl").czcionka(14, .semibold)
+                    Text(Napisy.t("app.classifiedsAdd", "Dodaj ogłoszenie na tvml.pl")).czcionka(14, .semibold)
                 }
             }
             .padding(16)
@@ -462,12 +475,12 @@ struct FotorelacjeWidok: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
                 Button { wroc() } label: {
-                    HStack(spacing: 2) { Image(systemName: "chevron.left"); Text("Wróć") }
+                    HStack(spacing: 2) { Image(systemName: "chevron.left"); Text(Napisy.t("app.back", "Wróć")) }
                         .font(.system(size: 15, weight: .bold)).foregroundStyle(Barwy.tekst).frame(height: 44)
                 }
-                Text("Fotorelacje").font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst).accessibilityAddTraits(.isHeader)
+                Text(Napisy.t("app.photoReports", "Fotorelacje")).font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst).accessibilityAddTraits(.isHeader)
                 if laduje { ProgressView().frame(maxWidth: .infinity, minHeight: 200) }
-                else if lista.isEmpty { Text("Brak fotorelacji.").czcionka(15).foregroundStyle(Barwy.slaby) }
+                else if lista.isEmpty { Text(Napisy.t("app.photoReportsEmpty", "Brak fotorelacji.")).czcionka(15).foregroundStyle(Barwy.slaby) }
                 ForEach(lista) { a in
                     NavigationLink(value: a) { WierszArtykulu(artykul: a) }.buttonStyle(.plain)
                 }

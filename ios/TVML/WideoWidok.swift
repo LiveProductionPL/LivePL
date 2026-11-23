@@ -9,7 +9,7 @@ struct WideoWidok: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    Text("Wideo").font(Czcionka.naglowek(26))
+                    Text(Napisy.t("app.video", "Wideo")).font(Czcionka.naglowek(26))
                     Spacer()
                     Label("YouTube @TVMLlive", systemImage: "play.rectangle").czcionka(12, .semibold).foregroundStyle(Color(hex: "#a8b3c8"))
                 }
@@ -21,7 +21,7 @@ struct WideoWidok: View {
                             ZStack(alignment: .topLeading) {
                                 AsyncImage(url: pierwszy.obraz) { $0.resizable().scaledToFill() } placeholder: { Color(hex: "#1c2840") }
                                     .frame(height: 200).frame(maxWidth: .infinity).clipped()
-                                Text("WYRÓŻNIONE").czcionka(11, .heavy).kerning(1).foregroundStyle(.white)
+                                Text(Napisy.t("app.featured", "Wyróżnione").uppercased(with: Jezyk.locale())).czcionka(11, .heavy).kerning(1).foregroundStyle(.white)
                                     .padding(.horizontal, 8).padding(.vertical, 4).background(Color(hex: "#c8102e"), in: RoundedRectangle(cornerRadius: 6)).padding(12)
                                 Image(systemName: "play.circle.fill").font(.system(size: 60)).foregroundStyle(Color(hex: "#1d1400"), Barwy.zloto)
                                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -77,7 +77,7 @@ struct KafelFilmu: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Film: \(film.tytul)")
+        .accessibilityLabel(Napisy.t("app.video", "Film") + ": " + film.tytul)
     }
 }
 
@@ -85,7 +85,7 @@ extension Film {
     static func data(_ iso: String) -> String {
         guard let d = ISO8601DateFormatter().date(from: iso) else { return "" }
         let f = RelativeDateTimeFormatter()
-        f.locale = Locale(identifier: "pl_PL")
+        f.locale = Jezyk.locale()
         return f.localizedString(for: d, relativeTo: .now)
     }
 }

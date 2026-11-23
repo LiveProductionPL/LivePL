@@ -14,15 +14,20 @@ struct ArtykulWidok: View {
     @State private var postep: CGFloat = 0
     @State private var komentarze = false
     @State private var film: String?
+    /// Polski oryginał przetłumaczonego artykułu, gdy czytelnik o niego poprosi (app.originalPolish).
+    @State private var oryginal: Artykul?
 
-    private var a: Artykul { pelny ?? poczatkowy }
+    private var a: Artykul { oryginal ?? pelny ?? poczatkowy }
+    private var zrodlo: Artykul? { oryginal ?? pelny }
+    /// Tekst po polsku przy wybranym innym języku: tłumaczenie w przygotowaniu albo oryginał na życzenie.
+    private var poPolsku: Bool { !Jezyk.polski && (oryginal != nil || zrodlo?.tlumaczenieWToku == true) }
     private var wielkosc: CGFloat { [16, 18, 21][min(max(rozmiar, 0), 2)] }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 Button { wroc() } label: {
-                    HStack(spacing: 2) { Image(systemName: "chevron.left"); Text("Wróć") }
+                    HStack(spacing: 2) { Image(systemName: "chevron.left"); Text(Napisy.t("app.back", "Wróć")) }
                         .font(.system(size: 15, weight: .bold))
                         .padding(.horizontal, 10).frame(height: 44)
                 }
@@ -30,11 +35,11 @@ struct ArtykulWidok: View {
                 Button { rozmiar = (rozmiar + 1) % 3 } label: {
                     Text("Aa").font(.system(size: 15, weight: .bold)).frame(width: 44, height: 44)
                 }
-                .accessibilityLabel("Rozmiar tekstu")
+                .accessibilityLabel(Napisy.t("app.textSize", "Rozmiar tekstu"))
                 ShareLink(item: a.link, subject: Text(a.tytul)) {
                     Image(systemName: "square.and.arrow.up").font(.system(size: 17, weight: .semibold)).frame(width: 44, height: 44)
                 }
-                .accessibilityLabel("Udostępnij")
+                .accessibilityLabel(Napisy.t("app.share", "Udostępnij"))
             }
             .foregroundStyle(Barwy.tekst)
             .padding(.horizontal, 4)
@@ -50,22 +55,36 @@ struct ArtykulWidok: View {
                     Text(a.tytul)
                         .font(Czcionka.naglowek(wielkosc + 10))
                         .foregroundStyle(Barwy.tekst)
+                        .environment(\.locale, poPolsku ? Locale(identifier: "pl_PL") : Jezyk.locale())
                     HStack(spacing: 10) {
                         Text(inicjaly(a.autor))
                             .czcionka(13, .bold).foregroundStyle(.white)
                             .frame(width: 36, height: 36).background(Barwy.granat, in: Circle())
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(a.autor.isEmpty ? "Redakcja TVML" : a.autor).czcionka(14, .bold).foregroundStyle(Barwy.tekst)
+                            Text(a.autor.isEmpty ? Napisy.t("app.newsroom", "Redakcja TVML") : a.autor).czcionka(14, .bold).foregroundStyle(Barwy.tekst)
                             Text(opisDaty).czcionka(12).foregroundStyle(Barwy.slaby)
                         }
                     }
+                    if oryginal != nil || pelny?.przetlumaczony == true {
+                        Button {
+                            if oryginal != nil { oryginal = nil } else { Task { oryginal = await m.artykul(poczatkowy.id, jezyk: "pl") } }
+                        } label: {
+                            Label(oryginal == nil ? Napisy.t("app.originalPolish", "Pokaż oryginał po polsku") : Napisy.t("app.showTranslation", "Pokaż tłumaczenie"),
+                                  systemImage: "globe")
+                                .czcionka(13, .semibold).foregroundStyle(Barwy.link)
+                        }
+                    }
                     HStack(spacing: 8) {
+                        // lektor czyta po polsku, więc w przetłumaczonym artykule go nie ma (tak jak na stronie)
+                        if !a.przetlumaczony {
                         Button { lektor.przelacz(tekstDoCzytania) } label: {
-                            Label(lektor.mowi ? "Zatrzymaj" : "Odsłuchaj", systemImage: lektor.mowi ? "stop.fill" : "speaker.wave.2")
+                            Label(lektor.mowi ? Napisy.t("app.listenStop", "Zatrzymaj") : Napisy.t("app.listen", "Odsłuchaj"),
+                                  systemImage: lektor.mowi ? "stop.fill" : "speaker.wave.2")
                                 .czcionka(13, .semibold)
                                 .padding(.horizontal, 14).frame(minHeight: 40)
                                 .foregroundStyle(.white)
                                 .background(Barwy.granat, in: Capsule())
+                        }
                         }
                         Spacer()
                         Button { m.przelaczZapis(a) } label: {
@@ -73,13 +92,13 @@ struct ArtykulWidok: View {
                                 .frame(width: 44, height: 40)
                                 .overlay(Capsule().stroke(Barwy.ramka))
                         }
-                        .accessibilityLabel(m.zapisane.contains(a.id) ? "Usuń z zapisanych" : "Zapisz")
+                        .accessibilityLabel(m.zapisane.contains(a.id) ? Napisy.t("app.unsave", "Usuń z zapisanych") : Napisy.t("app.save", "Zapisz"))
                         Button { komentarze = true } label: {
                             Image(systemName: "bubble.left")
                                 .frame(width: 44, height: 40)
                                 .overlay(Capsule().stroke(Barwy.ramka))
                         }
-                        .accessibilityLabel("Komentarze: \(a.komentarze)")
+                        .accessibilityLabel(Napisy.t("app.comments", "Komentarze") + ": \(a.komentarze)")
                     }
                     .foregroundStyle(Barwy.tekst)
 
@@ -92,7 +111,12 @@ struct ArtykulWidok: View {
                         }
                     }
 
-                    if let tresc = pelny?.tresc {
+                    if zrodlo?.tlumaczenieWToku == true && !Jezyk.polski {
+                        // jedno zdanie zwykłym tekstem, bez paska i ikony ostrzeżenia
+                        Text(Napisy.t("app.translationPending", "Tłumaczenie w przygotowaniu. Poniżej oryginalna wersja po polsku."))
+                            .czcionka(13).foregroundStyle(Barwy.slaby)
+                    }
+                    if let tresc = zrodlo?.tresc {
                         ForEach(Array(Html.bloki(tresc).enumerated()), id: \.offset) { i, blok in
                             switch blok {
                             case .akapit(let t):
@@ -101,8 +125,10 @@ struct ArtykulWidok: View {
                                     .lineSpacing(wielkosc * 0.4)
                                     .foregroundStyle(Barwy.tekst)
                                     .textSelection(.enabled)
+                                    .environment(\.locale, poPolsku ? Locale(identifier: "pl_PL") : Jezyk.locale())
                             case .srodtytul(let t):
                                 Text(t).font(Czcionka.naglowek(wielkosc + 4)).foregroundStyle(Barwy.tekst)
+                                    .environment(\.locale, poPolsku ? Locale(identifier: "pl_PL") : Jezyk.locale())
                             case .obraz(let u):
                                 Color.clear.frame(height: 220).frame(maxWidth: .infinity)
                                     .overlay { Obraz(url: Siec.obraz(u.absoluteString, szerokosc: 1200)) }
@@ -115,7 +141,7 @@ struct ArtykulWidok: View {
                                     }
                                     .frame(height: 200).frame(maxWidth: .infinity).clipShape(RoundedRectangle(cornerRadius: 14))
                                 }
-                                .accessibilityLabel("Odtwórz film")
+                                .accessibilityLabel(Napisy.t("app.playVideo", "Odtwórz film"))
                             }
                         }
                     } else {
@@ -148,15 +174,15 @@ struct ArtykulWidok: View {
 
     private var opisDaty: String {
         var czesci: [String] = []
-        if let d = a.data { czesci.append(d.formatted(.dateTime.day().month(.wide).year().locale(Locale(identifier: "pl_PL")))) }
-        let slowa = (pelny?.tresc.map { Html.tekst($0) } ?? a.lead).split(separator: " ").count
-        czesci.append("czytanie ok. \(max(1, slowa / 200)) min")
-        if a.odslony > 0 { czesci.append("\(a.odslony) odsłon") }
+        if let d = a.data { czesci.append(d.formatted(.dateTime.day().month(.wide).year().locale(Jezyk.locale()))) }
+        let slowa = (zrodlo?.tresc.map { Html.tekst($0) } ?? a.lead).split(separator: " ").count
+        czesci.append(Napisy.t("app.readingMinutes", "czytanie ok. {n} min", n: max(1, slowa / 200)))
+        if a.odslony > 0 { czesci.append(Napisy.t("app.views", "{n} odsłon", n: a.odslony)) }
         return czesci.joined(separator: " · ")
     }
 
     private var tekstDoCzytania: String {
-        let tresc = pelny?.tresc.map { Html.akapity($0).joined(separator: "\n") } ?? a.lead
+        let tresc = zrodlo?.tresc.map { Html.akapity($0).joined(separator: "\n") } ?? a.lead
         return a.tytul + ".\n" + tresc
     }
 
@@ -251,7 +277,7 @@ struct KomentarzeWidok: View {
         NavigationStack {
             List {
                 if laduje { ProgressView() }
-                else if lista.isEmpty { Text("Nie ma jeszcze komentarzy.").foregroundStyle(Barwy.slaby) }
+                else if lista.isEmpty { Text(Napisy.t("app.commentsEmpty", "Nie ma jeszcze komentarzy.")).foregroundStyle(Barwy.slaby) }
                 ForEach(Array(lista.enumerated()), id: \.offset) { _, k in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(alignment: .firstTextBaseline) {
@@ -261,7 +287,7 @@ struct KomentarzeWidok: View {
                             Button { zglos(k) } label: { Image(systemName: "flag").font(.system(size: 13)) }
                                 .buttonStyle(.borderless)
                                 .foregroundStyle(Barwy.slaby)
-                                .accessibilityLabel("Zgłoś komentarz")
+                                .accessibilityLabel(Napisy.t("app.reportComment", "Zgłoś komentarz"))
                         }
                         Text(tresc(k)).czcionka(15)
                         Text(k.s("created_at").isEmpty ? k.s("date") : k.s("created_at")).czcionka(12).foregroundStyle(Barwy.slaby)
@@ -269,19 +295,19 @@ struct KomentarzeWidok: View {
                     .padding(.vertical, 4)
                 }
                 Section {
-                    Link("Dodaj komentarz na tvml.pl", destination: artykul.link)
+                    Link(Napisy.t("app.commentAdd", "Dodaj komentarz na tvml.pl"), destination: artykul.link)
                 } footer: {
-                    if !lista.isEmpty { Text("Komentarz łamie zasady? Stuknij chorągiewkę, a zgłoszenie trafi do redakcji TVML.") }
+                    if !lista.isEmpty { Text(Napisy.t("app.reportCommentHint", "Komentarz łamie zasady? Stuknij chorągiewkę, a zgłoszenie trafi do redakcji TVML.")) }
                 }
             }
-            .alert("Zgłoś komentarz", isPresented: $bezPoczty) {
+            .alert(Napisy.t("app.reportComment", "Zgłoś komentarz"), isPresented: $bezPoczty) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text("Napisz do redakcji: redakcja@tvml.pl")
+                Text(Napisy.t("app.reportCommentMail", "Napisz do redakcji: redakcja@tvml.pl"))
             }
-            .navigationTitle("Komentarze")
+            .navigationTitle(Napisy.t("app.comments", "Komentarze"))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Gotowe") { zamknij() } } }
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button(Napisy.t("app.done", "Gotowe")) { zamknij() } } }
             .task {
                 let j = try? await Siec.json("tvml-db.php?action=get-comments&post_id=\(artykul.id)")
                 if let l = j as? [Slownik] { lista = l }
@@ -320,11 +346,11 @@ struct Odtwarzacz: View {
                 .frame(maxHeight: .infinity)
                 .background(.black)
                 .toolbar {
-                    ToolbarItem(placement: .confirmationAction) { Button("Gotowe") { zamknij() } }
+                    ToolbarItem(placement: .confirmationAction) { Button(Napisy.t("app.done", "Gotowe")) { zamknij() } }
                     // zapas, gdy YouTube nie pozwoli odtworzyć filmu w aplikacji
                     ToolbarItem(placement: .cancellationAction) {
                         if let yt = URL(string: "https://www.youtube.com/watch?v=" + adres.lastPathComponent) {
-                            Link("Otwórz w YouTube", destination: yt)
+                            Link(Napisy.t("app.openYouTube", "Otwórz w YouTube"), destination: yt)
                         }
                     }
                 }
