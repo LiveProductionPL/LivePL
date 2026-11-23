@@ -27,6 +27,8 @@ struct Glowny: View {
     /// Do zrzutów ekranu: -ekran pogoda|artykul|wideo|wiecej|zakladka2 (druga zakładka z panelu), -motyw zima|wigilia|…
     private let ekranStartowy = UserDefaults.standard.string(forKey: "ekran")
     private let motywTestowy = Motyw.zArgumentu(UserDefaults.standard.string(forKey: "motyw"))
+    /// Wybór języka z „Więcej” albo z flagi w nagłówku (ten sam zapis), zmiana obsłużona tutaj raz.
+    @AppStorage(Jezyk.kluczWyboru) private var wyborJezyka = "system"
 
     var body: some View {
         VStack(spacing: 0) {
@@ -76,6 +78,7 @@ struct Glowny: View {
             guard motywTestowy == nil else { return }
             ustawIkone(nowy.ikona)
         }
+        .onChange(of: wyborJezyka) { _, _ in Task { await m.zmienJezyk() } }
     }
 
     @ViewBuilder private func tresc(_ z: ZakladkaApp) -> some View {
@@ -114,6 +117,7 @@ extension Magazyn {
 struct Baner: View {
     @EnvironmentObject private var m: Magazyn
     @State private var szukaj = false
+    @AppStorage(Jezyk.kluczWyboru) private var wyborJezyka = "system"
 
     var body: some View {
         let motyw = m.motyw
@@ -141,6 +145,26 @@ struct Baner: View {
                     .background(.white.opacity(0.12), in: Capsule())
                 }
                 .accessibilityLabel(Napisy.t("app.weather", "Pogoda"))
+                // flaga bieżącego języka; menu z pozostałymi (tylko języki z config.languages), jak „Więcej → Język”
+                if Jezyk.dostepne.count > 1 {
+                    Menu {
+                        ForEach(["pl", "en", "uk"].filter { $0 != m.jezyk && Jezyk.dostepne.contains($0) }, id: \.self) { j in
+                            Button { wyborJezyka = j } label: {
+                                Label { Text(Jezyk.nazwy[j] ?? j) } icon: { Image(uiImage: Flaga.obraz(j)) }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 5) {
+                            Flaga(jezyk: m.jezyk)
+                            Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12).frame(height: 36)
+                        .background(.white.opacity(0.12), in: Capsule())
+                    }
+                    .menuIndicator(.hidden)
+                    .accessibilityLabel(Napisy.t("app.language", "Język") + ": " + (Jezyk.nazwy[m.jezyk] ?? m.jezyk))
+                }
                 Button { szukaj = true } label: {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 17, weight: .semibold))
@@ -384,5 +408,52 @@ extension View {
     /// Na iPhonie (węższym) nic się nie zmienia.
     func kolumna() -> some View {
         frame(maxWidth: 760).frame(maxWidth: .infinity).background(Barwy.tlo)
+    }
+}
+
+/// Flaga języka narysowana w aplikacji (nie emoji), żeby wyglądała tak samo na każdym telefonie.
+struct Flaga: View {
+    let jezyk: String
+
+    var body: some View {
+        Canvas { ctx, s in
+            let w = s.width, h = s.height
+            switch jezyk {
+            case "uk":
+                ctx.fill(Path(CGRect(x: 0, y: 0, width: w, height: h / 2)), with: .color(Color(hex: "#0057b7")))
+                ctx.fill(Path(CGRect(x: 0, y: h / 2, width: w, height: h / 2)), with: .color(Color(hex: "#ffd700")))
+            case "en":
+                ctx.fill(Path(CGRect(x: 0, y: 0, width: w, height: h)), with: .color(Color(hex: "#012169")))
+                var skosy = Path()
+                skosy.move(to: .zero); skosy.addLine(to: CGPoint(x: w, y: h))
+                skosy.move(to: CGPoint(x: w, y: 0)); skosy.addLine(to: CGPoint(x: 0, y: h))
+                ctx.stroke(skosy, with: .color(.white), lineWidth: h * 0.2)
+                ctx.stroke(skosy, with: .color(Color(hex: "#c8102e")), lineWidth: h * 0.07)
+                var krzyz = Path()
+                krzyz.move(to: CGPoint(x: w / 2, y: 0)); krzyz.addLine(to: CGPoint(x: w / 2, y: h))
+                krzyz.move(to: CGPoint(x: 0, y: h / 2)); krzyz.addLine(to: CGPoint(x: w, y: h / 2))
+                ctx.stroke(krzyz, with: .color(.white), lineWidth: h * 0.34)
+                ctx.stroke(krzyz, with: .color(Color(hex: "#c8102e")), lineWidth: h * 0.2)
+            default:
+                ctx.fill(Path(CGRect(x: 0, y: 0, width: w, height: h / 2)), with: .color(.white))
+                ctx.fill(Path(CGRect(x: 0, y: h / 2, width: w, height: h / 2)), with: .color(Color(hex: "#dc143c")))
+            }
+        }
+        .frame(width: 22, height: 15)
+        .clipShape(RoundedRectangle(cornerRadius: 2.5))
+        .overlay(RoundedRectangle(cornerRadius: 2.5).stroke(.black.opacity(0.2), lineWidth: 0.5))
+        .accessibilityHidden(true)
+    }
+
+    @MainActor private static var obrazy: [String: UIImage] = [:]
+
+    /// Ta sama flaga jako obrazek do menu (systemowe menu pokazuje tylko obrazy), w oryginalnych kolorach.
+    @MainActor static func obraz(_ jezyk: String) -> UIImage {
+        if let o = obrazy[jezyk] { return o }
+        let r = ImageRenderer(content: Flaga(jezyk: jezyk))
+        r.scale = 3
+        let o = (r.uiImage ?? UIImage()).withRenderingMode(.alwaysOriginal)
+        obrazy[jezyk] = o
+        return o
     }
 }

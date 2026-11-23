@@ -499,7 +499,8 @@ struct ScenaPogody: View {
         // jesienne liście (tylko gdy serwer je włączy)
         if e.liscie {
             let barwy = [Color(hex: "#f2b705"), Color(hex: "#e88d14"), Color(hex: "#d9531e"), Color(hex: "#b8291d")]
-            for k in 0..<(e.rodzaj == "wind" ? 8 : 6) {
+            // jak na stronie (pogoda-efekty.js): 10 liści, przy wietrze 14, każdy obraca się w swoją stronę
+            for k in 0..<(e.rodzaj == "wind" ? 14 : 10) {
                 let v = 14 + Double(k % 5) * 4
                 let y = (Double((k * 89) % 1000) / 1000 * h + t * v).truncatingRemainder(dividingBy: h + 10) - 5
                 let boczny = e.rodzaj == "wind" ? t * (120 + Double(k) * 10) : sin(t * 0.8 + Double(k)) * 18
@@ -507,8 +508,8 @@ struct ScenaPogody: View {
                 var lisc = ctx
                 lisc.opacity = wNocy ? 0.55 : 0.85
                 lisc.translateBy(x: x, y: y)
-                lisc.rotate(by: .radians(t * 2 + Double(k)))
-                lisc.fill(Path(ellipseIn: CGRect(x: -4.5, y: -2, width: 9, height: 4)), with: .color(barwy[k % 4]))
+                lisc.rotate(by: .radians(t * (0.6 + Double(k % 5) * 0.25) * (k % 2 == 0 ? 1 : -1) + Double(k)))
+                lisc.fill(Path(ellipseIn: CGRect(x: -4.4, y: -2.1, width: 8.8, height: 4.2)), with: .color(barwy[k % 4]))
             }
         }
         panorama(ctx: &ctx, w: w, h: h)
@@ -586,10 +587,22 @@ struct ScenaPogody: View {
         }
         switch scena {
         case .jesien, .listopad, .lato, .wiosna:
-            let barwy: [String] = scena == .wiosna || scena == .lato ? ["#15803d", "#16a34a", "#166534"] : ["#c2410c", "#d97706", "#b45309", "#ea580c"]
-            for (i, (x, y, rr)) in ([(22.0, 104.0, 12.0), (44, 108, 9), (118, 106, 11), (252, 105, 12), (286, 108, 9), (330, 104, 12)] as [(CGFloat, CGFloat, CGFloat)]).enumerated() {
-                ctx.fill(Path(ellipseIn: r(x - rr, y - rr, rr * 2, rr * 2)), with: .color(Color(hex: barwy[i % barwy.count])))
+            // małe drzewa z pniem i koroną z trzech kół (wcześniej same duże koła na ziemi wyglądały jak pomarańczowe kule);
+            // jesień widać po spadających liściach z efektu pogody
+            let barwy: [String] = scena == .wiosna || scena == .lato ? ["#166534", "#15803d", "#14532d"] : ["#9a3412", "#a16207", "#7c2d12"]
+            var pnie = Path()
+            for (i, x) in ([22.0, 44, 118, 252, 286, 330] as [CGFloat]).enumerated() {
+                let wys: CGFloat = i % 2 == 0 ? 14 : 10
+                let rr: CGFloat = i % 2 == 0 ? 5 : 4
+                pnie.addRect(r(x - 1, 108 - wys, 2, wys))
+                let cy = 108 - wys - rr * 0.4
+                var korona = Path()
+                for (dx, dy) in [(-rr * 0.6, 0), (rr * 0.6, 0), (0, -rr * 0.8)] as [(CGFloat, CGFloat)] {
+                    korona.addEllipse(in: r(x + dx - rr, cy + dy - rr, rr * 2, rr * 2))
+                }
+                ctx.fill(korona, with: .color(Color(hex: barwy[i % barwy.count]).opacity(noc ? 0.75 : 0.95)))
             }
+            ctx.fill(pnie, with: .color(miasto))
         case .zima, .swieta, .sylwester:
             var choinki = Path(), czapy = Path()
             for (x, y) in [(22.0, 84.0), (118, 86), (254, 84), (332, 84)] as [(CGFloat, CGFloat)] {

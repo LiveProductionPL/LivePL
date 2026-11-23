@@ -113,7 +113,6 @@ struct WiecejWidok: View {
         .background(Barwy.tlo)
         .sheet(item: $strona) { s in Safari(url: URL(string: "https://tvml.pl/" + s.sciezka)!).ignoresSafeArea() }
         .task { if m.stronyGotowe == nil { await m.sprawdzStrony() } }
-        .onChange(of: wyborJezyka) { _, _ in Task { await m.zmienJezyk() } }
     }
 
     /// Podstrona redakcji otwiera się w aplikacji (treść z API), nie w przeglądarce.
