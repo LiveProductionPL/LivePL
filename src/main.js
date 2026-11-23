@@ -415,9 +415,17 @@ function utworzWidok(program) {
       preload: path.join(__dirname, 'preload-strona.js')
     }
   });
-  widok.setBackgroundColor(kolory().strona);
+  widok.setBackgroundColor(TLO_WWW);
   try { widok.setBorderRadius(ZAOKRAGLENIE); } catch { /* starszy Electron */ }
   return widok;
+}
+
+// Tło pod stroną jak w Chrome. Strony WWW leżą na białym: strona bez własnego tła zakłada białe (np. pasek boczny
+// App Store Connect na ciemnym tle był nieczytelny, Karol 24.11), a strona z ciemnym trybem (color-scheme: dark)
+// i tak maluje swoje ciemne tło. Nasze strony (nowa karta, błąd) mają kolor motywu, żeby nocą nie błyskały bielą.
+const TLO_WWW = '#ffffff';
+function tloStrony(url) {
+  return /^file:/i.test(url || '') ? kolory().strona : TLO_WWW;
 }
 
 function nowyObiektKarty(id, program, widok) {
@@ -492,6 +500,7 @@ function otworzStroneNowejKarty(k) {
     obrazek: p.obrazek ? '../' + p.obrazek : '', obrazekNoc: p.obrazekNoc ? '../' + p.obrazekNoc : ''
   });
   const dane = { naPasku: programy.filter(widoczny).map(opis), wiecej: programyUkryte.map(opis) };
+  k.widok.setBackgroundColor(kolory().strona);
   k.wc.loadFile(path.join(UI, 'nowa.html'), { query: { programy: JSON.stringify(dane) } }).catch(() => {});
 }
 
@@ -986,6 +995,15 @@ function podepnij(k) {
     wyslijStan();
   });
   wc.on('did-start-loading', () => { k.laduje = true; wyslijStan(); });
+  // tło pod stroną według tego, dokąd karta idzie: WWW białe, nasze strony w kolorze motywu (tloStrony)
+  wc.on('did-start-navigation', (e, url, wMiejscu, glowna) => {
+    // Electron 25+: szczegóły w samym zdarzeniu; stare argumenty zostają na zapas
+    const adres = (e && e.url) || url;
+    const glownaRamka = e && typeof e.isMainFrame === 'boolean' ? e.isMainFrame : glowna;
+    const tenSamDokument = e && typeof e.isSameDocument === 'boolean' ? e.isSameDocument : wMiejscu;
+    if (!glownaRamka || tenSamDokument) return;
+    try { k.widok.setBackgroundColor(tloStrony(adres)); } catch { /* widok zamknięty */ }
+  });
   wc.on('did-stop-loading', () => { k.laduje = false; wyslijStan(); });
 
   const poNawigacji = (url) => {
@@ -1043,7 +1061,7 @@ function podepnij(k) {
         overrideBrowserWindowOptions: {
           icon: IKONA,
           autoHideMenuBar: true,
-          backgroundColor: kolory().strona,
+          backgroundColor: TLO_WWW, // okienko strony (wydruk, logowanie): jak karta WWW
           webPreferences: { partition: PARTYCJA, sandbox: true, contextIsolation: true, plugins: true }
         }
       };
