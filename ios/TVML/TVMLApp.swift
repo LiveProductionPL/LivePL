@@ -150,12 +150,12 @@ struct Baner: View {
                     Menu {
                         ForEach(["pl", "en", "uk"].filter { $0 != m.jezyk && Jezyk.dostepne.contains($0) }, id: \.self) { j in
                             Button { wyborJezyka = j } label: {
-                                Label { Text(Jezyk.nazwy[j] ?? j) } icon: { Image(uiImage: Flaga.obraz(j)) }
+                                Label { Text(Jezyk.nazwy[j] ?? j) } icon: { Image(uiImage: FlagaJezyka.obraz(j)) }
                             }
                         }
                     } label: {
                         HStack(spacing: 5) {
-                            Flaga(jezyk: m.jezyk)
+                            FlagaJezyka(jezyk: m.jezyk)
                             Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold))
                         }
                         .foregroundStyle(.white)
@@ -412,7 +412,7 @@ extension View {
 }
 
 /// Flaga języka narysowana w aplikacji (nie emoji), żeby wyglądała tak samo na każdym telefonie.
-struct Flaga: View {
+struct FlagaJezyka: View {
     let jezyk: String
 
     var body: some View {
@@ -450,7 +450,7 @@ struct Flaga: View {
     /// Ta sama flaga jako obrazek do menu (systemowe menu pokazuje tylko obrazy), w oryginalnych kolorach.
     @MainActor static func obraz(_ jezyk: String) -> UIImage {
         if let o = obrazy[jezyk] { return o }
-        let r = ImageRenderer(content: Flaga(jezyk: jezyk))
+        let r = ImageRenderer(content: FlagaJezyka(jezyk: jezyk))
         r.scale = 3
         let o = (r.uiImage ?? UIImage()).withRenderingMode(.alwaysOriginal)
         obrazy[jezyk] = o
