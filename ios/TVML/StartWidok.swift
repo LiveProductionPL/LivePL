@@ -575,8 +575,18 @@ struct KafelPogody: View {
                                                 ustawienia: m.ustawieniaScen[m.pogoda?.ikona ?? ""], karta: false, bezRuchu: bezRuchu))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie") + ": \(m.pogoda.map { Pogoda.stopnie($0.temperatura) } ?? ""), \(m.pogoda?.opis ?? ""). "
-                            + data + (linie.wyroznienie.map { ". " + $0 } ?? "") + (linie.imieniny.map { ". " + $0 } ?? ""))
+        .accessibilityLabel(opisDostepnosci(linie))
+    }
+
+    /// Dla VoiceOver: pogoda, data, święto albo motyw, imieniny (w częściach, bo długie złożenie zatyka kompilator).
+    private func opisDostepnosci(_ linie: (wyroznienie: String?, imieniny: String?)) -> String {
+        let tytul: String = Napisy.t("app.weatherLeszno", "Pogoda w Lesznie")
+        let temp: String = m.pogoda.map { Pogoda.stopnie($0.temperatura) } ?? ""
+        let opis: String = m.pogoda?.opis ?? ""
+        var czesci: [String] = [tytul + ": " + temp + ", " + opis, data]
+        if let w = linie.wyroznienie { czesci.append(w) }
+        if let i = linie.imieniny { czesci.append(i) }
+        return czesci.joined(separator: ". ")
     }
 }
 
