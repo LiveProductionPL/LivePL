@@ -265,6 +265,17 @@ struct ScenaPogody: View {
         var c = ctx
         let war = warunki ?? WarunkiSceny(noc: noc)
         s.rysuj(&c, size: size, t: t, warunki: war)
+        // kafel: śnieg na dole winter-village i winter-christmas przechodzi w belkę z datą (Karol: biały pas jak
+        // śnieg, jak w zimie w Lesznie); na stronie ten śnieg jest niebieskawy i przyciemniony nakładką kontrastu
+        if kafel && (s == .winterVillage || s == .winterChristmas) {
+            let snieg = war.noc ? Color(hex: "#24324a") : Color(hex: "#eef3f8")
+            let gora = size.height * 0.84
+            ctx.fill(Path(CGRect(x: 0, y: gora, width: size.width, height: size.height - gora)),
+                     with: .linearGradient(Gradient(stops: [.init(color: snieg.opacity(0), location: 0),
+                                                            .init(color: snieg.opacity(0.9), location: 0.55),
+                                                            .init(color: snieg, location: 1)]),
+                                           startPoint: CGPoint(x: 0, y: gora), endPoint: CGPoint(x: 0, y: size.height)))
+        }
         if !s.specjalna, let e = efekt {
             rysujEfekt(ctx: &ctx, size: size, t: t, e: e, tylkoNakladka: true)
         }
