@@ -48,10 +48,60 @@ struct TloSVG: UIViewRepresentable {
 ///   i od razu pobiera config na nowo (etapy w środku motywu, np. Mikołajki → Święta, zna tylko serwer);
 /// - motyw z panelu ze sceną SVG (weatherSceneType "svg", przy features=ai-themes): adres obrazu dzienny i nocny.
 struct WyborSceny: Equatable {
+    /// Belka z datą z serwera (API 1.8.3, theme.dateBar / stages[].dateBar): medal, kolory motywu i teksty na każdy dzień.
+    struct PasekDaty: Equatable {
+        struct Dzien: Equatable {
+            var przedrostek = ""
+            var jutro = ""
+            var bezImienin = false
+        }
+        var akcent: String?          // palette.bar
+        var tloDzien: String?        // palette.bgD (do scen SVG, których podłoża aplikacja nie zna)
+        var tloNoc: String?          // palette.bgN
+        var dataDzien: String?       // palette.dColD
+        var dataNoc: String?         // palette.dColN
+        var drugaDzien: String?      // palette.sColD
+        var drugaNoc: String?        // palette.sColN
+        var medal: String?           // palette.medBg
+        var obwodka: String?         // palette.medRim
+        var ikona: String?           // medal.icon: snowflake, santa-hat, star, tree, candle, year
+        var napisMedalu: String?     // medal.text (Nowy Rok: „27”)
+        var ogolny = Dzien()
+        var dni: [String: Dzien] = [:]   // „2026-11-29” → teksty tego dnia
+
+        init?(_ j: Slownik?) {
+            guard let j, !j.isEmpty else { return nil }
+            let p = j.slownik("palette")
+            func k(_ n: String) -> String? { p.s(n).isEmpty ? nil : p.s(n) }
+            akcent = k("bar"); tloDzien = k("bgD"); tloNoc = k("bgN")
+            dataDzien = k("dColD"); dataNoc = k("dColN"); drugaDzien = k("sColD"); drugaNoc = k("sColN")
+            medal = k("medBg"); obwodka = k("medRim")
+            let m = j.slownik("medal")
+            ikona = m.s("icon").isEmpty ? nil : m.s("icon")
+            napisMedalu = m.s("text").isEmpty ? nil : m.s("text")
+            func dzien(_ d: Slownik) -> Dzien { Dzien(przedrostek: d.s("prefix"), jutro: d.s("tomorrow"), bezImienin: d.b("hideNameday")) }
+            ogolny = dzien(j)
+            for d in j.lista("days") where !d.s("date").isEmpty { dni[d.s("date")] = dzien(d) }
+        }
+
+        /// Teksty na dany dzień (czas warszawski), a bez wpisu ogólne.
+        func dzien(_ chwila: Date) -> Dzien {
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.timeZone = TimeZone(identifier: "Europe/Warsaw")
+            f.dateFormat = "yyyy-MM-dd"
+            return dni[f.string(from: chwila)] ?? ogolny
+        }
+    }
+
     struct Scena: Equatable {
         var id = ""
         var svg: URL?
         var svgNoc: URL?
+        /// Belka z serwera; nil przy API 1.8.3 = zwykła belka bez motywu.
+        var pasek: PasekDaty?
+        /// API 1.8.3: wszystko, co dotyczy belki, przyszło z serwera (bez tabel w aplikacji).
+        var zSerwera = false
         /// Scena narysowana w aplikacji; nieznany albo pusty id → autumn-forest (strona robi tak samo).
         var strony: ScenaStrony { ScenaStrony(rawValue: id) ?? .autumnForest }
     }
@@ -71,21 +121,33 @@ struct WyborSceny: Equatable {
 
     init(_ konf: Slownik) {
         let iso = ISO8601DateFormatter()
+        // API 1.8.3: backgroundScene to scena, którą rysuje strona (z panelu albo z motywu i etapu), typ i adresy SVG
+        // zawsze; wcześniej weatherScene (puste przy żałobie i pustym tle z panelu) i SVG tylko z features=ai-themes
+        let nowe = konf.slownik("theme")["backgroundScene"] != nil
         func scena(_ t: Slownik) -> Scena {
             let svg = t.s("weatherSceneType") == "svg"
-            return Scena(id: t.s("weatherScene"),
+            return Scena(id: nowe ? t.s("backgroundScene") : t.s("weatherScene"),
                          svg: svg ? URL(string: t.s("weatherSceneSvgUrl")) : nil,
-                         svgNoc: svg ? URL(string: t.s("weatherSceneSvgNightUrl")) : nil)
+                         svgNoc: svg ? URL(string: t.s("weatherSceneSvgNightUrl")) : nil,
+                         pasek: PasekDaty(t["dateBar"] as? Slownik), zSerwera: nowe)
+        }
+        /// Okna motywu: jego etapy z datami (xmas: Mikołajki → Święta → Wigilia → Święta), a bez nich cały motyw.
+        func oknaMotywu(_ t: Slownik) -> [Okno] {
+            let etapy: [Okno] = t.lista("stages").compactMap { e in
+                guard let od = iso.date(from: e.s("from")), let d = iso.date(from: e.s("until")) else { return nil }
+                return Okno(od: od, doKonca: d, scena: scena(e))
+            }
+            if !etapy.isEmpty { return etapy }
+            guard let od = iso.date(from: t.s("from")), let d = iso.date(from: t.s("until")) else { return [] }
+            let s = scena(t)
+            guard !s.id.isEmpty || s.svg != nil else { return [] }
+            return [Okno(od: od, doKonca: d, scena: s)]
         }
         let th = konf.slownik("theme")
         biezaca = scena(th)
         biezacaDo = iso.date(from: th.s("until"))
-        okna = konf.lista("upcomingThemes").compactMap { u in
-            guard let od = iso.date(from: u.s("from")), let d = iso.date(from: u.s("until")) else { return nil }
-            let s = scena(u)
-            guard !s.id.isEmpty || s.svg != nil else { return nil }
-            return Okno(od: od, doKonca: d, scena: s)
-        }
+        okna = th.lista("stages").isEmpty ? [] : oknaMotywu(th)
+        okna += konf.lista("upcomingThemes").flatMap { oknaMotywu($0) }
     }
 
     /// Scena w danej chwili: okno z harmonogramu, które trwa, a bez niego bieżąca z serwera.
@@ -185,7 +247,54 @@ struct PaletaBelki {
         }
     }
 
+    /// Kolor z CSS z serwera: #rrggbb albo rgba(r,g,b,a).
+    static func kolorCSS(_ tekst: String?) -> Color? {
+        guard let s = tekst?.trimmingCharacters(in: .whitespaces), !s.isEmpty else { return nil }
+        if s.hasPrefix("#") { return s.count == 7 ? Color(hex: s) : nil }
+        guard s.hasPrefix("rgb"), let a = s.firstIndex(of: "("), let b = s.lastIndex(of: ")"), a < b else { return nil }
+        let liczby: [Double] = s[s.index(after: a)..<b].split(separator: ",")
+            .compactMap { Double($0.trimmingCharacters(in: .whitespaces)) }
+        guard liczby.count >= 3 else { return nil }
+        let krycie: Double = liczby.count > 3 ? liczby[3] : 1
+        return Color(red: liczby[0] / 255, green: liczby[1] / 255, blue: liczby[2] / 255).opacity(krycie)
+    }
+
+    /// API 1.8.3: belka z theme.dateBar. Tło to nadal podłoże sceny (decyzja Karola); z serwera medal, akcent
+    /// i barwy medalu, a przy scenie SVG (podłoża aplikacja nie zna) także tło i kolory tekstu motywu.
+    private static func zSerwera(_ scena: WyborSceny.Scena, noc: Bool, rok: Int) -> PaletaBelki {
+        let (hex, jasne) = scena.svg != nil ? ("#111827", false) : podloze(scena.strony, noc: noc)
+        var tlo = Color(hex: hex)
+        var data = jasne ? Color(hex: "#0f172a") : Color.white
+        var druga = jasne ? Color(hex: "#334155") : Color(hex: "#e2e8f0")
+        guard let p = scena.pasek else {
+            return PaletaBelki(tlo: tlo, akcent: nil, data: data, drugaLinia: druga,
+                               medal: Color(hex: "#f5a623"), obwodka: Color(hex: "#e8890a"), ikona: .kalendarz)
+        }
+        if scena.svg != nil {
+            tlo = kolorCSS(noc ? p.tloNoc : p.tloDzien) ?? tlo
+            data = kolorCSS(noc ? p.dataNoc : p.dataDzien) ?? data
+            druga = kolorCSS(noc ? p.drugaNoc : p.drugaDzien) ?? (noc ? Color(hex: "#e2e8f0") : Color(hex: "#0f172a"))
+        }
+        let ikona: Ikona
+        switch p.ikona ?? "" {
+        case "snowflake": ikona = .sniezynka
+        case "santa-hat": ikona = .czapka
+        case "star": ikona = .gwiazda
+        case "tree": ikona = .choinka
+        case "candle": ikona = .swieca
+        case "year": ikona = .rok(p.napisMedalu ?? String(rok % 100))
+        default:
+            let listopad = scena.strony == .ratusz11Listopada || scena.strony == .powstanczyBiwak
+            ikona = scena.svg != nil ? .brak : (listopad ? .rozeta : .kalendarz)
+        }
+        return PaletaBelki(tlo: tlo, akcent: kolorCSS(p.akcent), data: data, drugaLinia: druga,
+                           medal: kolorCSS(p.medal) ?? Color(hex: "#f5a623"), obwodka: kolorCSS(p.obwodka) ?? Color(hex: "#e8890a"),
+                           ikona: ikona)
+    }
+
     static func dla(_ scena: WyborSceny.Scena, noc: Bool, rok: Int) -> PaletaBelki {
+        if scena.zSerwera { return zSerwera(scena, noc: noc, rok: rok) }
+        // zapas dla serwera sprzed API 1.8.3: barwy i medale wpisane w aplikacji
         let (hex, jasne) = scena.svg != nil ? ("#111827", false) : podloze(scena.strony, noc: noc)
         let data = jasne ? Color(hex: "#0f172a") : Color.white
         let druga = jasne ? Color(hex: "#334155") : Color(hex: "#e2e8f0")
@@ -210,6 +319,19 @@ struct PaletaBelki {
     /// Linie pod datą jak na stronie (TvmlSeasonal.dateBar), rozdzielone, żeby nic nie ucinało się w pół słowa:
     /// wyróżnienie (święto z kalendarza albo przedrostek motywu) i imieniny.
     static func linie(_ scena: WyborSceny.Scena, swieto: String?, imieniny: String?, dzisiaj: Date = Date()) -> (wyroznienie: String?, imieniny: String?) {
+        // API 1.8.3: przedrostek, „jutro imieniny” i ukrywanie imienin z theme.dateBar, na każdy dzień (days[])
+        if scena.zSerwera {
+            guard let p = scena.pasek else { return (swieto, imieniny) }
+            let d = p.dzien(dzisiaj)
+            var imiona = imieniny
+            if !d.jutro.isEmpty {
+                imiona = d.jutro.prefix(1).uppercased() + d.jutro.dropFirst()
+            } else if d.bezImienin {
+                imiona = nil
+            }
+            return (swieto ?? (d.przedrostek.isEmpty ? nil : d.przedrostek), imiona)
+        }
+        // zapas dla serwera sprzed API 1.8.3: przedrostki wpisane w aplikacji
         var kal = Calendar(identifier: .gregorian)
         kal.timeZone = TimeZone(identifier: "Europe/Warsaw") ?? .current
         let m = kal.component(.month, from: dzisiaj), d = kal.component(.day, from: dzisiaj), r = kal.component(.year, from: dzisiaj)
