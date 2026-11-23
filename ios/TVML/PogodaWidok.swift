@@ -233,10 +233,10 @@ struct ScenaPogody: View {
                      with: .radialGradient(Gradient(colors: [kolor.opacity(0.55), kolor.opacity(0)]), center: c, startRadius: 20, endRadius: 70))
             ctx.fill(Path(ellipseIn: CGRect(x: c.x - 26, y: c.y - 26, width: 52, height: 52)), with: .color(kolor))
         } else if noc && stan.jasne {
-            var ksiezyc = Path()
-            ksiezyc.addEllipse(in: CGRect(x: w * 0.74, y: 26, width: 40, height: 40))
-            ksiezyc.addEllipse(in: CGRect(x: w * 0.74 + 12, y: 20, width: 40, height: 40))
-            ctx.fill(ksiezyc, with: .color(Color(hex: "#f4f1de")), style: FillStyle(eoFill: true))
+            // sierp: koło minus przesunięte koło (even-odd dawało dwa sierpy)
+            let ksiezyc = Path(ellipseIn: CGRect(x: w * 0.74, y: 26, width: 40, height: 40))
+                .subtracting(Path(ellipseIn: CGRect(x: w * 0.74 + 12, y: 20, width: 40, height: 40)))
+            ctx.fill(ksiezyc, with: .color(Color(hex: "#f4f1de")))
         }
         // reflektory i fajerwerki
         if (scena == .sylwester || scena == .listopad) && swiatla {
@@ -394,10 +394,9 @@ struct ScenaPogody: View {
             let c = CGPoint(x: w * 0.8, y: 46)
             ctx.fill(Path(ellipseIn: CGRect(x: c.x - 46, y: c.y - 46, width: 92, height: 92)),
                      with: .radialGradient(Gradient(colors: [Color(hex: "#f4f1de").opacity(0.25), Color(hex: "#f4f1de").opacity(0)]), center: c, startRadius: 10, endRadius: 46))
-            var ksiezyc = Path()
-            ksiezyc.addEllipse(in: CGRect(x: c.x - 20, y: c.y - 20, width: 40, height: 40))
-            ksiezyc.addEllipse(in: CGRect(x: c.x - 8, y: c.y - 26, width: 40, height: 40))
-            ctx.fill(ksiezyc, with: .color(Color(hex: "#f4f1de")), style: FillStyle(eoFill: true))
+            let ksiezyc = Path(ellipseIn: CGRect(x: c.x - 20, y: c.y - 20, width: 40, height: 40))
+                .subtracting(Path(ellipseIn: CGRect(x: c.x - 8, y: c.y - 26, width: 40, height: 40)))
+            ctx.fill(ksiezyc, with: .color(Color(hex: "#f4f1de")))
         }
         // słońce z 8 bladymi promieniami (obrót ~1 na 40 s) i złoty pył
         if !wNocy && (e.rodzaj == "clear-day" || rzadkieChmury) {
