@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Flaga Wielkiej Brytanii (Union Jack) 2:1 do przycisku języka w banerze; czerwone ukośne pasy przesunięte jak w oryginale -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="12dp"
+    android:viewportWidth="60"
+    android:viewportHeight="30">
+    <path
+        android:fillColor="#012169"
+        android:pathData="M0,0h60v30H0z" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6"
+        android:pathData="M0,0L60,30M60,0L0,30" />
+    <group>
+        <clip-path android:pathData="M30,15h30v15zv15h-30zh-30v-15zv-15h30z" />
+        <path
+            android:strokeColor="#C8102E"
+            android:strokeWidth="4"
+            android:pathData="M0,0L60,30M60,0L0,30" />
+    </group>
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="10"
+        android:pathData="M30,0v30M0,15h60" />
+    <path
+        android:strokeColor="#C8102E"
+        android:strokeWidth="6"
+        android:pathData="M30,0v30M0,15h60" />
+</vector>

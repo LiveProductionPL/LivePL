@@ -23,7 +23,7 @@ android {
         targetSdk = 36
         versionCode = numerBudowy
         // jak na iPhonie i w API (minAppVersion.android); pod ikoną i w Sklepie samo „TVML”
-        versionName = "2.0"
+        versionName = "2.1"
     }
 
     signingConfigs {

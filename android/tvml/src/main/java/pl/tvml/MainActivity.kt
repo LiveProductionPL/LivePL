@@ -82,11 +82,18 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // jak na iPhonie: po powrocie do aplikacji odświeżenie (najwyżej co 2 minuty); przy „Jak w systemie” także nowy język telefonu
         m.sprawdzJezyk()
+        m.wznowienia++
         m.odswiez()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        m.naEkranie = true
     }
 
     override fun onStop() {
         super.onStop()
+        m.naEkranie = false
         // ikona sezonowa z panelu zmienia się, gdy aplikacja schodzi z ekranu
         val ikona = ikonaTestowa ?: m.motyw.ikona.takeIf { m.motywTestowy == null }
         if (ikona != null) runCatching { IkonaAplikacji.ustaw(this, ikona) }

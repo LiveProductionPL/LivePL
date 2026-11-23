@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Flaga Ukrainy 3:2 do przycisku języka w banerze -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="16dp"
+    android:viewportWidth="15"
+    android:viewportHeight="10">
+    <path
+        android:fillColor="#0057B7"
+        android:pathData="M0,0h15v5H0z" />
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M0,5h15v5H0z" />
+</vector>

@@ -350,11 +350,22 @@ private class RysunekSceny(stanStacji: StanPogody, poraStacji: PoraDnia, val sce
         }
         when (scena) {
             Motyw.Scena.JESIEN, Motyw.Scena.LISTOPAD, Motyw.Scena.LATO, Motyw.Scena.WIOSNA -> {
-                val barwy = if (scena == Motyw.Scena.WIOSNA || scena == Motyw.Scena.LATO) listOf(0x15803dL, 0x16a34aL, 0x166534L) else listOf(0xc2410cL, 0xd97706L, 0xb45309L, 0xea580cL)
-                listOf(Triple(22f, 104f, 12f), Triple(44f, 108f, 9f), Triple(118f, 106f, 11f), Triple(252f, 105f, 12f), Triple(286f, 108f, 9f), Triple(330f, 104f, 12f)).forEachIndexed { i, (x, y, rr) ->
-                    val o = r(x - rr, y - rr, rr * 2, rr * 2)
-                    drawOval(c(barwy[i % barwy.size]), o.topLeft, o.size)
+                // małe drzewa z pniem i koroną z trzech kół, jak na iPhonie (916840b); wcześniej same duże koła na ziemi
+                // wyglądały jak pomarańczowe kule, a jesień widać po spadających liściach z efektu pogody
+                val barwy = if (scena == Motyw.Scena.WIOSNA || scena == Motyw.Scena.LATO) listOf(0x166534L, 0x15803dL, 0x14532dL) else listOf(0x9a3412L, 0xa16207L, 0x7c2d12L)
+                val pnie = Path()
+                listOf(22f, 44f, 118f, 252f, 286f, 330f).forEachIndexed { i, x ->
+                    val wys = if (i % 2 == 0) 14f else 10f
+                    val rr = if (i % 2 == 0) 5f else 4f
+                    pnie.addRect(r(x - 1, 108 - wys, 2f, wys))
+                    val cy = 108 - wys - rr * 0.4f
+                    val korona = Path()
+                    for ((dx, dy) in listOf(-rr * 0.6f to 0f, rr * 0.6f to 0f, 0f to -rr * 0.8f)) {
+                        korona.addOval(r(x + dx - rr, cy + dy - rr, rr * 2, rr * 2))
+                    }
+                    drawPath(korona, c(barwy[i % barwy.size]).copy(alpha = if (noc) 0.75f else 0.95f))
                 }
+                drawPath(pnie, miasto)
             }
             Motyw.Scena.ZIMA, Motyw.Scena.SWIETA, Motyw.Scena.SYLWESTER -> {
                 val choinki = Path()
@@ -537,14 +548,16 @@ private class EfektSceny(val s: RysunekSceny, val e: EfektPogody, val t: Double,
         if (e.liscie) {
             val barwy = listOf(kolor(0xf2b705), kolor(0xe88d14), kolor(0xd9531e), kolor(0xb8291d))
             val krycie = if (wNocy) 0.55f else 0.85f
-            for (k in 0 until if (e.rodzaj == "wind") 8 else 6) {
+            // jak na stronie (pogoda-efekty.js) i na iPhonie: 10 liści, przy wietrze 14, każdy obraca się w swoją stronę
+            for (k in 0 until if (e.rodzaj == "wind") 14 else 10) {
                 val v = (14 + (k % 5) * 4) * p
                 val y = (((k * 89) % 1000) / 1000.0 * h + t * v) % (h + 10 * p) - 5 * p
                 val boczny = (if (e.rodzaj == "wind") t * (120 + k * 10) else sin(t * 0.8 + k) * 18) * p
                 val x = (((k * 151) % 1000) / 1000.0 * w + boczny) % (w + 20 * p)
                 translate(x.toFloat(), y.toFloat()) {
-                    rotate(Math.toDegrees(t * 2 + k).toFloat() % 360f, Offset.Zero) {
-                        drawOval(barwy[k % 4].copy(alpha = krycie), Offset(-pt(4.5), -pt(2.0)), Size(pt(9.0), pt(4.0)))
+                    val obrot = t * (0.6 + (k % 5) * 0.25) * (if (k % 2 == 0) 1 else -1) + k
+                    rotate(Math.toDegrees(obrot).toFloat() % 360f, Offset.Zero) {
+                        drawOval(barwy[k % 4].copy(alpha = krycie), Offset(-pt(4.4), -pt(2.1)), Size(pt(8.8), pt(4.2)))
                     }
                 }
             }

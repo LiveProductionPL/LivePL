@@ -1,1 +1,1 @@
-Zupełnie nowa aplikacja TVML: wiadomości z Leszna i powiatu, pilne komunikaty, wideo, pogoda na 14 dni ze sceną leszczyńskiego Ratusza, odsłuchiwanie artykułów i wydania okolicznościowe, takie jak na tvml.pl.
+Wersje językowe: polski, ukraiński i angielski. Animacje pogody jak na tvml.pl. Poprawki i drobne usprawnienia.

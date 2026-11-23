@@ -175,13 +175,19 @@ wersja 2.0 jak na iPhonie i w API (`minAppVersion.android`). Kod: [tvml/src/main
   Ikony powstają z ikon TVML na iPhonie (`npx electron android/narzedzia/grafiki-tvml.js <folder z ikonami iOS>`),
   z warstwą jednobarwną do ikon motywowych.
 - **Języki** (API 1.8.0): w „Więcej” → „Język”: „Jak w systemie” (ukraiński albo angielski telefon, inaczej polski),
-  Polski, Українська, English, tylko języki z `config.languages`. Każde zapytanie do `/api/v1` ma `lang=`, więc
+  Polski, Українська, English, tylko języki z `config.languages`. To samo w banerze: pigułka z flagą bieżącego języka
+  (vector drawable `flaga_pl`, `flaga_gb`, `flaga_ua`) rozwija wybór pozostałych. Każde zapytanie do `/api/v1` ma `lang=`, więc
   treść tłumaczy redakcja, a zapis odpowiedzi jest osobny dla każdego języka. Napisy na ekranach są w słownikach
   `config.i18n` (klucze `app.*`, te same co na stronie i w TVML na iPhonie) zapisanych w telefonie; po polsku
   i bez klucza zostaje dotychczasowy tekst polski ([Jezyk.kt](tvml/src/main/java/pl/tvml/Jezyk.kt)).
   Daty po ukraińsku i angielsku z formatów systemu.
   Tłumaczenie w przygotowaniu: jedno zdanie nad polskim tekstem; w przetłumaczonym artykule „Pokaż oryginał
   po polsku” i bez „Odsłuchaj” (lektor czyta po polsku). Zmiana języka buduje ekrany od nowa, bez restartu.
+  Tłumaczenie na żądanie: otwarcie artykułu po ukraińsku albo angielsku samo zgłasza prośbę. Przy `translationEta`
+  `now` (API 1.8.1) serwer tłumaczy od razu, a aplikacja pobiera artykuł co 4,5 s do 90 s, póki jest na ekranie,
+  i podmienia tekst w miejscu; przy `hour` albo `morning` („będzie rano”) tylko odświeża po powrocie z tła.
+  Aplikacja nie pobiera artykułów w tle: „Zapisane” jednym zapytaniem `articles?ids=` (bez próśb o tłumaczenie),
+  a bez sieci ze skrótów zapisanych w telefonie.
 - **Agent** `TVMLApp/2.0 (Android 16)`: tvml.pl ma dla niego wyjątek w liczniku odsłon.
 - **Osobny klucz podpisu** (`tvml.keystore`), nie ten co LivePL (sekcja „Klucze podpisu”).
 - **Bez śledzenia** i bez identyfikatora reklamowego; jedyne uprawnienie to internet. Na razie bez formularzy

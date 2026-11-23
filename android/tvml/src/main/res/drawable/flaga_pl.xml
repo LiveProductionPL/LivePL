@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Flaga Polski 8:5 do przycisku języka w banerze -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="15dp"
+    android:viewportWidth="16"
+    android:viewportHeight="10">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M0,0h16v5H0z" />
+    <path
+        android:fillColor="#DC143C"
+        android:pathData="M0,5h16v5H0z" />
+</vector>

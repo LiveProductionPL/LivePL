@@ -90,6 +90,20 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
     val zapisane = mutableStateListOf<Int>().apply {
         addAll(ustawienia.getString("zapisane", "").orEmpty().split(',').mapNotNull { it.toIntOrNull() })
     }
+    /**
+     * Skróty zapisanych artykułów (tytuł, zdjęcie, kategoria, data), żeby „Zapisane” nie pobierały każdego artykułu
+     * z osobna: GET articles/{id} po ukraińsku albo angielsku zgłasza prośbę o tłumaczenie (tłumaczenie na żądanie),
+     * a lista to jeszcze nie czytanie. Pełny tekst pobiera się dopiero po otwarciu artykułu.
+     */
+    private val skrotyZapisanych: MutableMap<Int, JSONObject> = mutableMapOf<Int, JSONObject>().apply {
+        runCatching { JSONObject(ustawienia.getString("zapisane-skroty", "{}") ?: "{}") }.getOrNull()?.let { j ->
+            j.keys().forEach { k -> k.toIntOrNull()?.let { id -> j.optJSONObject(k)?.let { put(id, it) } } }
+        }
+    }
+    /** Ile razy aplikacja wróciła na ekran (artykuł z tłumaczeniem w przygotowaniu odświeża się wtedy sam). */
+    var wznowienia by mutableIntStateOf(0)
+    /** Czy aplikacja jest na ekranie (onStart–onStop): tylko wtedy artykuł czeka na tłumaczenie od razu. */
+    var naEkranie by mutableStateOf(true)
     /** Rozmiar tekstu artykułów: 0 mały, 1 średni, 2 duży. */
     var rozmiar by mutableIntStateOf(ustawienia.getInt("rozmiar", 1))
         private set
@@ -371,8 +385,48 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
     }
 
     fun przelaczZapis(a: Artykul) {
-        if (a.id in zapisane) zapisane.remove(a.id) else zapisane.add(0, a.id)
+        if (a.id in zapisane) {
+            zapisane.remove(a.id)
+            skrotyZapisanych.remove(a.id)
+        } else {
+            zapisane.add(0, a.id)
+            skrotyZapisanych[a.id] = skrot(a)
+        }
         ustawienia.edit { putString("zapisane", zapisane.joinToString(",")) }
+        zapiszSkroty()
+    }
+
+    /**
+     * „Zapisane”: jednym zapytaniem articles?ids= (API 1.8.1, kolejność z parametru, tytuły w wybranym języku, bez próśb
+     * o tłumaczenie) i od razu nowe skróty. Bez sieci albo na starszym serwerze (ignoruje ids i podaje najnowsze) skróty
+     * z telefonu, a starsze zapisy bez skrótu raz po polsku (lang=pl nie zgłasza tłumaczenia).
+     */
+    suspend fun zapisaneArtykuly(): List<Artykul> {
+        val numery = zapisane.take(30).toList()
+        if (numery.isEmpty()) return emptyList()
+        val j = Siec.v1Obiekt("articles", mapOf("ids" to numery.joinToString(",")))
+        val pozycje = j?.lista("items")
+        if (pozycje != null && pozycje.isNotEmpty() && pozycje.all { o -> Artykul(o).id in numery }) {
+            val lista = Artykul.widoczne(pozycje)
+            lista.forEach { skrotyZapisanych[it.id] = skrot(it) }
+            zapiszSkroty()
+            return lista
+        }
+        val lista = numery.mapNotNull { id ->
+            skrotyZapisanych[id]?.let { runCatching { Artykul(it) }.getOrNull() }
+                ?: artykul(id, jezyk = "pl")?.also { skrotyZapisanych[id] = skrot(it) }
+        }
+        zapiszSkroty()
+        return lista
+    }
+
+    private fun skrot(a: Artykul): JSONObject =
+        JSONObject(a.dane.toString()).apply { listOf("contentHtml", "content", "related", "ttsUrl").forEach { remove(it) } }
+
+    private fun zapiszSkroty() {
+        val j = JSONObject()
+        skrotyZapisanych.filterKeys { it in zapisane }.forEach { (id, o) -> j.put(id.toString(), o) }
+        ustawienia.edit { putString("zapisane-skroty", j.toString()) }
     }
 
     // ---------- nawigacja ----------

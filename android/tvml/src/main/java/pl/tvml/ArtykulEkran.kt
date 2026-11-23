@@ -51,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.util.Locale
@@ -70,6 +71,23 @@ fun ArtykulEkran(m: Magazyn, poczatkowy: Artykul) {
     val lektor = remember { Lektor(kontekst.applicationContext) }
     DisposableEffect(Unit) { onDispose { lektor.zamknij() } }
     LaunchedEffect(poczatkowy.id) { if (pelny == null) pelny = m.artykul(poczatkowy.id) }
+    // tłumaczenie na żądanie (API 1.8.0): po powrocie aplikacji z tła artykuł w przygotowaniu pobiera się jeszcze raz,
+    // bo w międzyczasie mogło przyjść tłumaczenie
+    LaunchedEffect(m.wznowienia) {
+        if (m.wznowienia > 0 && pelny?.tlumaczenieWDrodze == true) m.artykul(poczatkowy.id)?.let { pelny = it }
+    }
+    // tłumaczenie od razu (API 1.8.1, translationEta „now”): serwer tłumaczy w tle, więc artykuł pobiera się co 4,5 s
+    // najwyżej przez 90 s, póki aplikacja jest na ekranie; gotowe tłumaczenie podmienia tytuł i treść w miejscu
+    LaunchedEffect(poczatkowy.id, pelny?.terminTlumaczenia, pelny?.przetlumaczony, m.wznowienia) {
+        val start = System.currentTimeMillis()
+        while (pelny?.tlumaczenieWDrodze == true && pelny?.terminTlumaczenia == "now" &&
+            System.currentTimeMillis() - start < 90_000 && m.naEkranie
+        ) {
+            delay(4_500)
+            if (!m.naEkranie) break
+            m.artykul(poczatkowy.id)?.let { nowy -> if (nowy.przetlumaczony || nowy.terminTlumaczenia != "now") pelny = nowy }
+        }
+    }
     // „Pokaż oryginał po polsku” w przetłumaczonym artykule: ten sam artykuł z lang=pl, a drugie stuknięcie wraca do tłumaczenia
     var oryginal by remember(poczatkowy.id) { mutableStateOf<Artykul?>(null) }
     var pokazOryginal by remember(poczatkowy.id) { mutableStateOf(false) }
@@ -81,7 +99,10 @@ fun ArtykulEkran(m: Magazyn, poczatkowy: Artykul) {
     fun pl(t: String): AnnotatedString = if (polskiTekst) AnnotatedString(t, SpanStyle(localeList = LocaleList("pl-PL"))) else AnnotatedString(t)
     val wielkosc = listOf(16, 18, 21)[m.rozmiar.coerceIn(0, 2)]
     val przewijanie = rememberScrollState()
-    val bloki = remember(pelny, oryginal, pokazOryginal) { (if (pokazOryginal && oryginal != null) oryginal else pelny)?.tresc?.let { Html.bloki(it) } }
+    // klucze to treść, a nie artykuł: Artykul porównuje się po numerze, a tłumaczenie ma ten sam numer
+    val bloki = remember(pelny?.tresc, oryginal?.tresc, pokazOryginal) {
+        (if (pokazOryginal && oryginal != null) oryginal else pelny)?.tresc?.let { Html.bloki(it) }
+    }
 
     Column(Modifier.fillMaxSize().background(b.karta)) {
         // pasek artykułu z postępem czytania
@@ -165,7 +186,11 @@ fun ArtykulEkran(m: Magazyn, poczatkowy: Artykul) {
             // tłumaczenie w przygotowaniu: jedno zdanie w wybranym języku nad polskim tekstem, bez paska i ikony
             if (a.tlumaczenieWDrodze && !pokazOryginal) {
                 Text(
-                    tl("app.translationPending", "Tłumaczenie w przygotowaniu. Poniżej oryginalna wersja po polsku."),
+                    when (a.terminTlumaczenia) {
+                        "now" -> tl("app.translationPendingNow", "Tłumaczenie w przygotowaniu — za chwilę. Poniżej oryginalna wersja po polsku.")
+                        "morning" -> tl("app.translationPendingNight", "Tłumaczenie w przygotowaniu — będzie rano. Poniżej oryginalna wersja po polsku.")
+                        else -> tl("app.translationPending", "Tłumaczenie w przygotowaniu. Poniżej oryginalna wersja po polsku.")
+                    },
                     color = b.slaby, fontSize = 14.sp, lineHeight = 19.sp,
                 )
             }

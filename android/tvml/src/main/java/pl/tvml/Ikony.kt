@@ -41,6 +41,7 @@ object Ikony {
     val szukaj = ikona(kolo(11f, 11f, 7f), "M20 20l-3.5-3.5")
     val wstecz = ikona("M15 5l-7 7 7 7", grubosc = 2.2f)
     val dalej = ikona("M9 6l6 6-6 6")
+    val wDol = ikona("M6 9l6 6 6-6", grubosc = 3f)
     val zamknij = ikona("M6 6l12 12M18 6L6 18")
     val udostepnij = ikona(kolo(18f, 5f, 2.6f), kolo(6f, 12f, 2.6f), kolo(18f, 19f, 2.6f), "M8.3 13.3l7.4 4.4M15.7 6.3l-7.4 4.4")
     val glosnik = ikona("M11 5L6 9H3v6h3l5 4z", "M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13")

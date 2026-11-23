@@ -15,6 +15,8 @@ import java.util.Locale
 
 /** Artykuł z API v1 (image i category jako obiekty) albo ze starych akcji tvml-db.php. */
 class Artykul(j: JSONObject) {
+    /** Odpowiedź serwera, z której powstał artykuł (do skrótu zapisanego w telefonie, „Zapisane”). */
+    val dane: JSONObject = j
     val id: Int = if (j.ma("id")) j.i("id") else j.i("articleId")
     val tytul: String = Html.tekst(j.s("title"))
     val lead: String = Html.tekst(if (j.ma("lead")) j.s("lead") else j.s("excerpt"))
@@ -40,6 +42,8 @@ class Artykul(j: JSONObject) {
     val przetlumaczony: Boolean = j.b("translated")
     /** Tłumaczenie w przygotowaniu: tekst jest po polsku, a nad nim jedno zdanie w wybranym języku. */
     val tlumaczenieWDrodze: Boolean = j.b("translationPending") && !j.b("translated")
+    /** Kiedy będzie tłumaczenie na żądanie: „hour” (zwykle w ciągu godziny) albo „morning” (w nocy, będzie rano). */
+    val terminTlumaczenia: String = j.s("translationEta")
 
     init {
         val o = j.optJSONObject("image")

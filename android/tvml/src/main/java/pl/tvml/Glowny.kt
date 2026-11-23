@@ -117,7 +117,7 @@ private fun EkranZakladki(m: Magazyn, e: Ekran) {
         is Ekran.ZGminy -> ListaArtykulow(e.gmina.nazwa, e.gmina.herb, tl("app.noNewsCommune", "Brak wiadomości z tej gminy.")) { m.gmina(e.gmina) }
         Ekran.Gminy -> ListaGmin(m)
         Ekran.Zapisane -> ListaArtykulow(tl("app.saved", "Zapisane"), pusta = tl("app.savedEmpty", "Nie masz zapisanych artykułów. Zapiszesz je ikoną zakładki w artykule.")) {
-            m.zapisane.take(30).mapNotNull { m.artykul(it) }
+            m.zapisaneArtykuly()
         }
         is Ekran.Lista -> ListaArtykulow(e.tytul) { m.lista(e.trasa, e.parametry) }
         is Ekran.Strona -> PodstronaEkran(m, e.slug)

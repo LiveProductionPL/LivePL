@@ -63,6 +63,7 @@ object Siec {
                 if (zapis?.exists() == true) return@withContext parsuj(zapis.readText())
                 throw e
             }
+            if (BuildConfig.DEBUG) android.util.Log.d("TVML-Siec", "$kod $adres")
             when (kod) {
                 304 -> parsuj(zapis!!.readText())
                 200 -> {

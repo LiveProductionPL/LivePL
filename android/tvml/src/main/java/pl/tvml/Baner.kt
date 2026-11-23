@@ -3,6 +3,7 @@ package pl.tvml
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,6 +23,8 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -120,6 +124,7 @@ fun Baner(m: Magazyn) {
                     IkonaPogody(m.pogoda?.ikona ?: "cloud", Modifier.size(20.dp), bialy = true)
                     Text(m.pogoda?.let { Pogoda.stopnie(it.temperatura) + "C" } ?: "–", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
+                PrzyciskJezyka(m)
                 Box(
                     Modifier
                         .size(44.dp)
@@ -162,6 +167,66 @@ fun PasekZyczen(pasek: Motyw.Pasek, motyw: Motyw, modifier: Modifier = Modifier)
             Text(it, color = motyw.zlotoPaska, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
         }
     }
+}
+
+/**
+ * Język w banerze (prośba Karola, 23.11.2026): pigułka jak pogoda z flagą bieżącego języka, a po stuknięciu wybór
+ * pozostałych z config.languages. To samo ustawienie co „Więcej → Język”. Bez kilku języków na serwerze przycisku nie ma.
+ */
+@Composable
+private fun PrzyciskJezyka(m: Magazyn) {
+    if (Jezyk.dostepne.size < 2) return
+    var otwarte by remember { mutableStateOf(false) }
+    val b = LocalBarwy.current
+    val biezacy = Jezyk.biezacy
+    // „Język: polski”, „Мова: українська”, „Language: English”
+    val nazwa = Jezyk.nazwy.getValue(biezacy).let { if (biezacy == "en") it else it.lowercase(Jezyk.locale) }
+    Box {
+        Box(
+            Modifier
+                .height(36.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.12f))
+                .clickable(role = Role.Button, onClickLabel = tl("app.language", "Język")) { otwarte = true }
+                .padding(horizontal = 12.dp)
+                .semantics(mergeDescendants = true) { contentDescription = tl("app.language", "Język") + ": " + nazwa },
+            contentAlignment = Alignment.Center,
+        ) {
+            // jak na iPhonie (916840b): flaga 22×15 i mała strzałka w dół
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Flaga(biezacy, Modifier.size(22.dp, 15.dp))
+                Icon(Ikony.wDol, null, tint = Color.White, modifier = Modifier.size(11.dp))
+            }
+        }
+        DropdownMenu(otwarte, { otwarte = false }, containerColor = b.karta, shape = RoundedCornerShape(14.dp)) {
+            // kolejność jak w prośbie Karola: polski, English, Українська
+            listOf("pl", "en", "uk").filter { it != biezacy && it in Jezyk.dostepne }.forEach { j ->
+                DropdownMenuItem(
+                    text = { Text(Jezyk.nazwy.getValue(j), color = b.tekst, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) },
+                    leadingIcon = { Flaga(j, Modifier.size(22.dp, 15.dp)) },
+                    onClick = {
+                        otwarte = false
+                        m.ustawJezyk(j)
+                    },
+                )
+            }
+        }
+    }
+}
+
+/** Flaga języka (vector drawable z res/drawable), z cienką obwódką, żeby biel flagi polskiej nie znikała na jasnym tle. */
+@Composable
+fun Flaga(jezyk: String, modifier: Modifier = Modifier) {
+    val rys = when (jezyk) {
+        "uk" -> R.drawable.flaga_ua
+        "en" -> R.drawable.flaga_gb
+        else -> R.drawable.flaga_pl
+    }
+    Image(
+        painterResource(rys), null,
+        modifier.clip(RoundedCornerShape(2.5.dp)).border(0.5.dp, Color.Black.copy(alpha = 0.2f), RoundedCornerShape(2.5.dp)),
+        contentScale = ContentScale.Crop,
+    )
 }
 
 fun odliczanie(od: ZonedDateTime, koniec: ZonedDateTime): String {
