@@ -56,6 +56,8 @@ struct Glowny: View {
         .sheet(isPresented: $m.arkuszPogody) { NavigationStack { PogodaWidok().toolbar(.hidden, for: .navigationBar) } }
         .sheet(isPresented: $m.arkuszWideo) { NavigationStack { WideoWidok().toolbar(.hidden, for: .navigationBar) } }
         .task {
+            // CI: karta pogody we wszystkich scenach do Documents/galeria (sprawdzanie czytelności)
+            if GaleriaPogody.wlaczona { await GaleriaPogody.zapisz() }
             await m.odswiez(wymus: true)
             if let motywTestowy { m.motyw = motywTestowy }
             switch ekranStartowy {

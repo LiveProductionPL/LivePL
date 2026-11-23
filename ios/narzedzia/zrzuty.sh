@@ -91,6 +91,23 @@ if [ -n "${5:-}" ] && [ -d "$5" ]; then
   zrzut 16-tvml-artykul-duzy-tekst light -ekran artykul
   zrzut 17-tvml-pogoda-duzy-tekst dark -ekran pogoda
   xcrun simctl ui "$UDID" content_size large || true
+  # karta pogody ze Startu we wszystkich scenach (GaleriaPogody.swift) i raport czytelności (galeria-pogody.py)
+  xcrun simctl terminate "$UDID" "$ID" 2>/dev/null || true
+  xcrun simctl launch "$UDID" "$ID" -galeria-pogody YES -tvml-jezyk pl
+  DANE=$(xcrun simctl get_app_container "$UDID" "$ID" data 2>/dev/null || true)
+  for i in $(seq 1 72); do
+    if [ -n "$DANE" ] && [ -f "$DANE/Documents/galeria/gotowe.txt" ]; then break; fi
+    sleep 5
+  done
+  if [ -n "$DANE" ] && [ -f "$DANE/Documents/galeria/gotowe.txt" ]; then
+    cp -R "$DANE/Documents/galeria" "$WYJSCIE/galeria"
+    { python3 -m venv /tmp/galeria-venv && /tmp/galeria-venv/bin/pip install --quiet pillow numpy \
+      && /tmp/galeria-venv/bin/python "$(dirname "$0")/galeria-pogody.py" "$WYJSCIE/galeria"; } || echo "galeria: analiza się nie udała"
+    # same tła tylko do liczenia, w artefakcie zbędne
+    rm -rf "$WYJSCIE/galeria/scena"
+  else
+    echo "galeria: aplikacja nie skończyła (brak gotowe.txt)"
+  fi
 fi
 
 # dziennik aplikacji z ostatnich minut (błędy WebKit, SwiftUI)

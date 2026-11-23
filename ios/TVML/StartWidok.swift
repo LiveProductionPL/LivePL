@@ -537,7 +537,6 @@ struct Obraz: View {
 /// panorama w trybie kafelka stoi niżej, więc drzewa są pod tekstem, a nie za nim.
 struct KafelPogody: View {
     @EnvironmentObject private var m: Magazyn
-    @Environment(\.dynamicTypeSize) private var rozmiarTekstu
 
     /// „Poniedziałek, 23 listopada · Imieniny: Michała, Grzegorza”; data z config.today (po uk/en przetłumaczona),
     /// imiona zawsze po polsku, święto (gdy jest) przed imieninami jak na stronie.
@@ -560,48 +559,88 @@ struct KafelPogody: View {
 
     var body: some View {
         Button { m.pokaz(.pogoda) } label: {
-            VStack(alignment: .leading, spacing: 0) {
-                Text(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie").uppercased(with: Jezyk.locale())).czcionka(11, .bold).kerning(1)
-                Text(dataIImieniny).czcionka(12, .semibold)
-                    .lineLimit(1).truncationMode(.tail).minimumScaleFactor(0.85)
-                    .padding(.top, 3)
-                HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(m.pogoda.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–").czcionka(30, .heavy)
-                        Text(m.pogoda?.opis ?? "").czcionka(13).lineLimit(1)
-                    }
-                    Spacer(minLength: 8)
-                    // przy bardzo dużym tekście prognoza na 3 dni nie mieści się obok temperatury (jest na ekranie Pogoda)
-                    if !rozmiarTekstu.isAccessibilitySize {
-                        HStack(spacing: 12) {
-                            ForEach((m.pogoda?.dni ?? []).dropFirst().prefix(3)) { d in
-                                VStack(spacing: 2) {
-                                    Text(d.nazwa).czcionka(12).opacity(0.85)
-                                    Text(Pogoda.stopnie(d.max)).czcionka(12, .bold)
-                                }
+            KartaPogody(temperatura: m.pogoda.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–",
+                        opis: m.pogoda?.opis ?? "",
+                        prognoza: (m.pogoda?.dni ?? []).dropFirst().prefix(3).map { (nazwa: $0.nazwa, max: Pogoda.stopnie($0.max)) },
+                        dataIImieniny: dataIImieniny,
+                        stan: StanPogody.z(ikony: m.pogoda?.ikona ?? "cloud"),
+                        pora: PoraDnia.teraz(dzien: m.pogoda?.dzien ?? true),
+                        scena: m.motyw.scena(miesiac: Calendar.current.component(.month, from: .now)),
+                        efekt: m.pogoda?.efekt, okolicznosciowy: m.motyw.rodzaj != .zwykly)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie") + ": \(m.pogoda.map { Pogoda.stopnie($0.temperatura) } ?? ""), \(m.pogoda?.opis ?? ""). " + dataIImieniny)
+    }
+}
+
+/// Sama karta pogody ze Startu (bez danych z Magazynu), żeby dało się ją narysować w każdej scenie
+/// do sprawdzenia czytelności (GaleriaPogody, -galeria-pogody 1).
+struct KartaPogody: View {
+    enum Warstwa { case calosc, scena, tekst }
+
+    let temperatura: String
+    let opis: String
+    let prognoza: [(nazwa: String, max: String)]
+    let dataIImieniny: String
+    let stan: StanPogody
+    let pora: PoraDnia
+    let scena: Motyw.Scena
+    var efekt: EfektPogody? = nil
+    var okolicznosciowy = false
+    /// stała chwila animacji (galeria); nil = scena żyje
+    var czas: Double? = nil
+    /// galeria: sama scena (z przyciemnieniem, tekst niewidoczny, ale zajmuje miejsce) albo sam tekst na przezroczystym tle
+    var warstwa: Warstwa = .calosc
+    @Environment(\.dynamicTypeSize) private var rozmiarTekstu
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie").uppercased(with: Jezyk.locale())).czcionka(11, .bold).kerning(1)
+            Text(dataIImieniny).czcionka(12, .semibold)
+                .lineLimit(1).truncationMode(.tail).minimumScaleFactor(0.85)
+                .padding(.top, 3)
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(temperatura).czcionka(30, .heavy)
+                    Text(opis).czcionka(13).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                // przy bardzo dużym tekście prognoza na 3 dni nie mieści się obok temperatury (jest na ekranie Pogoda)
+                if !rozmiarTekstu.isAccessibilitySize {
+                    HStack(spacing: 12) {
+                        ForEach(Array(prognoza.enumerated()), id: \.offset) { _, d in
+                            VStack(spacing: 2) {
+                                Text(d.nazwa).czcionka(12).opacity(0.9)
+                                Text(d.max).czcionka(12, .bold)
                             }
                         }
                     }
                 }
-                .padding(.top, 4)
             }
-            .foregroundStyle(.white)
-            .shadow(color: .black.opacity(0.45), radius: 6)
-            .padding(.horizontal, 18)
-            .padding(.top, 12)
-            // pas na dole na ziemię i drzewa panoramy (w trybie kafelka sięgają ok. 33 pkt w górę)
-            .padding(.bottom, 36)
-            .frame(maxWidth: .infinity, minHeight: 110, alignment: .topLeading)
-            .background {
-                ScenaPogody(stan: StanPogody.z(ikony: m.pogoda?.ikona ?? "cloud"),
-                            pora: PoraDnia.teraz(dzien: m.pogoda?.dzien ?? true),
-                            scena: m.motyw.scena(miesiac: Calendar.current.component(.month, from: .now)),
-                            efekt: m.pogoda?.efekt, okolicznosciowy: m.motyw.rodzaj != .zwykly, kafel: true)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .padding(.top, 4)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie") + ": \(m.pogoda.map { Pogoda.stopnie($0.temperatura) } ?? ""), \(m.pogoda?.opis ?? ""). " + dataIImieniny)
+        .foregroundStyle(.white)
+        .shadow(color: .black.opacity(warstwa == .calosc ? 0.6 : 0), radius: 4)
+        .opacity(warstwa == .scena ? 0 : 1)
+        .padding(.horizontal, 18)
+        .padding(.top, 12)
+        // pas na dole na ziemię i drzewa panoramy (w trybie kafelka sięgają ok. 33 pkt w górę)
+        .padding(.bottom, 36)
+        .frame(maxWidth: .infinity, minHeight: 110, alignment: .topLeading)
+        .background {
+            if warstwa != .tekst {
+                ScenaPogody(stan: stan, pora: pora, scena: scena, efekt: efekt,
+                            okolicznosciowy: okolicznosciowy, kafel: true, czas: czas)
+                    // przyciemnienie pod tekstem: mocniej u góry (napis, data, chmury), słabnie ku drzewom na dole
+                    .overlay {
+                        LinearGradient(stops: [.init(color: .black.opacity(0.34), location: 0),
+                                               .init(color: .black.opacity(0.22), location: 0.62),
+                                               .init(color: .black.opacity(0), location: 0.86)],
+                                       startPoint: .top, endPoint: .bottom)
+                    }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 18))
     }
 }
 

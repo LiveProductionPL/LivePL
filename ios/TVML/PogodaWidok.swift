@@ -167,21 +167,37 @@ struct ScenaPogody: View {
     var efekt: EfektPogody? = nil
     /// Aktywny motyw okolicznościowy z panelu: wtedy jego scena, bez nakładki pogody.
     var okolicznosciowy = false
-    /// Kafel na Start: panorama niżej (ziemia prawie schowana) i nie większa niż ok. 1,2 raza,
-    /// żeby drzewa stały w pasie pod tekstem, a nie za temperaturą i prognozą.
+    /// Kafel na Start (tekst na całej karcie): panorama niżej i nie większa niż ok. 1,2 raza, żeby drzewa
+    /// i ozdoby stały w pasie pod tekstem; słońce i księżyc w prawym górnym rogu nad datą, fajerwerki
+    /// i błyskawica w przerwie między temperaturą a prognozą, chmury i mgła bledsze.
     var kafel = false
+    /// Stała chwila animacji (galeria scen do sprawdzania czytelności); nil = scena żyje.
+    var czas: Double? = nil
     @Environment(\.accessibilityReduceMotion) private var bezRuchu
     @State private var start = Date().timeIntervalSinceReferenceDate
 
     var body: some View {
-        // „Ogranicz ruch”: jedna nieruchoma klatka sceny, bez błyskawic
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: bezRuchu)) { kontekst in
-            Canvas { ctx, size in
-                rysuj(ctx: &ctx, size: size, t: kontekst.date.timeIntervalSinceReferenceDate)
+        Group {
+            if let czas {
+                Canvas { ctx, size in rysuj(ctx: &ctx, size: size, t: czas) }
+            } else {
+                // „Ogranicz ruch”: jedna nieruchoma klatka sceny, bez błyskawic
+                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: bezRuchu)) { kontekst in
+                    Canvas { ctx, size in
+                        rysuj(ctx: &ctx, size: size, t: kontekst.date.timeIntervalSinceReferenceDate)
+                    }
+                }
             }
         }
         .accessibilityHidden(true)
     }
+
+    /// Kafel: środek słońca albo księżyca w prawym górnym rogu, nad linią daty (od ok. 28 pkt w dół jest tekst).
+    private func srodekCiala(w: CGFloat, h: CGFloat, domyslny: CGPoint) -> CGPoint {
+        kafel ? CGPoint(x: w - 40, y: 6) : domyslny
+    }
+    /// Kafel: chmury i mgła bledsze, bo leżą pod napisem, datą i prognozą.
+    private var krycieChmur: Double { kafel ? 0.5 : 1 }
 
     private var noc: Bool { biezacaPora == .noc }
     private var swiatla: Bool { noc || pora == .zmierzch || scena == .swieta || scena == .sylwester }
@@ -232,15 +248,18 @@ struct ScenaPogody: View {
         // słońce albo księżyc
         if !noc && stan.jasne {
             let wysoko = pora == .dzien
-            let c = CGPoint(x: w * 0.78, y: wysoko ? h * 0.18 : h * 0.45)
+            let c = srodekCiala(w: w, h: h, domyslny: CGPoint(x: w * 0.78, y: wysoko ? h * 0.18 : h * 0.45))
             let kolor = wysoko ? Color(hex: "#fff3b0") : Color(hex: "#ffb36b")
-            ctx.fill(Path(ellipseIn: CGRect(x: c.x - 70, y: c.y - 70, width: 140, height: 140)),
-                     with: .radialGradient(Gradient(colors: [kolor.opacity(0.55), kolor.opacity(0)]), center: c, startRadius: 20, endRadius: 70))
-            ctx.fill(Path(ellipseIn: CGRect(x: c.x - 26, y: c.y - 26, width: 52, height: 52)), with: .color(kolor))
+            let k: CGFloat = kafel ? 0.58 : 1
+            ctx.fill(Path(ellipseIn: CGRect(x: c.x - 70 * k, y: c.y - 70 * k, width: 140 * k, height: 140 * k)),
+                     with: .radialGradient(Gradient(colors: [kolor.opacity(0.55), kolor.opacity(0)]), center: c, startRadius: 20 * k, endRadius: 70 * k))
+            ctx.fill(Path(ellipseIn: CGRect(x: c.x - 26 * k, y: c.y - 26 * k, width: 52 * k, height: 52 * k)), with: .color(kolor))
         } else if noc && stan.jasne {
             // sierp: koło minus przesunięte koło (even-odd dawało dwa sierpy)
-            let ksiezyc = Path(ellipseIn: CGRect(x: w * 0.74, y: 26, width: 40, height: 40))
-                .subtracting(Path(ellipseIn: CGRect(x: w * 0.74 + 12, y: 20, width: 40, height: 40)))
+            let d: CGFloat = kafel ? 24 : 40
+            let c = srodekCiala(w: w, h: h, domyslny: CGPoint(x: w * 0.74 + 20, y: 46))
+            let ksiezyc = Path(ellipseIn: CGRect(x: c.x - d / 2, y: c.y - d / 2, width: d, height: d))
+                .subtracting(Path(ellipseIn: CGRect(x: c.x - d / 2 + d * 0.3, y: c.y - d / 2 - d * 0.15, width: d, height: d)))
             ctx.fill(ksiezyc, with: .color(Color(hex: "#f4f1de")))
         }
         // reflektory i fajerwerki
@@ -262,8 +281,10 @@ struct ScenaPogody: View {
             for i in 0..<3 {
                 let okres = 2.6 + Double(i) * 0.7
                 let faza = (t + Double(i) * 0.9).truncatingRemainder(dividingBy: okres) / okres
-                let c = CGPoint(x: w * [0.2, 0.55, 0.82][i], y: h * [0.18, 0.1, 0.22][i])
-                let r = 6 + faza * 34
+                // kafel: małe fajerwerki nad Ratuszem, w przerwie między temperaturą a prognozą
+                let c = kafel ? CGPoint(x: w * [0.45, 0.55, 0.5][i], y: h * [0.42, 0.5, 0.62][i])
+                    : CGPoint(x: w * [0.2, 0.55, 0.82][i], y: h * [0.18, 0.1, 0.22][i])
+                let r = kafel ? 4 + faza * 16 : 6 + faza * 34
                 ctx.opacity = 1 - faza
                 for k in 0..<12 {
                     let a = Double(k) / 12 * 2 * .pi
@@ -283,7 +304,7 @@ struct ScenaPogody: View {
             let szybkosc = (stan == .wiatr ? 26 : 8) + Double(i) * 1.5
             let x = (Double(i) * 137 + t * szybkosc).truncatingRemainder(dividingBy: w + szer * 2) - szer
             let y = 12 + Double((i * 53) % 70)
-            ctx.opacity = 0.75
+            ctx.opacity = 0.75 * krycieChmur
             ctx.fill(chmura(CGRect(x: x, y: y, width: szer, height: szer * 0.42)), with: .color(kolorChmur))
         }
         ctx.opacity = 1
@@ -293,7 +314,7 @@ struct ScenaPogody: View {
             if blysk {
                 ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.white.opacity(0.25)))
                 var b = Path()
-                let x0 = w * 0.3
+                let x0 = kafel ? w * 0.48 : w * 0.3
                 b.move(to: CGPoint(x: x0 + 20, y: h * 0.18)); b.addLine(to: CGPoint(x: x0, y: h * 0.42)); b.addLine(to: CGPoint(x: x0 + 14, y: h * 0.42))
                 b.addLine(to: CGPoint(x: x0 - 6, y: h * 0.7)); b.addLine(to: CGPoint(x: x0 + 28, y: h * 0.36)); b.addLine(to: CGPoint(x: x0 + 14, y: h * 0.36)); b.closeSubpath()
                 ctx.fill(b, with: .color(Color(hex: "#fde68a")))
@@ -336,7 +357,7 @@ struct ScenaPogody: View {
             for i in 0..<3 {
                 let y = h * (0.4 + Double(i) * 0.18)
                 let x = sin(t * 0.2 + Double(i)) * 30 - 40
-                ctx.fill(Path(CGRect(x: x, y: y, width: w + 80, height: 46)), with: .color(Color(hex: "#ebeff3").opacity(0.45 + Double(i) * 0.1)))
+                ctx.fill(Path(CGRect(x: x, y: y, width: w + 80, height: 46)), with: .color(Color(hex: "#ebeff3").opacity((0.45 + Double(i) * 0.1) * krycieChmur)))
             }
         }
     }
@@ -396,17 +417,19 @@ struct ScenaPogody: View {
         ctx.opacity = 1
         // sierp księżyca z poświatą
         if wNocy && (e.rodzaj == "clear-night" || rzadkieChmury) {
-            let c = CGPoint(x: w * 0.8, y: 46)
-            ctx.fill(Path(ellipseIn: CGRect(x: c.x - 46, y: c.y - 46, width: 92, height: 92)),
-                     with: .radialGradient(Gradient(colors: [Color(hex: "#f4f1de").opacity(0.25), Color(hex: "#f4f1de").opacity(0)]), center: c, startRadius: 10, endRadius: 46))
-            let ksiezyc = Path(ellipseIn: CGRect(x: c.x - 20, y: c.y - 20, width: 40, height: 40))
-                .subtracting(Path(ellipseIn: CGRect(x: c.x - 8, y: c.y - 26, width: 40, height: 40)))
+            let c = srodekCiala(w: w, h: h, domyslny: CGPoint(x: w * 0.8, y: 46))
+            let k: CGFloat = kafel ? 0.6 : 1
+            ctx.fill(Path(ellipseIn: CGRect(x: c.x - 46 * k, y: c.y - 46 * k, width: 92 * k, height: 92 * k)),
+                     with: .radialGradient(Gradient(colors: [Color(hex: "#f4f1de").opacity(0.25), Color(hex: "#f4f1de").opacity(0)]), center: c, startRadius: 10 * k, endRadius: 46 * k))
+            let ksiezyc = Path(ellipseIn: CGRect(x: c.x - 20 * k, y: c.y - 20 * k, width: 40 * k, height: 40 * k))
+                .subtracting(Path(ellipseIn: CGRect(x: c.x - 8 * k, y: c.y - 26 * k, width: 40 * k, height: 40 * k)))
             ctx.fill(ksiezyc, with: .color(Color(hex: "#f4f1de")))
         }
         // słońce z 8 bladymi promieniami (obrót ~1 na 40 s) i złoty pył
         if !wNocy && (e.rodzaj == "clear-day" || rzadkieChmury) {
-            let c = CGPoint(x: w * 0.8, y: h * 0.2)
+            let c = srodekCiala(w: w, h: h, domyslny: CGPoint(x: w * 0.8, y: h * 0.2))
             let kolor = oZmierzchu ? Color(hex: "#ffd2a0") : Color(hex: "#fff3b0")
+            let k: CGFloat = kafel ? 0.62 : 1
             var promienie = ctx
             promienie.translateBy(x: c.x, y: c.y)
             promienie.rotate(by: .radians(t / 40 * 2 * .pi))
@@ -414,14 +437,14 @@ struct ScenaPogody: View {
                 let a = Double(r) / 8 * 2 * .pi
                 var p = Path()
                 p.move(to: .zero)
-                p.addLine(to: CGPoint(x: cos(a - 0.08) * 90, y: sin(a - 0.08) * 90))
-                p.addLine(to: CGPoint(x: cos(a + 0.08) * 90, y: sin(a + 0.08) * 90))
+                p.addLine(to: CGPoint(x: cos(a - 0.08) * 90 * k, y: sin(a - 0.08) * 90 * k))
+                p.addLine(to: CGPoint(x: cos(a + 0.08) * 90 * k, y: sin(a + 0.08) * 90 * k))
                 p.closeSubpath()
-                promienie.fill(p, with: .color(kolor.opacity(0.12)))
+                promienie.fill(p, with: .color(kolor.opacity(kafel ? 0.07 : 0.12)))
             }
-            ctx.fill(Path(ellipseIn: CGRect(x: c.x - 60, y: c.y - 60, width: 120, height: 120)),
-                     with: .radialGradient(Gradient(colors: [kolor.opacity(0.5), kolor.opacity(0)]), center: c, startRadius: 18, endRadius: 60))
-            ctx.fill(Path(ellipseIn: CGRect(x: c.x - 24, y: c.y - 24, width: 48, height: 48)), with: .color(kolor))
+            ctx.fill(Path(ellipseIn: CGRect(x: c.x - 60 * k, y: c.y - 60 * k, width: 120 * k, height: 120 * k)),
+                     with: .radialGradient(Gradient(colors: [kolor.opacity(0.5), kolor.opacity(0)]), center: c, startRadius: 18 * k, endRadius: 60 * k))
+            ctx.fill(Path(ellipseIn: CGRect(x: c.x - 24 * k, y: c.y - 24 * k, width: 48 * k, height: 48 * k)), with: .color(kolor))
             if e.rodzaj == "clear-day" {
                 for k in 0..<7 {
                     let v = 4 + Double(k % 4) * 2
@@ -450,7 +473,7 @@ struct ScenaPogody: View {
             let v = (4 + Double(k % 6)) * (e.wietrznie ? 2.5 : 1)
             let x = (Double(k) * 137 + t * v).truncatingRemainder(dividingBy: w + szer * 2) - szer
             let y = 10 + Double((k * 53) % 60)
-            ctx.opacity = 0.8
+            ctx.opacity = 0.8 * krycieChmur
             ctx.fill(chmura(CGRect(x: x, y: y, width: szer, height: szer * 0.42)), with: .color(kolorChmur))
         }
         ctx.opacity = 1
@@ -521,14 +544,14 @@ struct ScenaPogody: View {
             let kolorMgly = wNocy ? Color(red: 168 / 255, green: 180 / 255, blue: 204 / 255)
                 : (oZmierzchu ? Color(red: 236 / 255, green: 218 / 255, blue: 214 / 255) : Color(red: 236 / 255, green: 240 / 255, blue: 245 / 255))
             ctx.fill(Path(CGRect(x: 0, y: h * 0.5, width: w, height: h * 0.5)),
-                     with: .linearGradient(Gradient(colors: [kolorMgly.opacity(0), kolorMgly.opacity(0.35)]),
+                     with: .linearGradient(Gradient(colors: [kolorMgly.opacity(0), kolorMgly.opacity(0.35 * krycieChmur)]),
                                            startPoint: CGPoint(x: 0, y: h * 0.5), endPoint: CGPoint(x: 0, y: h)))
             for k in 0..<5 {
                 let v = (5 + Double(k) * 1.5) * (k % 2 == 0 ? 1 : -1)
                 let x = (t * v).truncatingRemainder(dividingBy: 120) - 120
                 let y = h * (0.22 + Double(k) * 0.14)
                 // miękkie pasmo: przezroczyste u góry i u dołu, najgęstsze w środku (bez twardych krawędzi)
-                let krycie = 0.16 + Double(k) * 0.035
+                let krycie = (0.16 + Double(k) * 0.035) * krycieChmur
                 let wys = 56.0
                 ctx.fill(Path(CGRect(x: x, y: y, width: w + 240, height: wys)),
                          with: .linearGradient(Gradient(colors: [kolorMgly.opacity(0), kolorMgly.opacity(krycie), kolorMgly.opacity(0)]),
@@ -620,7 +643,8 @@ struct ScenaPogody: View {
                 ctx.fill(czapy, with: .color(Color(hex: "#f1f6fb")))
             }
         }
-        if scena == .swieta {
+        // duża choinka sięga do połowy panoramy, w kafelku byłaby pod temperaturą (zostają małe choinki i śnieg)
+        if scena == .swieta && !kafel {
             var drzewko = Path()
             drzewko.move(to: pt(96, 40)); drzewko.addLine(to: pt(122, 108)); drzewko.addLine(to: pt(70, 108)); drzewko.closeSubpath()
             ctx.fill(drzewko, with: .color(Color(hex: "#14532d")))
@@ -630,10 +654,14 @@ struct ScenaPogody: View {
             }
         }
         if scena == .sylwester {
-            ctx.draw(Text("2027").font(.system(size: 30 * s, weight: .heavy)).foregroundColor(Color(hex: "#e8c26a")), at: pt(86, 92))
+            // kafel: mniejszy napis niżej, w pasie pod tekstem
+            ctx.draw(Text("2027").font(.system(size: (kafel ? 20 : 30) * s, weight: .heavy)).foregroundColor(Color(hex: "#e8c26a")),
+                     at: pt(86, kafel ? 100 : 92))
         }
         if scena == .listopad {
-            for (x, y) in [(186.0, 6.0), (150, 48), (218, 48)] as [(CGFloat, CGFloat)] {
+            // kafel: bez flagi na wieży (wypadałaby pod linią z datą), zostają flagi na dachu Ratusza
+            let flagi: [(CGFloat, CGFloat)] = kafel ? [(150, 48), (218, 48)] : [(186, 6), (150, 48), (218, 48)]
+            for (x, y) in flagi {
                 ctx.fill(Path(r(x, y, 12, 3)), with: .color(.white))
                 ctx.fill(Path(r(x, y + 3, 12, 3)), with: .color(Color(hex: "#dc143c")))
             }
