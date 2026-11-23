@@ -159,7 +159,7 @@ struct BlokWidok: View {
                 }
                 .background(Barwy.karta, in: RoundedRectangle(cornerRadius: 14))
                 Button { strona = StronaWWW(sciezka: "wydarzenia") } label: {
-                    Text(Napisy.t("app.eventsAll", "Wszystkie wydarzenia na tvml.pl")).czcionka(14, .semibold)
+                    Text(Napisy.t("app.allEvents", "Wszystkie wydarzenia na tvml.pl")).czcionka(14, .semibold)
                 }
             }
         case "poll":
@@ -267,7 +267,7 @@ struct ListaGminy: View {
                     Text(gmina.nazwa).font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst)
                 }
                 if laduje { ProgressView().frame(maxWidth: .infinity, minHeight: 200) }
-                else if lista.isEmpty { Text(Napisy.t("app.countyEmpty", "Brak wiadomości z tej gminy.")).foregroundStyle(Barwy.slaby) }
+                else if lista.isEmpty { Text(Napisy.t("app.noNewsCommune", "Brak wiadomości z tej gminy.")).foregroundStyle(Barwy.slaby) }
                 ForEach(lista) { a in
                     NavigationLink(value: a) { WierszArtykulu(artykul: a) }.buttonStyle(.plain)
                 }
@@ -546,7 +546,7 @@ struct KafelPogody: View {
                             efekt: m.pogoda?.efekt, okolicznosciowy: m.motyw.rodzaj != .zwykly)
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(Napisy.t("app.weatherInLeszno", "Pogoda w Lesznie").uppercased(with: Jezyk.locale())).czcionka(11, .bold).kerning(1)
+                        Text(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie").uppercased(with: Jezyk.locale())).czcionka(11, .bold).kerning(1)
                         Text(m.pogoda.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–").czcionka(30, .heavy)
                         Text(m.pogoda?.opis ?? "").czcionka(13)
                     }
@@ -571,7 +571,7 @@ struct KafelPogody: View {
             .clipShape(RoundedRectangle(cornerRadius: 18))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(Napisy.t("app.weatherInLeszno", "Pogoda w Lesznie") + ": \(m.pogoda.map { Pogoda.stopnie($0.temperatura) } ?? ""), \(m.pogoda?.opis ?? "")")
+        .accessibilityLabel(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie") + ": \(m.pogoda.map { Pogoda.stopnie($0.temperatura) } ?? ""), \(m.pogoda?.opis ?? "")")
     }
 }
 
@@ -710,7 +710,7 @@ struct WidokSondy: View {
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("\(o.etykieta), \(o.procent)\(Jezyk.polski ? " procent" : "%"), \(Sonda.glosyTekst(o.glosy))\(o.klucz == moj ? ", " + Napisy.t("app.yourVote", "twój głos").lowercased() : "")")
             }
-            Text(Jezyk.polski ? "Oddano \(Sonda.glosyTekst(sonda.razem))" : Sonda.glosyTekst(sonda.razem)).czcionka(12).foregroundStyle(Barwy.slaby)
+            Text(Napisy.t("app.votesCast", "Oddano {votes}").replacingOccurrences(of: "{votes}", with: Sonda.glosyTekst(sonda.razem))).czcionka(12).foregroundStyle(Barwy.slaby)
         }
     }
 
@@ -831,10 +831,10 @@ struct KalendarzWidok: View {
                 ProgressView().frame(maxWidth: .infinity, minHeight: 60)
             } else if dzienNaStronie {
                 Button { strona = StronaWWW(sciezka: "wydarzenia") } label: {
-                    Text(Napisy.t("app.eventsDayOnSite", "Szczegóły tego dnia są na tvml.pl")).czcionka(14, .semibold)
+                    Text(Napisy.t("app.dayOnWebsite", "Szczegóły tego dnia są na tvml.pl")).czcionka(14, .semibold)
                 }
             } else {
-                Text(Napisy.t("app.eventsNone", "Brak wydarzeń tego dnia.")).czcionka(14).foregroundStyle(Barwy.slaby)
+                Text(Napisy.t("app.noEventsDay", "Brak wydarzeń tego dnia.")).czcionka(14).foregroundStyle(Barwy.slaby)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             HStack {
@@ -937,7 +937,7 @@ struct WydarzenieWidok: View {
                     Text(w.opis).czcionka(16).foregroundStyle(Barwy.tekst).textSelection(.enabled)
                 }
                 Button { strona = StronaWWW(sciezka: "wydarzenia?id=\(w.id)") } label: {
-                    Text(Napisy.t("app.viewOnSite", "Zobacz na tvml.pl")).czcionka(14, .semibold)
+                    Text(Napisy.t("app.seeOnWebsite", "Zobacz na tvml.pl")).czcionka(14, .semibold)
                 }
             }
             .padding(16)

@@ -253,7 +253,7 @@ struct PodstronaWidok: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(tytul).font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst).accessibilityAddTraits(.isHeader)
                 if let d = tresc?.aktualizacja {
-                    Text(Napisy.t("app.updatedAt", "Aktualizacja:") + " " + PodstronaWidok.data.string(from: d)).czcionka(12).foregroundStyle(Barwy.slaby)
+                    Text(Napisy.t("app.updated", "Aktualizacja") + ": " + PodstronaWidok.data.string(from: d)).czcionka(12).foregroundStyle(Barwy.slaby)
                 }
             }
             .padding(.horizontal, 16).padding(.bottom, 6)
@@ -437,7 +437,7 @@ struct OgloszeniaWidok: View {
                 Text(Napisy.t("app.classifieds", "Ogłoszenia drobne")).font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst).accessibilityAddTraits(.isHeader)
                 if laduje { ProgressView().frame(maxWidth: .infinity, minHeight: 200) }
                 else if lista.isEmpty {
-                    Text(Napisy.t("app.classifiedsEmpty", "Na razie nie ma ogłoszeń.")).czcionka(15).foregroundStyle(Barwy.slaby).padding(.vertical, 12)
+                    Text(Napisy.t("app.noClassifieds", "Na razie nie ma ogłoszeń.")).czcionka(15).foregroundStyle(Barwy.slaby).padding(.vertical, 12)
                 } else {
                     VStack(spacing: 0) {
                         ForEach(Array(lista.enumerated()), id: \.element.id) { i, o in
@@ -448,7 +448,7 @@ struct OgloszeniaWidok: View {
                     .background(Barwy.karta, in: RoundedRectangle(cornerRadius: 14))
                 }
                 Button { strona = StronaWWW(sciezka: "lista/ogloszenia") } label: {
-                    Text(Napisy.t("app.classifiedsAdd", "Dodaj ogłoszenie na tvml.pl")).czcionka(14, .semibold)
+                    Text(Napisy.t("app.addClassified", "Dodaj ogłoszenie na tvml.pl")).czcionka(14, .semibold)
                 }
             }
             .padding(16)

@@ -25,7 +25,7 @@ struct PogodaWidok: View {
                     .padding(18)
                     // przy bardzo dużym tekście plakietka zasłaniałaby temperaturę (i tak jesteśmy na ekranie Pogoda)
                     if !rozmiarTekstu.isAccessibilitySize {
-                        Text(Napisy.t("app.weatherInLeszno", "Pogoda w Lesznie").uppercased(with: Jezyk.locale()))
+                        Text(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie").uppercased(with: Jezyk.locale()))
                             .czcionka(11, .bold).foregroundStyle(.white)
                             .padding(.horizontal, 9).padding(.vertical, 5)
                             .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 9))
@@ -46,7 +46,9 @@ struct PogodaWidok: View {
                         if let imieniny = m.dzisiaj?.imieniny, !imieniny.isEmpty {
                             Text(Napisy.t("app.nameDays", "Imieniny") + ": " + imieniny.joined(separator: ", ")).czcionka(12).foregroundStyle(Color(hex: "#c9d3e3"))
                         }
-                        Text(Napisy.t("app.sunrise", "Wschód") + " \(p?.wschod ?? "–") · " + Napisy.t("app.sunset", "zachód").lowercased(with: Jezyk.locale()) + " \(p?.zachod ?? "–")").czcionka(12).foregroundStyle(Color(hex: "#c9d3e3"))
+                        Text(Napisy.t("app.sunriseSunset", "Wschód {sunrise} · zachód {sunset}")
+                                .replacingOccurrences(of: "{sunrise}", with: p?.wschod ?? "–")
+                                .replacingOccurrences(of: "{sunset}", with: p?.zachod ?? "–")).czcionka(12).foregroundStyle(Color(hex: "#c9d3e3"))
                     }
                 }
                 .foregroundStyle(.white)

@@ -78,7 +78,7 @@ struct ArtykulWidok: View {
                         // lektor czyta po polsku, więc w przetłumaczonym artykule go nie ma (tak jak na stronie)
                         if !a.przetlumaczony {
                         Button { lektor.przelacz(tekstDoCzytania) } label: {
-                            Label(lektor.mowi ? Napisy.t("app.listenStop", "Zatrzymaj") : Napisy.t("app.listen", "Odsłuchaj"),
+                            Label(lektor.mowi ? Napisy.t("app.stopListening", "Zatrzymaj") : Napisy.t("app.listen", "Odsłuchaj"),
                                   systemImage: lektor.mowi ? "stop.fill" : "speaker.wave.2")
                                 .czcionka(13, .semibold)
                                 .padding(.horizontal, 14).frame(minHeight: 40)
@@ -177,7 +177,7 @@ struct ArtykulWidok: View {
         if let d = a.data { czesci.append(d.formatted(.dateTime.day().month(.wide).year().locale(Jezyk.locale()))) }
         let slowa = (zrodlo?.tresc.map { Html.tekst($0) } ?? a.lead).split(separator: " ").count
         czesci.append(Napisy.t("app.readingMinutes", "czytanie ok. {n} min", n: max(1, slowa / 200)))
-        if a.odslony > 0 { czesci.append(Napisy.t("app.views", "{n} odsłon", n: a.odslony)) }
+        if a.odslony > 0 { czesci.append(Napisy.liczba("app.views", a.odslony, ["one": "{n} odsłona", "few": "{n} odsłony", "many": "{n} odsłon"])) }
         return czesci.joined(separator: " · ")
     }
 
@@ -277,7 +277,7 @@ struct KomentarzeWidok: View {
         NavigationStack {
             List {
                 if laduje { ProgressView() }
-                else if lista.isEmpty { Text(Napisy.t("app.commentsEmpty", "Nie ma jeszcze komentarzy.")).foregroundStyle(Barwy.slaby) }
+                else if lista.isEmpty { Text(Napisy.t("app.noComments", "Nie ma jeszcze komentarzy.")).foregroundStyle(Barwy.slaby) }
                 ForEach(Array(lista.enumerated()), id: \.offset) { _, k in
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(alignment: .firstTextBaseline) {
@@ -295,7 +295,7 @@ struct KomentarzeWidok: View {
                     .padding(.vertical, 4)
                 }
                 Section {
-                    Link(Napisy.t("app.commentAdd", "Dodaj komentarz na tvml.pl"), destination: artykul.link)
+                    Link(Napisy.t("app.addComment", "Dodaj komentarz na tvml.pl"), destination: artykul.link)
                 } footer: {
                     if !lista.isEmpty { Text(Napisy.t("app.reportCommentHint", "Komentarz łamie zasady? Stuknij chorągiewkę, a zgłoszenie trafi do redakcji TVML.")) }
                 }
@@ -350,7 +350,7 @@ struct Odtwarzacz: View {
                     // zapas, gdy YouTube nie pozwoli odtworzyć filmu w aplikacji
                     ToolbarItem(placement: .cancellationAction) {
                         if let yt = URL(string: "https://www.youtube.com/watch?v=" + adres.lastPathComponent) {
-                            Link(Napisy.t("app.openYouTube", "Otwórz w YouTube"), destination: yt)
+                            Link(Napisy.t("app.openYoutube", "Otwórz w YouTube"), destination: yt)
                         }
                     }
                 }

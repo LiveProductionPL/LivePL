@@ -129,7 +129,7 @@ struct Baner: View {
                         .frame(height: 40)
                         .overlay(alignment: .topTrailing) { OzdobaLogo(motyw: motyw) }
                 }
-                .accessibilityLabel(Napisy.t("app.a11yHome", "Telewizja TVML, strona główna"))
+                .accessibilityLabel(Napisy.t("app.homeLogo", "Telewizja TVML, strona główna"))
                 Spacer()
                 Button { m.pokaz(.pogoda) } label: {
                     HStack(spacing: 6) {
@@ -257,7 +257,9 @@ struct PasekZyczen: View {
             Text(pasek.tekst).czcionka(13).foregroundStyle(Color(hex: "#f6efe3"))
             if let doKiedy = pasek.odliczanieDo {
                 TimelineView(.periodic(from: .now, by: 1)) { kontekst in
-                    Text("● ODLICZANIE DO \(Calendar.current.component(.year, from: doKiedy).formatted(.number.grouping(.never))) • \(Odliczanie.tekst(od: kontekst.date, do: doKiedy))")
+                    Text("● " + Napisy.t("app.countdownTo", "Odliczanie do {year}")
+                        .replacingOccurrences(of: "{year}", with: String(Calendar.current.component(.year, from: doKiedy)))
+                        .uppercased(with: Jezyk.locale()) + " • " + Odliczanie.tekst(od: kontekst.date, do: doKiedy))
                         .czcionka(11, .bold).kerning(1)
                         .foregroundStyle(motyw.zlotoPaska)
                 }

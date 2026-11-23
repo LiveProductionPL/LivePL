@@ -77,7 +77,7 @@ struct KafelFilmu: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(Napisy.t("app.video", "Film") + ": " + film.tytul)
+        .accessibilityLabel(Napisy.t("app.videoItem", "Film") + ": " + film.tytul)
     }
 }
 

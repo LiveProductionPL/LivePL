@@ -114,6 +114,28 @@ enum Napisy {
         return v
     }
 
+    /// Odmiana liczebnika według CLDR: klucz.one, klucz.few, klucz.many, klucz.other (jak na Androidzie).
+    static func kategoria(_ n: Int, _ jezyk: String) -> String {
+        let d = n % 10, s = n % 100
+        switch jezyk {
+        case "en": return n == 1 ? "one" : "other"
+        case "uk":
+            if d == 1 && s != 11 { return "one" }
+            return (2...4).contains(d) && !(12...14).contains(s) ? "few" : "many"
+        default:
+            if n == 1 { return "one" }
+            return (2...4).contains(d) && !(12...14).contains(s) ? "few" : "many"
+        }
+    }
+
+    /// Liczba z odmianą, np. liczba("app.votes", 5, ["one": "{n} głos", "few": "{n} głosy", "many": "{n} głosów"]).
+    static func liczba(_ klucz: String, _ n: Int, _ polski: [String: String]) -> String {
+        let j = Jezyk.biezacy
+        let k = kategoria(n, j)
+        let wzor = j == "pl" ? polski[k] : (slowniki[j]?[klucz + "." + k] ?? slowniki[j]?[klucz + ".other"])
+        return (wzor ?? polski[kategoria(n, "pl")] ?? "{n}").replacingOccurrences(of: "{n}", with: String(n))
+    }
+
     /// {n} w tekście zastąpione liczbą, np. app.readingMinutes.
     static func t(_ klucz: String, _ polski: String, n: Int) -> String {
         t(klucz, polski).replacingOccurrences(of: "{n}", with: String(n))
@@ -679,7 +701,7 @@ final class Magazyn: ObservableObject {
             blad = nil
             ostatnio = Date()
         } catch {
-            if najnowsze.isEmpty { blad = Napisy.t("app.error", "Nie udało się pobrać wiadomości. Sprawdź internet i przeciągnij w dół, żeby spróbować ponownie.") }
+            if najnowsze.isEmpty { blad = Napisy.t("app.loadError", "Nie udało się pobrać wiadomości. Sprawdź internet i przeciągnij w dół, żeby spróbować ponownie.") }
         }
         if let lista = (try? await b) as? [Slownik] { najczytniejsze = lista.compactMap(Artykul.widoczny) }
         if let lista = (try? await c) as? [Slownik] { pasek = lista.compactMap(Artykul.widoczny) }
@@ -845,7 +867,7 @@ struct ZakladkaApp: Identifiable, Hashable {
     static var wiecej: ZakladkaApp { ZakladkaApp(id: "more", tytul: Napisy.t("app.tab.more", "Więcej"), ikona: "square.grid.2x2", cel: .wiecej) }
     static var domyslne: [ZakladkaApp] { [
         ZakladkaApp(id: "home", tytul: Napisy.t("app.tab.home", "Start"), ikona: "house", cel: .start),
-        ZakladkaApp(id: "sport", tytul: "Sport", ikona: "sportscourt", cel: .kategoria("sport")),
+        ZakladkaApp(id: "sport", tytul: Napisy.t("app.tab.sport", "Sport"), ikona: "sportscourt", cel: .kategoria("sport")),
         ZakladkaApp(id: "video", tytul: Napisy.t("app.tab.video", "Wideo"), ikona: "play.rectangle", cel: .wideo),
         ZakladkaApp(id: "weather", tytul: Napisy.t("app.tab.weather", "Pogoda"), ikona: "cloud.sun", cel: .pogoda),
         wiecej
@@ -1244,10 +1266,7 @@ struct Sonda {
 
     /// 1 głos, 2–4 głosy (bez 12–14), 5+ głosów.
     static func glosyTekst(_ n: Int) -> String {
-        guard Jezyk.polski else { return Napisy.t("app.votesCount", "Głosy: {n}", n: n) }
-        if n == 1 { return "1 głos" }
-        if (2...4).contains(n % 10) && !(12...14).contains(n % 100) { return "\(n) głosy" }
-        return "\(n) głosów"
+        Napisy.liczba("app.votes", n, ["one": "{n} głos", "few": "{n} głosy", "many": "{n} głosów"])
     }
 
     /// „30 listopada, 20:00”, z rokiem tylko gdy inny niż bieżący.
