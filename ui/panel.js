@@ -173,6 +173,7 @@ function ekranUstawienia() {
   f.appendChild(poz('ai', 'Dostęp dla AI (Claude i inne)', { dalej: true, klik: () => { ekran = 'ai'; rysuj(); } }));
   f.appendChild(poz('tlumacz', 'Tłumacz stron', { dalej: true, klik: () => { ekran = 'tlumacz-ustawienia'; rysuj(); } }));
   f.appendChild(poz('kod', 'Wtyczki', { dalej: true, klik: () => { ekran = 'wtyczki'; rysuj(); P.akcja('wtyczki-sprawdz'); } }));
+  f.appendChild(poz('plus', 'Rozszerzenia Chrome', { dalej: true, klik: () => { ekran = 'rozszerzenia'; rysuj(); } }));
   f.appendChild(poz('przywroc', 'Uruchom LivePL ponownie', { akcja: 'restart' }));
   f.appendChild(kreska());
   f.appendChild(poz('kosz', 'Wyczyść pamięć podręczną', { akcja: 'pamiec' }));
@@ -204,6 +205,34 @@ function ekranWtyczki() {
   f.appendChild(kreska());
   f.appendChild(poz('przywroc', 'Sprawdź teraz', { akcja: 'wtyczki-sprawdz' }));
   if (W.sprawdzono) f.appendChild(el('div', 'opis slaby-maly', 'Sprawdzono: ' + new Date(W.sprawdzono).toLocaleString('pl-PL')));
+  return f;
+}
+
+// ustawienia → Rozszerzenia Chrome: z pliku .crx / .zip albo z folderu (src/rozszerzenia.js)
+function ekranRozszerzenia() {
+  const f = document.createDocumentFragment();
+  f.appendChild(naglowek('Rozszerzenia Chrome', 'ustawienia'));
+  const R = D.rozszerzenia || [];
+  f.appendChild(el('div', 'opis', 'Rozszerzenia działają na stronach wczytanych po dodaniu. Silnik LivePL obsługuje część możliwości Chrome: skrypty na stronach i zapis danych tak, przyciski rozszerzeń na pasku będą w kolejnej wersji.'));
+  if (!R.length) f.appendChild(el('div', 'opis', 'Nie masz jeszcze żadnych rozszerzeń.'));
+  for (const r of R) {
+    const b = el('button', 'poz');
+    b.type = 'button';
+    b.setAttribute('role', 'menuitemcheckbox');
+    b.setAttribute('aria-checked', String(!!r.wlaczone));
+    const pole = el('span', 'pole' + (r.wlaczone ? ' wl' : ''));
+    pole.appendChild(ikonaEl('znacznik'));
+    b.append(pole, el('span', 'tekst', r.nazwa + (r.wersja ? ` (${r.wersja})` : '')));
+    b.addEventListener('click', () => { r.wlaczone = !r.wlaczone; P.akcja('rozszerzenie-przelacz', r.katalog); rysuj(); });
+    f.appendChild(b);
+    const opis = [r.opis, r.uprawnienia.length ? 'Dostęp: ' + r.uprawnienia.join(', ') : ''].filter(Boolean).join(' · ');
+    if (opis) f.appendChild(el('div', 'opis slaby-maly', opis));
+    if (r.blad) f.appendChild(el('div', 'opis zly', 'Nie działa: ' + r.blad));
+    f.appendChild(poz('kosz', 'Usuń „' + r.nazwa + '”', { akcja: 'rozszerzenie-usun', arg: r.katalog, czerwona: true }));
+  }
+  f.appendChild(kreska());
+  f.appendChild(poz('plus', 'Dodaj z pliku (.crx, .zip)…', { akcja: 'rozszerzenie-dodaj', arg: 'plik' }));
+  f.appendChild(poz('pobrane', 'Dodaj z folderu…', { akcja: 'rozszerzenie-dodaj', arg: 'folder' }));
   return f;
 }
 
@@ -1269,6 +1298,7 @@ function rysuj() {
     menu: ekranMenu,
     ustawienia: ekranUstawienia,
     wtyczki: ekranWtyczki,
+    rozszerzenia: ekranRozszerzenia,
     wyloguj: ekranWyloguj,
     'o-programie': ekranOProgramie,
     pobrane: ekranPobrane,

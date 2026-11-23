@@ -226,6 +226,14 @@ npm run wtyczki
 
 Polecenie składa i podpisuje `wydanie-wtyczki/lista.json` i `lista.json.sig` i dokłada `wgraj-livepl-wtyczki.sh`. Na serwerze: `sudo bash wgraj-livepl-wtyczki.sh <folder> <sha lista.json> <sha lista.json.sig>`.
 
+## Rozszerzenia Chrome
+
+Menu ⋮ → Ustawienia → Rozszerzenia Chrome: „Dodaj z pliku (.crx, .zip)…” albo „Dodaj z folderu…” (rozpakowane rozszerzenie z `manifest.json`). Przed dodaniem LivePL pokazuje nazwę, wersję i to, do czego rozszerzenie chce dostępu (np. „wszystkie strony”, „ciasteczka”). Rozszerzenie trafia do danych LivePL (`%APPDATA%\LivePL\rozszerzenia`), ładuje się przy każdym starcie do sesji stron i działa na stronach wczytanych po dodaniu. Na liście da się je wyłączyć, włączyć i usunąć.
+
+Archiwum LivePL rozpakowuje sam (bez poleceń systemu), bez ścieżek wychodzących poza folder i do 300 MB. Podpisu pliku CRX nie sprawdza: rozszerzenie z pliku dodajesz świadomie, po okienku z uprawnieniami.
+
+Silnik (Electron) obsługuje część możliwości Chrome: skrypty na stronach, tło rozszerzenia i zapis danych tak. Przycisków rozszerzeń na pasku, ich okienek i instalacji ze sklepu Chrome jeszcze nie ma (kolejna wersja).
+
 ## Instalatory
 
 ```

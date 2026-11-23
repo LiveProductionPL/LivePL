@@ -12,6 +12,7 @@ const path = require('path');
 const { execFile, execFileSync } = require('child_process');
 const aktualizacje = require('./aktualizacje');
 const wtyczki = require('./wtyczki');
+const rozszerzenia = require('./rozszerzenia');
 const naszeCA = require('./nasze-ca');
 const certOsobisty = require('./certyfikat-osobisty');
 const yubikey = require('./yubikey');
@@ -646,6 +647,52 @@ function usypiajNieuzywane() {
   for (const k of [...karty.values()]) {
     if (mozeSpac(k, teraz)) uspij(k);
   }
+}
+
+// ---------------------------------------------------------------- rozszerzenia Chrome (src/rozszerzenia.js)
+
+// Plik .crx / .zip albo folder z manifest.json; przed dodaniem okienko z tym, do czego rozszerzenie chce dostępu.
+async function dodajRozszerzenie(zFolderu) {
+  const w = await dialog.showOpenDialog(win, zFolderu
+    ? { title: 'Folder rozszerzenia Chrome (z plikiem manifest.json)', properties: ['openDirectory'] }
+    : { title: 'Plik rozszerzenia Chrome', properties: ['openFile'], filters: [{ name: 'Rozszerzenia Chrome', extensions: ['crx', 'zip'] }] });
+  if (w.canceled || !w.filePaths || !w.filePaths[0]) return;
+  let p;
+  try {
+    p = rozszerzenia.przygotuj(w.filePaths[0]);
+  } catch (e) {
+    await dialog.showMessageBox(win, { type: 'error', title: 'Rozszerzenie', message: 'Nie da się dodać tego rozszerzenia', detail: e.message || String(e), noLink: true });
+    return;
+  }
+  const dostep = p.uprawnienia.length ? p.uprawnienia.join(', ') : 'bez szczególnych uprawnień';
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'question',
+    title: 'Dodać rozszerzenie?',
+    message: `Dodać „${p.nazwa}” ${p.wersja}?`,
+    detail: (p.opis ? p.opis + '\n\n' : '') + 'Dostęp: ' + dostep + '.\n\nRozszerzenie widzi i może zmieniać strony, do których ma dostęp. ' +
+      'Dodawaj tylko rozszerzenia z zaufanego źródła. Przycisków rozszerzeń na pasku LivePL jeszcze nie ma (będą w kolejnej wersji).',
+    buttons: ['Dodaj', 'Anuluj'], defaultId: 1, cancelId: 1, noLink: true
+  });
+  if (response !== 0) { rozszerzenia.odrzuc(p); return; }
+  try {
+    const r = await rozszerzenia.zatwierdz(p);
+    dodajWiadomosc(`Dodano rozszerzenie: ${r.nazwa}. Działa na stronach wczytanych od teraz.`);
+  } catch (e) {
+    await dialog.showMessageBox(win, { type: 'error', title: 'Rozszerzenie', message: 'Nie udało się dodać rozszerzenia', detail: e.message || String(e), noLink: true });
+  }
+  if (panelStan) wyslijDoPanelu();
+}
+
+async function usunRozszerzenie(katalog) {
+  const r = rozszerzenia.stan().find(x => x.katalog === katalog);
+  if (!r) return;
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'warning', title: 'Usunąć rozszerzenie?', message: `Usunąć „${r.nazwa}”?`,
+    detail: 'Rozszerzenie zniknie z LivePL razem ze swoimi plikami.', buttons: ['Usuń', 'Anuluj'], defaultId: 1, cancelId: 1, noLink: true
+  });
+  if (response !== 0) return;
+  rozszerzenia.usun(katalog);
+  if (panelStan) wyslijDoPanelu();
 }
 
 function zamknij(id) {
@@ -1586,6 +1633,7 @@ function danePanelu() {
     ssl: sslKarty(k),
     aktualizacja: { ...aktualizacje.stan(), kopia: aktualizacje.kopia(), auto: ustawienia.autoAktualizacje !== false },
     wtyczki: wtyczki.stan(),
+    rozszerzenia: rozszerzenia.stan(),
     folderPobranych: folderPobranych(),
     folderDanych: app.getPath('userData'),
     pobrane: pobrane.slice(0, 12).map(p => ({ id: p.id, nazwa: p.nazwa, stan: p.stan, procent: p.procent || 0 })),
@@ -1881,6 +1929,9 @@ function akcjaPanelu(nazwa, arg) {
       break;
     }
     case 'wtyczki-sprawdz': wtyczki.sprawdz(); break;
+    case 'rozszerzenie-dodaj': dodajRozszerzenie(arg === 'folder'); break;
+    case 'rozszerzenie-przelacz': rozszerzenia.przelacz(String(arg || '')).then(() => { if (panelStan) wyslijDoPanelu(); }); break;
+    case 'rozszerzenie-usun': usunRozszerzenie(String(arg || '')); break;
     case 'folder-pobranych': otworzFolderPobranych(); break;
     case 'pobrany-otworz': {
       const p = pobrane.find(x => x.id === arg);
@@ -2564,6 +2615,8 @@ app.whenReady().then(() => {
   // tłumacz stron: osobny skrypt w odizolowanym świecie każdej strony (obok preload-strona.js)
   ses.registerPreloadScript({ type: 'frame', id: 'livepl-tlumacz', filePath: path.join(__dirname, 'preload-tlumacz.js') });
   uprawnienia(ses);
+  // rozszerzenia Chrome dodane przez użytkownika (menu ⋮ → Ustawienia → Rozszerzenia)
+  rozszerzenia.start(ses).then(() => { if (panelStan) wyslijDoPanelu(); });
   obslugaPobierania(ses);
   naszeCA.wlacz(ses);
   // błąd certyfikatu: domyślnie blokada; wejście mimo to tylko po świadomej decyzji na stronie błędu
