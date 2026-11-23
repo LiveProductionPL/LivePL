@@ -411,8 +411,9 @@ struct Artykul: Identifiable, Hashable {
         return f
     }()
 
-    static func == (a: Artykul, b: Artykul) -> Bool { a.id == b.id }
-    func hash(into h: inout Hasher) { h.combine(id) }
+    // Równość i hash ze wszystkich pól (domyślne Hashable), a nie z samego id: SwiftUI uznaje wartość równą
+    // za brak zmiany, więc przetłumaczony artykuł z tym samym id (tłumaczenie od razu) nie odświeżał ekranu.
+    // Tożsamość na listach daje dalej Identifiable (id).
 }
 
 struct Film: Identifiable, Hashable {
