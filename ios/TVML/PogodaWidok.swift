@@ -520,9 +520,13 @@ struct ScenaPogody: View {
             for k in 0..<5 {
                 let v = (5 + Double(k) * 1.5) * (k % 2 == 0 ? 1 : -1)
                 let x = (t * v).truncatingRemainder(dividingBy: 120) - 120
-                let y = h * (0.25 + Double(k) * 0.14)
-                ctx.fill(Path(roundedRect: CGRect(x: x, y: y, width: w + 240, height: 38), cornerRadius: 19),
-                         with: .color(kolorMgly.opacity(0.16 + Double(k) * 0.035)))
+                let y = h * (0.22 + Double(k) * 0.14)
+                // miękkie pasmo: przezroczyste u góry i u dołu, najgęstsze w środku (bez twardych krawędzi)
+                let krycie = 0.16 + Double(k) * 0.035
+                let wys = 56.0
+                ctx.fill(Path(CGRect(x: x, y: y, width: w + 240, height: wys)),
+                         with: .linearGradient(Gradient(colors: [kolorMgly.opacity(0), kolorMgly.opacity(krycie), kolorMgly.opacity(0)]),
+                                               startPoint: CGPoint(x: 0, y: y), endPoint: CGPoint(x: 0, y: y + wys)))
             }
         }
         if oZmierzchu { ctx.fill(calosc, with: .color(Color(red: 1, green: 150 / 255, blue: 90 / 255).opacity(0.07))) }
