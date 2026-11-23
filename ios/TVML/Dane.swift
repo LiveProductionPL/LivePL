@@ -152,9 +152,10 @@ enum Siec {
         return "TVMLApp/\(wersja) (iOS \(v.majorVersion).\(v.minorVersion))"
     }()
 
-    static func json(_ sciezka: String) async throws -> Any {
+    /// swiezy: z pominięciem pamięci podręcznej telefonu (serwer daje max-age=300, a artykuł w tłumaczeniu zmienia się po kilku sekundach)
+    static func json(_ sciezka: String, swiezy: Bool = false) async throws -> Any {
         guard let url = URL(string: sciezka, relativeTo: baza) else { throw URLError(.badURL) }
-        var zadanie = URLRequest(url: url, timeoutInterval: 20)
+        var zadanie = URLRequest(url: url, cachePolicy: swiezy ? .reloadIgnoringLocalCacheData : .useProtocolCachePolicy, timeoutInterval: 20)
         zadanie.setValue(agent, forHTTPHeaderField: "User-Agent")
         zadanie.setValue("https://tvml.pl/", forHTTPHeaderField: "Referer")
         zadanie.setValue("pl-PL,pl;q=0.9", forHTTPHeaderField: "Accept-Language")
@@ -168,7 +169,7 @@ enum Siec {
     static let bazyApi = ["api/v1/", "tvml-app.php?route="]
     static var dzialajacaBaza: String?
 
-    static func v1(_ trasa: String, _ parametry: [String: String] = [:]) async throws -> Any {
+    static func v1(_ trasa: String, _ parametry: [String: String] = [:], swiezy: Bool = false) async throws -> Any {
         // API 1.8.0: język treści w każdym zapytaniu (bez lang serwer odpowiada po polsku)
         var parametry = parametry
         if parametry["lang"] == nil { parametry["lang"] = Jezyk.biezacy }
@@ -183,7 +184,7 @@ enum Siec {
             let laczenie = baza.hasSuffix("route=") ? "&" : "?"
             let sciezka = baza + trasa + (zapytanie.isEmpty ? "" : laczenie + zapytanie)
             do {
-                let j = try await json(sciezka)
+                let j = try await json(sciezka, swiezy: swiezy)
                 dzialajacaBaza = baza
                 return j
             } catch {
@@ -821,7 +822,8 @@ final class Magazyn: ObservableObject {
 
     /// jezyk: "pl" = polski oryginał przetłumaczonego artykułu (app.originalPolish)
     func artykul(_ id: Int, jezyk: String? = nil) async -> Artykul? {
-        if let j = (try? await Siec.v1("articles/\(id)", jezyk.map { ["lang": $0] } ?? [:])) as? Slownik, j["id"] != nil { return Artykul(j) }
+        // zawsze z serwera: stan tłumaczenia (translated, translationEta) zmienia się szybciej niż max-age=300
+        if let j = (try? await Siec.v1("articles/\(id)", jezyk.map { ["lang": $0] } ?? [:], swiezy: true)) as? Slownik, j["id"] != nil { return Artykul(j) }
         guard let j = (try? await Siec.json("tvml-db.php?action=article&id=\(id)")) as? Slownik, j["id"] != nil else { return nil }
         return Artykul(j)
     }
