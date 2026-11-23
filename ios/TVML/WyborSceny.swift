@@ -139,95 +139,106 @@ extension WarunkiSceny {
     }
 }
 
-/// Belka z datą pod grafiką, w barwach karty daty ze strony (weather-effects.js drawSidebarCard i karta sezonowa).
+/// Belka z datą pod grafiką jako przedłużenie podłoża sceny (Karol, 23.11: „dopasowany pod wydarzenie, jak śnieg
+/// to biały wyróżniający się, a jak pole to brązowy jak ziemia”): śnieg, ziemia, trawa, piasek, woda albo bruk
+/// Rynku, w nocy przyciemnione; tekst ciemny albo jasny, zawsze z kontrastem co najmniej 4,5 : 1. Motywy
+/// okolicznościowe mają u góry pasek w swoim kolorze i medal z ikoną jak karta daty na stronie.
 struct PaletaBelki {
     enum Ikona { case kalendarz, rozeta, sniezynka, czapka, gwiazda, choinka, swieca, rok(String), brak }
 
     let tlo: Color
-    let pasek: Color
-    let pasekNaGorze: Bool
+    /// Pasek akcentu motywu u góry belki (nil = belka zlewa się z podłożem).
+    let akcent: Color?
     let data: Color
     let drugaLinia: Color
     let medal: Color
     let obwodka: Color
     let ikona: Ikona
 
-    static func dla(_ scena: WyborSceny.Scena, noc: Bool, rok: Int) -> PaletaBelki {
-        let biala = Color.white.opacity(0.97)
-        if scena.svg != nil {
-            // motyw z panelu (SVG): domyślne barwy motywów AI ze strony
-            return PaletaBelki(tlo: noc ? Color(red: 11 / 255, green: 22 / 255, blue: 40 / 255) : biala, pasek: Color(hex: "#d4af37"), pasekNaGorze: false,
-                               data: noc ? Color(hex: "#d4af37") : Color(hex: "#0a1f44"), drugaLinia: noc ? Color(hex: "#e2e8f0") : Color(hex: "#0f172a"),
-                               medal: Color(hex: "#0a1f44"), obwodka: Color(hex: "#d4af37"), ikona: .brak)
-        }
-        let ciemnaZima = Color(red: 11 / 255, green: 22 / 255, blue: 40 / 255)
-        let ciemnaSwieta = Color(red: 20 / 255, green: 12 / 255, blue: 24 / 255)
-        let ciemnySylwester = Color(red: 9 / 255, green: 16 / 255, blue: 32 / 255)
-        let ciemny = Color(hex: "#0f172a")
-        switch scena.strony {
-        case .ratusz11Listopada, .powstanczyBiwak:
-            return PaletaBelki(tlo: noc ? Color(red: 13 / 255, green: 21 / 255, blue: 38 / 255) : biala, pasek: Color(hex: "#dc143c"), pasekNaGorze: false,
-                               data: noc ? .white : Color(hex: "#990b22"), drugaLinia: noc ? Color(hex: "#fda4af") : Color(hex: "#1e293b"),
-                               medal: Color(hex: "#dc143c"), obwodka: Color(hex: "#9e0b22"), ikona: .rozeta)
-        case .zima:
-            return PaletaBelki(tlo: noc ? ciemnaZima : biala, pasek: Color(hex: "#0284c7"), pasekNaGorze: false,
-                               data: noc ? Color(hex: "#7dd3fc") : Color(hex: "#0369a1"), drugaLinia: noc ? Color(hex: "#e2e8f0") : ciemny,
-                               medal: Color(hex: "#0284c7"), obwodka: Color(hex: "#7dd3fc"), ikona: .sniezynka)
-        case .mikolajki:
-            return PaletaBelki(tlo: noc ? Color(red: 22 / 255, green: 12 / 255, blue: 24 / 255) : biala, pasek: Color(hex: "#b91830"), pasekNaGorze: false,
-                               data: noc ? Color(hex: "#f5d287") : Color(hex: "#991b2e"), drugaLinia: noc ? Color(hex: "#f1f5f9") : ciemny,
-                               medal: Color(hex: "#991b2e"), obwodka: Color(hex: "#f5d287"), ikona: .czapka)
-        case .wigilia:
-            return PaletaBelki(tlo: noc ? ciemnaSwieta : Color(red: 1, green: 253 / 255, blue: 246 / 255), pasek: Color(hex: "#d4af37"), pasekNaGorze: false,
-                               data: noc ? Color(hex: "#f5de9e") : Color(hex: "#7a1220"), drugaLinia: noc ? Color(hex: "#f1f5f9") : ciemny,
-                               medal: Color(hex: "#7a1220"), obwodka: Color(hex: "#f5de9e"), ikona: .gwiazda)
-        case .swieta:
-            return PaletaBelki(tlo: noc ? ciemnaSwieta : biala, pasek: Color(hex: "#c8a45d"), pasekNaGorze: false,
-                               data: noc ? Color(hex: "#e5c98b") : Color(hex: "#7a1220"), drugaLinia: noc ? Color(hex: "#f1f5f9") : ciemny,
-                               medal: Color(hex: "#7a1220"), obwodka: Color(hex: "#e5c98b"), ikona: .choinka)
-        case .sylwester:
-            return PaletaBelki(tlo: noc ? ciemnySylwester : Color(red: 1, green: 252 / 255, blue: 242 / 255), pasek: Color(hex: "#d4af37"), pasekNaGorze: false,
-                               data: noc ? Color(hex: "#f5e2a8") : Color(hex: "#926612"), drugaLinia: noc ? Color(hex: "#f1f5f9") : ciemny,
-                               medal: Color(hex: "#0a162c"), obwodka: Color(hex: "#d4af37"), ikona: .gwiazda)
-        case .nowyRok:
-            return PaletaBelki(tlo: noc ? ciemnySylwester : Color(red: 1, green: 252 / 255, blue: 242 / 255), pasek: Color(hex: "#d4af37"), pasekNaGorze: false,
-                               data: noc ? Color(hex: "#ffecaf") : Color(hex: "#926612"), drugaLinia: noc ? .white : ciemny,
-                               medal: Color(hex: "#0a162c"), obwodka: Color(hex: "#ffecaf"), ikona: .rok(String(rok % 100)))
+    /// Podłoże sceny (dzień, noc) i czy jest jasne (wtedy tekst ciemny).
+    private static func podloze(_ s: ScenaStrony, noc: Bool) -> (String, Bool) {
+        switch s {
+        case .zima, .mikolajki, .wigilia, .swieta, .winterVillage, .winterChristmas, .alpinePeaks:
+            return noc ? ("#24324a", false) : ("#eef3f8", true)          // śnieg
+        case .sylwester, .nowyRok:
+            return noc ? ("#121a2c", false) : ("#e4ebf3", true)          // zaśnieżony Rynek
+        case .autumnForest:
+            return noc ? ("#241812", false) : ("#5e3219", false)         // ziemia jesiennej łąki
+        case .easterSpring:
+            return noc ? ("#0c1a14", false) : ("#1b4332", false)         // trawa
+        case .parkLanterns:
+            return noc ? ("#141824", false) : ("#2b2936", false)         // mokra alejka
+        case .powstanczyBiwak:
+            return noc ? ("#1a120c", false) : ("#3a2a1c", false)         // ziemia przy ognisku
+        case .beach:
+            return noc ? ("#2c2416", false) : ("#e3c27a", true)          // piasek
+        case .ocean:
+            return noc ? ("#04101c", false) : ("#00405a", false)         // głęboka woda
+        case .autumnLake:
+            return noc ? ("#10162a", false) : ("#24314a", false)         // jezioro
+        case .newYear:
+            return ("#0b0f24", false)                                    // woda nocą
+        case .ratusz11Listopada:
+            return noc ? ("#161a24", false) : ("#4a505c", false)         // bruk Rynku
         case .andrzejki:
-            let fiolet = Color(red: 22 / 255, green: 11 / 255, blue: 44 / 255)
-            return PaletaBelki(tlo: fiolet, pasek: Color(hex: "#f5b942"), pasekNaGorze: false,
-                               data: Color(hex: "#f5c86b"), drugaLinia: Color(hex: "#e9d5ff"),
-                               medal: Color(hex: "#5b21b6"), obwodka: Color(hex: "#f5b942"), ikona: .swieca)
-        default:
-            // zwykła karta daty ze strony: biała, niebieski pasek u góry, pomarańczowy medal z kalendarzem;
-            // data ciemniejszym pomarańczem niż na stronie (#f5a623 na białym ma kontrast ok. 2, ten ok. 5)
-            return PaletaBelki(tlo: .white, pasek: Color(hex: "#1565c0"), pasekNaGorze: true,
-                               data: Color(hex: "#c2410c"), drugaLinia: Color(hex: "#0a1f44"),
-                               medal: Color(hex: "#f5a623"), obwodka: Color(hex: "#e8890a"), ikona: .kalendarz)
+            return noc ? ("#26103e", false) : ("#5b3a8a", false)         // fioletowe wzgórza
         }
     }
 
-    /// Druga linia jak na stronie (TvmlSeasonal.dateBar): przedrostek sceny, potem imieniny.
-    static func drugaLinia(_ scena: WyborSceny.Scena, imieniny: String?, dzisiaj: Date = Date()) -> String? {
+    static func dla(_ scena: WyborSceny.Scena, noc: Bool, rok: Int) -> PaletaBelki {
+        let (hex, jasne) = scena.svg != nil ? ("#111827", false) : podloze(scena.strony, noc: noc)
+        let data = jasne ? Color(hex: "#0f172a") : Color.white
+        let druga = jasne ? Color(hex: "#334155") : Color(hex: "#e2e8f0")
+        func p(_ akcent: String?, _ medal: String, _ obwodka: String, _ ikona: Ikona) -> PaletaBelki {
+            PaletaBelki(tlo: Color(hex: hex), akcent: akcent.map { Color(hex: $0) }, data: data, drugaLinia: druga,
+                        medal: Color(hex: medal), obwodka: Color(hex: obwodka), ikona: ikona)
+        }
+        if scena.svg != nil { return p("#d4af37", "#0a1f44", "#d4af37", .brak) }
+        switch scena.strony {
+        case .ratusz11Listopada, .powstanczyBiwak: return p("#dc143c", "#dc143c", "#9e0b22", .rozeta)
+        case .zima: return p("#0284c7", "#0284c7", "#7dd3fc", .sniezynka)
+        case .mikolajki: return p("#b91830", "#991b2e", "#f5d287", .czapka)
+        case .wigilia: return p("#d4af37", "#7a1220", "#f5de9e", .gwiazda)
+        case .swieta: return p("#c8a45d", "#7a1220", "#e5c98b", .choinka)
+        case .sylwester: return p("#d4af37", "#0a162c", "#d4af37", .gwiazda)
+        case .nowyRok: return p("#d4af37", "#0a162c", "#ffecaf", .rok(String(rok % 100)))
+        case .andrzejki: return p("#f5b942", "#5b21b6", "#f5b942", .swieca)
+        default: return p(nil, "#f5a623", "#e8890a", .kalendarz)
+        }
+    }
+
+    /// Linie pod datą jak na stronie (TvmlSeasonal.dateBar), rozdzielone, żeby nic nie ucinało się w pół słowa:
+    /// wyróżnienie (święto z kalendarza albo przedrostek motywu) i imieniny.
+    static func linie(_ scena: WyborSceny.Scena, swieto: String?, imieniny: String?, dzisiaj: Date = Date()) -> (wyroznienie: String?, imieniny: String?) {
         var kal = Calendar(identifier: .gregorian)
         kal.timeZone = TimeZone(identifier: "Europe/Warsaw") ?? .current
         let m = kal.component(.month, from: dzisiaj), d = kal.component(.day, from: dzisiaj), r = kal.component(.year, from: dzisiaj)
         let nastepny = m == 1 ? r : r + 1
-        func z(_ przedrostek: String) -> String { imieniny.map { przedrostek + " • " + $0 } ?? przedrostek }
-        if scena.svg != nil { return imieniny }
-        switch scena.strony {
-        case .ratusz11Listopada: return (m == 11 && d == 11) ? z("Święto Niepodległości") : imieniny
-        case .zima: return z("Zima w Lesznie")
-        case .mikolajki: return z("Mikołajki w Lesznie")
-        case .wigilia: return z("Wigilia Bożego Narodzenia")
-        case .swieta: return z(m == 12 && (d == 25 || d == 26) ? "Boże Narodzenie" : "Świąteczne Leszno")
-        case .sylwester: return z(m == 12 && d == 31 ? "Sylwester • Gala \(nastepny)" : "Odliczanie do \(nastepny)")
-        case .nowyRok: return "Nowy Rok \(nastepny) • Szczęśliwego Nowego Roku!"
-        case .andrzejki:
-            if m == 11 && d == 29 { return "Wieczór andrzejkowy • jutro imieniny: Andrzeja" }
-            return z(m == 11 && d == 28 ? "Andrzejkowy weekend" : "Andrzejki")
-        default: return imieniny
+        var przedrostek: String?
+        var imiona = imieniny
+        if scena.svg == nil {
+            switch scena.strony {
+            case .ratusz11Listopada: przedrostek = (m == 11 && d == 11) ? "Święto Niepodległości" : nil
+            case .zima: przedrostek = "Zima w Lesznie"
+            case .mikolajki: przedrostek = "Mikołajki w Lesznie"
+            case .wigilia: przedrostek = "Wigilia Bożego Narodzenia"
+            case .swieta: przedrostek = m == 12 && (d == 25 || d == 26) ? "Boże Narodzenie" : "Świąteczne Leszno"
+            case .sylwester: przedrostek = m == 12 && d == 31 ? "Sylwester • Gala \(nastepny)" : "Odliczanie do \(nastepny)"
+            case .nowyRok:
+                przedrostek = "Nowy Rok \(nastepny) • Szczęśliwego Nowego Roku!"
+                imiona = nil
+            case .andrzejki:
+                if m == 11 && d == 29 {
+                    przedrostek = "Wieczór andrzejkowy"
+                    imiona = "Jutro imieniny: Andrzeja"
+                } else {
+                    przedrostek = m == 11 && d == 28 ? "Andrzejkowy weekend" : "Andrzejki"
+                }
+            default: break
+            }
         }
+        // święto z kalendarza ma pierwszeństwo (11 listopada: „Narodowe Święto Niepodległości” zamiast przedrostka)
+        return (swieto ?? przedrostek, imiona)
     }
 }
 

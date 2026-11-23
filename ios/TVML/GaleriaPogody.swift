@@ -60,8 +60,9 @@ enum GaleriaPogody {
         // najdłuższe teksty, jakie zwykle bywają na karcie (temperatura z minusem, święto, trzy imiona)
         return KartaPogody(temperatura: "−12,4°C", opis: "Zachmurzenie duże",
                            prognoza: [(nazwa: "Wt", max: "−10,7°"), (nazwa: "Śr", max: "−11,4°"), (nazwa: "Cz", max: "−9,6°")],
-                           data: "Poniedziałek, 11 listopada · Narodowe Święto Niepodległości",
-                           imieniny: PaletaBelki.drugaLinia(scena, imieniny: "Imieniny: Bartłomieja, Marcina, Prota"),
+                           data: "Poniedziałek, 11 listopada",
+                           wyroznienie: PaletaBelki.linie(scena, swieto: "Narodowe Święto Niepodległości", imieniny: nil).wyroznienie,
+                           imieniny: PaletaBelki.linie(scena, swieto: nil, imieniny: "Imieniny: Bartłomieja, Marcina, Prota").imieniny,
                            stan: .chmury, pora: (v?.warunki.noc ?? false) ? .noc : .dzien, scena: .jesien,
                            efekt: v?.efekt, okolicznosciowy: false,
                            scenaKarty: scena, warunki: v?.warunki,

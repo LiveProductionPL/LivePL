@@ -62,15 +62,15 @@ def podziel(y0, y1, x0, x1, poziom=0):
 
 elementy = sorted(podziel(0, H, 0, W), key=lambda e: (e[0], e[2]))
 # nazwy: pierwszy wiersz to napis, potem lewa kolumna (temperatura, opis) i prawa (prognoza);
-# na dole belka pod grafiką (ok. 50 pkt) z medalem, datą i imieninami
-BELKA = 52
+# pod grafiką (370 / 1,85 = 200 pkt) belka z medalem, datą, świętem i imieninami (wysokość zależy od tekstu)
+GRAFIKA = round(370 / 1.85)
 nazwane = []
 lewe = 0
-gora = [e for e in elementy if e[0] < H - BELKA]
+gora = [e for e in elementy if e[0] < GRAFIKA - 2]
 for (y0, y1, x0, x1) in elementy:
-    if y0 >= H - BELKA and x1 < 60:
+    if y0 >= GRAFIKA - 2 and x1 < 60:
         continue  # medal z ikoną: ma własne tło
-    if y0 >= H - BELKA:
+    if y0 >= GRAFIKA - 2:
         nazwa, prog = "belka (data, imieniny)", 4.5
     elif (y0, y1, x0, x1) == gora[0]:
         nazwa, prog = "napis", 4.5

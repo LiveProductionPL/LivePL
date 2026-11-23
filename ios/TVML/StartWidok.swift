@@ -538,19 +538,16 @@ struct Obraz: View {
 struct KafelPogody: View {
     @EnvironmentObject private var m: Magazyn
 
-    /// „Poniedziałek, 23 listopada”, przy święcie „… · Narodowe Święto Niepodległości”; data z config.today
-    /// (po uk/en przetłumaczona), bez roku, z wielkiej litery.
+    /// „Poniedziałek, 23 listopada”; data z config.today (po uk/en przetłumaczona), bez roku, z wielkiej litery.
+    /// Święto idzie osobną linią (PaletaBelki.linie), żeby nie ucinało się w pół słowa.
     private var data: String {
-        let d = m.dzisiaj
-        var data = d?.etykieta ?? ""
+        var data = m.dzisiaj?.etykieta ?? ""
         // rok jest zbędny na karcie: „… 2026”, „… 2026 р.”
         data = data.replacingOccurrences(of: #"\s*\d{4}(\s*р\.)?\s*$"#, with: "", options: .regularExpression)
         if data.isEmpty {
             data = Date.now.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(Jezyk.locale()))
         }
-        data = data.prefix(1).uppercased(with: Jezyk.locale()) + data.dropFirst()
-        if let swieto = d?.swieto { data += " · " + swieto }
-        return data
+        return data.prefix(1).uppercased(with: Jezyk.locale()) + data.dropFirst()
     }
 
     /// „Imieniny: Michała, Grzegorza”; imiona zawsze po polsku.
@@ -563,12 +560,12 @@ struct KafelPogody: View {
 
     var body: some View {
         let scena = m.aktywnaScena
-        let drugaLinia = PaletaBelki.drugaLinia(scena, imieniny: imieniny)
+        let linie = PaletaBelki.linie(scena, swieto: m.dzisiaj?.swieto, imieniny: imieniny)
         Button { m.pokaz(.pogoda) } label: {
             KartaPogody(temperatura: m.pogoda.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–",
                         opis: m.pogoda?.opis ?? "",
                         prognoza: (m.pogoda?.dni ?? []).dropFirst().prefix(3).map { (nazwa: $0.nazwa, max: Pogoda.stopnie($0.max)) },
-                        data: data, imieniny: drugaLinia,
+                        data: data, wyroznienie: linie.wyroznienie, imieniny: linie.imieniny,
                         stan: StanPogody.z(ikony: m.pogoda?.ikona ?? "cloud"),
                         pora: PoraDnia.teraz(dzien: m.pogoda?.dzien ?? true),
                         scena: m.motyw.scena(miesiac: Calendar.current.component(.month, from: .now)),
@@ -578,7 +575,8 @@ struct KafelPogody: View {
                                                 ustawienia: m.ustawieniaScen[m.pogoda?.ikona ?? ""], karta: false, bezRuchu: bezRuchu))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie") + ": \(m.pogoda.map { Pogoda.stopnie($0.temperatura) } ?? ""), \(m.pogoda?.opis ?? ""). " + data + (drugaLinia.map { ". " + $0 } ?? ""))
+        .accessibilityLabel(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie") + ": \(m.pogoda.map { Pogoda.stopnie($0.temperatura) } ?? ""), \(m.pogoda?.opis ?? ""). "
+                            + data + (linie.wyroznienie.map { ". " + $0 } ?? "") + (linie.imieniny.map { ". " + $0 } ?? ""))
     }
 }
 
@@ -591,6 +589,9 @@ struct KartaPogody: View {
     let opis: String
     let prognoza: [(nazwa: String, max: String)]
     let data: String
+    /// święto z kalendarza albo przedrostek motywu („Zima w Lesznie”, „Wieczór andrzejkowy”)
+    var wyroznienie: String? = nil
+    /// „Imieniny: …” (albo „Jutro imieniny: Andrzeja”)
     var imieniny: String? = nil
     let stan: StanPogody
     let pora: PoraDnia
@@ -702,17 +703,22 @@ struct KartaPogody: View {
         .padding(.bottom, 12)
     }
 
-    /// Belka pod grafiką jak karta daty na stronie: medal sceny, data (i święto), pod nią przedrostek sceny i imieniny.
+    /// Belka pod grafiką w kolorze podłoża sceny: medal, data, święto albo przedrostek motywu, imieniny.
+    /// Dłuższe linie przechodzą do drugiego wiersza zamiast ucinać się w pół słowa.
     private var belka: some View {
         let p = paleta
         return HStack(spacing: 10) {
             MedalBelki(paleta: p)
             VStack(alignment: .leading, spacing: 1) {
                 Text(data).czcionka(13, .bold).foregroundStyle(p.data)
-                    .lineLimit(1).truncationMode(.tail).minimumScaleFactor(0.85)
+                    .lineLimit(1).minimumScaleFactor(0.8)
+                if let wyroznienie {
+                    Text(wyroznienie).czcionka(12, .bold).foregroundStyle(p.data)
+                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                }
                 if let imieniny {
                     Text(imieniny).czcionka(12, .semibold).foregroundStyle(p.drugaLinia)
-                        .lineLimit(1).truncationMode(.tail).minimumScaleFactor(0.85)
+                        .lineLimit(2).fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer(minLength: 0)
@@ -723,7 +729,7 @@ struct KartaPogody: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             if warstwa != .tekst {
-                p.tlo.overlay(alignment: p.pasekNaGorze ? .top : .bottom) { p.pasek.frame(height: 3) }
+                p.tlo.overlay(alignment: .top) { if let a = p.akcent { a.frame(height: 3) } }
             }
         }
     }
