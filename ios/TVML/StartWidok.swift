@@ -636,12 +636,19 @@ struct KartaPogody: View {
         .background {
             if warstwa != .tekst {
                 tlo
-                    // przyciemnienie pod tekstem: mocniej u góry (napis, chmury), słabnie ku scenie na dole
+                    // przyciemnienie pod tekstem: mocniej u góry (napis, chmury), słabnie ku scenie na dole,
+                    // i lekko z lewej, pod temperaturą i opisem (np. ośnieżone szczyty alpine-peaks)
                     .overlay {
                         LinearGradient(stops: [.init(color: .black.opacity(0.34), location: 0),
                                                .init(color: .black.opacity(0.2), location: 0.5),
                                                .init(color: .black.opacity(0), location: 0.78)],
                                        startPoint: .top, endPoint: .bottom)
+                    }
+                    .overlay {
+                        LinearGradient(stops: [.init(color: .black.opacity(0.24), location: 0),
+                                               .init(color: .black.opacity(0.1), location: 0.38),
+                                               .init(color: .black.opacity(0), location: 0.6)],
+                                       startPoint: .leading, endPoint: .trailing)
                     }
             }
         }
@@ -658,22 +665,31 @@ struct KartaPogody: View {
     }
 
     private var tekst: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        // galeria: w warstwie sceny tekst niewidoczny, ale pigułki prognozy zostają (są częścią tła pod tekstem)
+        let widac: Double = warstwa == .scena ? 0 : 1
+        let cien = Color.black.opacity(warstwa == .calosc ? 0.6 : 0)
+        return VStack(alignment: .leading, spacing: 0) {
             Text(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie").uppercased(with: Jezyk.locale())).czcionka(11, .bold).kerning(1)
+                .shadow(color: cien, radius: 4).opacity(widac)
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(temperatura).czcionka(30, .heavy)
                     Text(opis).czcionka(13).lineLimit(1)
                 }
+                .shadow(color: cien, radius: 4).opacity(widac)
                 Spacer(minLength: 8)
                 // przy bardzo dużym tekście prognoza na 3 dni nie mieści się obok temperatury (jest na ekranie Pogoda)
                 if !rozmiarTekstu.isAccessibilitySize {
-                    HStack(spacing: 12) {
+                    HStack(spacing: 6) {
                         ForEach(Array(prognoza.enumerated()), id: \.offset) { _, d in
                             VStack(spacing: 2) {
                                 Text(d.nazwa).czcionka(12).opacity(0.9)
                                 Text(d.max).czcionka(12, .bold)
                             }
+                            .shadow(color: cien, radius: 3).opacity(widac)
+                            // pigułka jak na karcie ze strony: prognoza czytelna także na wieży Ratusza i śniegu
+                            .padding(.horizontal, 6).padding(.vertical, 5)
+                            .background(Color.black.opacity(0.26), in: RoundedRectangle(cornerRadius: 9))
                         }
                     }
                 }
@@ -681,8 +697,6 @@ struct KartaPogody: View {
             .padding(.top, 4)
         }
         .foregroundStyle(.white)
-        .shadow(color: .black.opacity(warstwa == .calosc ? 0.6 : 0), radius: 4)
-        .opacity(warstwa == .scena ? 0 : 1)
         .padding(.horizontal, 18)
         .padding(.top, 12)
         .padding(.bottom, 12)
