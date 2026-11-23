@@ -1,0 +1,2 @@
+# skrypty serwerowe: bash na Linuksie nie czyta końców linii z Windows
+*.sh text eol=lf
