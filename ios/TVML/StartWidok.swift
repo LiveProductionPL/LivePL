@@ -533,8 +533,8 @@ struct Obraz: View {
 }
 
 /// Kafel pogody na Start: ta sama scena co na ekranie Pogoda, w mniejszym wydaniu.
-/// U góry napis, pod nim data (i święto), niżej temperatura i prognoza; drzewa w pasie pod tekstem,
-/// a imieniny na pasie ziemi na samym dole (jak pasek daty na tvml.pl).
+/// Na grafice napis, temperatura i prognoza (drzewa w pasie pod tekstem); pod grafiką belka z datą
+/// (i świętem) oraz imieninami, jak pasek daty na tvml.pl.
 struct KafelPogody: View {
     @EnvironmentObject private var m: Magazyn
 
@@ -596,18 +596,27 @@ struct KartaPogody: View {
     var warstwa: Warstwa = .calosc
     @Environment(\.dynamicTypeSize) private var rozmiarTekstu
 
-    /// Pas ziemi w kafelku ma stałą wysokość (ScenaPogody.pasZiemiKafla), na nim imieniny.
-    /// Zimą i w Święta ziemia jest jasna (śnieg), wtedy ciemny tekst, w pozostałych scenach jasny.
-    private var kolorNaZiemi: Color {
-        scena == .zima || scena == .swieta ? Color(hex: "#1e293b") : Color(hex: "#f6efe4")
+    /// Belka pod grafiką ma kolor ziemi sceny (jesienią brązowa, nocą granatowa, zimą i w Święta śnieżna),
+    /// tekst na niej ciemny na śniegu, w pozostałych scenach jasny.
+    private var noc: Bool {
+        if !okolicznosciowy, let e = efekt { return e.faza == "night" }
+        return pora == .noc
     }
+    private var jasnaBelka: Bool { ScenaPogody.zimowa(scena) }
+    private var kolorNaBelce: Color { jasnaBelka ? Color(hex: "#1e293b") : Color(hex: "#f6efe4") }
 
     var body: some View {
+        VStack(spacing: 0) {
+            grafika
+            belka
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+    }
+
+    /// Scena z napisem, temperaturą i prognozą; na dole pas, w którym stoją drzewa (ok. 25 pkt).
+    private var grafika: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie").uppercased(with: Jezyk.locale())).czcionka(11, .bold).kerning(1)
-            Text(data).czcionka(12, .semibold)
-                .lineLimit(1).truncationMode(.tail).minimumScaleFactor(0.85)
-                .padding(.top, 3)
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(temperatura).czcionka(30, .heavy)
@@ -633,33 +642,45 @@ struct KartaPogody: View {
         .opacity(warstwa == .scena ? 0 : 1)
         .padding(.horizontal, 18)
         .padding(.top, 12)
-        // na dole pas drzew (ok. 25 pkt nad ziemią) i pas ziemi z imieninami
+        // pas drzew i ozdób nad ziemią (korony do ok. 25 pkt przy skali 1)
         .padding(.bottom, ScenaPogody.pasZiemiKafla + 28)
-        .frame(maxWidth: .infinity, minHeight: 110, alignment: .topLeading)
-        .overlay(alignment: .bottomLeading) {
-            if let imieniny {
-                Text(imieniny).czcionka(12, .semibold)
-                    .lineLimit(1).truncationMode(.tail).minimumScaleFactor(0.85)
-                    .foregroundStyle(kolorNaZiemi)
-                    .frame(height: ScenaPogody.pasZiemiKafla)
-                    .padding(.horizontal, 18)
-                    .opacity(warstwa == .scena ? 0 : 1)
-            }
-        }
+        .frame(maxWidth: .infinity, minHeight: 96, alignment: .topLeading)
         .background {
             if warstwa != .tekst {
                 ScenaPogody(stan: stan, pora: pora, scena: scena, efekt: efekt,
                             okolicznosciowy: okolicznosciowy, kafel: true, czas: czas)
-                    // przyciemnienie pod tekstem: mocniej u góry (napis, data, chmury), słabnie ku drzewom, ziemia bez zmian
+                    // przyciemnienie pod tekstem: mocniej u góry (napis, chmury), słabnie ku drzewom na dole
                     .overlay {
                         LinearGradient(stops: [.init(color: .black.opacity(0.34), location: 0),
-                                               .init(color: .black.opacity(0.22), location: 0.6),
-                                               .init(color: .black.opacity(0), location: 0.82)],
+                                               .init(color: .black.opacity(0.22), location: 0.55),
+                                               .init(color: .black.opacity(0), location: 0.8)],
                                        startPoint: .top, endPoint: .bottom)
                     }
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+    }
+
+    /// Belka pod grafiką: data (i święto), pod nią imieniny.
+    private var belka: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "calendar").font(.system(size: 15, weight: .semibold)).opacity(0.85)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(data).czcionka(13, .bold)
+                    .lineLimit(1).truncationMode(.tail).minimumScaleFactor(0.85)
+                if let imieniny {
+                    Text(imieniny).czcionka(12)
+                        .lineLimit(1).truncationMode(.tail).minimumScaleFactor(0.85)
+                        .opacity(0.9)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(kolorNaBelce)
+        .opacity(warstwa == .scena ? 0 : 1)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(warstwa == .tekst ? Color.clear : ScenaPogody.kolorZiemi(scena: scena, noc: noc))
     }
 }
 

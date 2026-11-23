@@ -5,9 +5,9 @@
 
 W folderze: _tekst.png (sam tekst, maska), scena/<wariant>@<t>.png (tło z przyciemnieniem w kilku chwilach
 animacji) i calosc/<wariant>.png (karta do obejrzenia). Dla każdego elementu tekstu (napis, data, temperatura,
-opis, prognoza, imieniny na pasie ziemi) liczy kontrast tekstu z tłem dokładnie pod literami: dla białego tekstu
-najjaśniejsze miejsca tła (95. percentyl jasności), dla ciemnych imienin na śniegu najciemniejsze, w najgorszej
-chwili animacji. Cień pod tekstem w aplikacji jeszcze pomaga, tu go nie ma,
+opis, prognoza, data i imieniny na belce pod grafiką) liczy kontrast tekstu z tłem dokładnie pod literami: dla białego
+tekstu najjaśniejsze miejsca tła (95. percentyl jasności), dla ciemnego tekstu na śnieżnej belce najciemniejsze,
+w najgorszej chwili animacji. Cień pod tekstem w aplikacji jeszcze pomaga, tu go nie ma,
 więc wynik jest ostrożny. Progi jak WCAG: 4,5 dla zwykłego tekstu, 3 dla dużej temperatury.
 Wynik: raport.txt, wyniki.csv i arkusze PNG (arkusz-przeglad.png, arkusz-najgorsze.png).
 """
@@ -60,18 +60,17 @@ def podziel(y0, y1, x0, x1, poziom=0):
 
 
 elementy = sorted(podziel(0, H, 0, W), key=lambda e: (e[0], e[2]))
-# nazwy: dwa pierwsze wiersze to napis i data, potem lewa kolumna (temperatura, opis) i prawa (prognoza),
-# na samym dole (pas ziemi, 22 pkt) imieniny
-PAS_ZIEMI = 22
+# nazwy: pierwszy wiersz to napis, potem lewa kolumna (temperatura, opis) i prawa (prognoza);
+# na dole belka pod grafiką (ok. 48 pkt) z datą i imieninami
+BELKA = 50
 nazwane = []
 lewe = 0
-for i, (y0, y1, x0, x1) in enumerate(elementy):
-    if y0 >= H - PAS_ZIEMI - 2:
-        nazwa, prog = "imieniny", 4.5
-    elif i == 0:
+gora = [e for e in elementy if e[0] < H - BELKA]
+for (y0, y1, x0, x1) in elementy:
+    if y0 >= H - BELKA:
+        nazwa, prog = "belka (data, imieniny)", 4.5
+    elif (y0, y1, x0, x1) == gora[0]:
         nazwa, prog = "napis", 4.5
-    elif i == 1:
-        nazwa, prog = "data i imieniny", 4.5
     elif x0 < W / 2:
         nazwa, prog = ("temperatura", 3.0) if lewe == 0 else ("opis", 4.5)
         lewe += 1
@@ -90,14 +89,14 @@ def kontrast(l):
     return 1.05 / (l + 0.05)
 
 
-# imieniny na jasnej ziemi (zima, Święta) są ciemne (#1e293b), w pozostałych scenach jasne (#f6efe4)
+# tekst na belce: na śniegu (zima, Święta) ciemny (#1e293b), w pozostałych scenach jasny (#f6efe4)
 L_CIEMNY = float(jasnosc(np.array([30.0, 41.0, 59.0])))
 L_JASNY = float(jasnosc(np.array([246.0, 239.0, 228.0])))
 
 
 def kontrast_elementu(w, nazwa, pod):
     """Kontrast tekstu z tłem pod nim; dla jasnego tekstu liczą się najjaśniejsze miejsca, dla ciemnego najciemniejsze."""
-    if nazwa == "imieniny":
+    if nazwa.startswith("belka"):
         if "-zima-" in w or "-swieta-" in w:
             return (float(np.percentile(pod, 5)) + 0.05) / (L_CIEMNY + 0.05)
         return (L_JASNY + 0.05) / (float(np.percentile(pod, 95)) + 0.05)

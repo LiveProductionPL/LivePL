@@ -171,8 +171,16 @@ struct ScenaPogody: View {
     /// i ozdoby stały w pasie pod tekstem; słońce i księżyc w prawym górnym rogu nad datą, fajerwerki
     /// i błyskawica w przerwie między temperaturą a prognozą, chmury i mgła bledsze.
     var kafel = false
-    /// Wysokość pasa ziemi w kafelku (punkty); KartaPogody kładzie na nim imieniny.
-    static let pasZiemiKafla: CGFloat = 22
+    /// Wysokość pasa ziemi w kafelku (punkty): cienki, bo pod grafiką jest belka z datą w kolorze ziemi (KartaPogody).
+    static let pasZiemiKafla: CGFloat = 4
+
+    /// Śnieg na ziemi: zima i Święta.
+    static func zimowa(_ scena: Motyw.Scena) -> Bool { scena == .zima || scena == .swieta }
+
+    /// Kolor ziemi panoramy, także belki z datą pod kafelkiem.
+    static func kolorZiemi(scena: Motyw.Scena, noc: Bool) -> Color {
+        zimowa(scena) ? (noc ? Color(hex: "#c9d6e4") : Color(hex: "#eef3f8")) : (noc ? Color(hex: "#0b1020") : Color(hex: "#2a2620"))
+    }
     /// Stała chwila animacji (galeria scen do sprawdzania czytelności); nil = scena żyje.
     var czas: Double? = nil
     @Environment(\.accessibilityReduceMotion) private var bezRuchu
@@ -584,13 +592,13 @@ struct ScenaPogody: View {
         // kafel: skala najwyżej 1,2 (na iPadzie miasto na środku, a nie powiększone na pół karty)
         let s = kafel ? min(w / 358, 1.2) : w / 358
         let lewo = (w - 358 * s) / 2
-        // kafel: pas ziemi ma stałą wysokość, bo stoją na nim imieniny (KartaPogody)
+        // kafel: cienki pas ziemi o stałej wysokości, pod nim belka z datą (KartaPogody)
         let gora = kafel ? h - Self.pasZiemiKafla - 108 * s : h - 130 * s
         func r(_ x: CGFloat, _ y: CGFloat, _ sz: CGFloat, _ wy: CGFloat) -> CGRect { CGRect(x: lewo + x * s, y: gora + y * s, width: sz * s, height: wy * s) }
         func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: lewo + x * s, y: gora + y * s) }
         let miasto = noc ? Color(hex: "#0a1226") : Color(hex: "#1c2b45")
         let ratusz = noc ? Color(hex: "#101a33") : Color(hex: "#223456")
-        let ziemia = zimowo ? (noc ? Color(hex: "#c9d6e4") : Color(hex: "#eef3f8")) : (noc ? Color(hex: "#0b1020") : Color(hex: "#2a2620"))
+        let ziemia = Self.kolorZiemi(scena: scena, noc: noc)
         ctx.fill(Path(CGRect(x: 0, y: gora + 108 * s, width: w, height: h - gora - 108 * s)), with: .color(ziemia))
         var domy = Path()
         for (x, y, sz) in [(0.0, 82.0, 46.0), (50, 76, 24), (106, 80, 26), (296, 84, 26)] as [(CGFloat, CGFloat, CGFloat)] {
@@ -662,8 +670,9 @@ struct ScenaPogody: View {
                      at: pt(86, kafel ? 100 : 92))
         }
         if scena == .listopad {
-            // kafel: bez flagi na wieży (wypadałaby pod linią z datą), zostają flagi na dachu Ratusza
-            let flagi: [(CGFloat, CGFloat)] = kafel ? [(150, 48), (218, 48)] : [(186, 6), (150, 48), (218, 48)]
+            // kafel: tylko lewa flaga na dachu Ratusza; na wieży byłaby pod datą, a prawa wypadała pod prognozą
+            // (galeria, budowa 51: kontrast prognozy 1,8 we wszystkich wariantach 11 Listopada)
+            let flagi: [(CGFloat, CGFloat)] = kafel ? [(150, 48)] : [(186, 6), (150, 48), (218, 48)]
             for (x, y) in flagi {
                 ctx.fill(Path(r(x, y, 12, 3)), with: .color(.white))
                 ctx.fill(Path(r(x, y + 3, 12, 3)), with: .color(Color(hex: "#dc143c")))

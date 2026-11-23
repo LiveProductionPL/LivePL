@@ -23,6 +23,7 @@ struct TematPush: Identifiable, Hashable {
 /// - Token APNs (hex) z tematami, językiem i środowiskiem idzie do POST /api/v1/devices; wyłączenie
 ///   albo odznaczenie wszystkich tematów → POST /api/v1/devices/delete.
 /// - Dotknięcie powiadomienia otwiera artykuł z userInfo["articleId"].
+/// Uprawnienie aps-environment: project.yml (entitlements), profil „TVML App Store” w sekrecie APPLE_PROFIL_TVML.
 @MainActor
 final class Powiadomienia: NSObject, ObservableObject, UNUserNotificationCenterDelegate {
     static let shared = Powiadomienia()

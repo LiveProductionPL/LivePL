@@ -227,6 +227,11 @@ targets:
         UIBackgroundModes: [audio]
         # nagłówki jak na tvml.pl: Open Sans (zmienna, SIL OFL, licencja w TVML/Czcionki/OFL.txt)
         UIAppFonts: [OpenSans.ttf]
+    # powiadomienia o nowych wpisach (APNs, serwer tvml.pl); profil „TVML App Store” ma aps-environment production
+    entitlements:
+      path: Wsparcie/TVML.entitlements
+      properties:
+        aps-environment: production
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.LiveProduction.TVML
