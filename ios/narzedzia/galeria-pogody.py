@@ -209,3 +209,8 @@ polowa = (len(pary) // 2 + 1) // 2 * 2
 arkusz(pary[:polowa], "arkusz-sceny-1.png", "Karta pogody na Starcie: sceny ze strony, dzień i noc (1/2)")
 arkusz(pary[polowa:], "arkusz-sceny-2.png", "Karta pogody na Starcie: sceny ze strony, dzień i noc (2/2)")
 arkusz(sorted(z_wariantu, key=z_wariantu.get)[:12], "arkusz-najgorsze.png", "12 wariantów z najsłabszym kontrastem")
+# wszystkie warianty (każda scena, dzień i noc, każda pogoda) po 24 na arkusz
+for i in range(0, len(wszystkie), 24):
+    nr = i // 24 + 1
+    arkusz(wszystkie[i:i + 24], f"arkusz-wszystkie-{nr:02d}.png",
+           f"Karta pogody: wszystkie warianty ({i + 1}–{min(i + 24, len(wszystkie))} z {len(wszystkie)})")

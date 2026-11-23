@@ -257,16 +257,14 @@ struct ScenaPogody: View {
         }
     }
 
-    /// Scena ze strony: rysowana w proporcjach karty ze strony (ok. 380 × 236 nad kartą daty), a niższa karta
-    /// pokazuje jej dolną część (wzgórza, miasto, ozdoby). Na scenach zwykłych pogoda z serwera jako nakładka
-    /// (chmury, opady, słońce, księżyc, mgła), na specjalnych (Leszno, Sylwester, biwak…) bez niej, jak na stronie.
+    /// Scena ze strony na całej grafice (współrzędne jak na stronie: ułamki szerokości i wysokości), bez kadrowania:
+    /// przy kadrowaniu dołu wyższej sceny kamienice i Ratusz wypadały za temperaturą i prognozą (galeria, budowa 54).
+    /// Na scenach zwykłych pogoda z serwera jako nakładka (chmury, opady, słońce, księżyc, mgła), na specjalnych
+    /// (Leszno, Sylwester, biwak…) bez niej, jak na stronie.
     private func rysujStrony(_ s: ScenaStrony, ctx: inout GraphicsContext, size: CGSize, t: Double) {
-        let w = size.width, h = size.height
-        let wysokosc = max(h, w * 0.62)
         var c = ctx
-        c.translateBy(x: 0, y: h - wysokosc)
         let war = warunki ?? WarunkiSceny(noc: noc)
-        s.rysuj(&c, size: CGSize(width: w, height: wysokosc), t: t, warunki: war)
+        s.rysuj(&c, size: size, t: t, warunki: war)
         if !s.specjalna, let e = efekt {
             rysujEfekt(ctx: &ctx, size: size, t: t, e: e, tylkoNakladka: true)
         }

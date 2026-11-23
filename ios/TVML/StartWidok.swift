@@ -629,7 +629,7 @@ struct KartaPogody: View {
     /// przy dużym tekście karta rośnie razem z nim.
     private var grafika: some View {
         ZStack(alignment: .topLeading) {
-            Color.clear.aspectRatio(2.15, contentMode: .fit)
+            Color.clear.aspectRatio(1.85, contentMode: .fit)
             tekst
         }
         .frame(maxWidth: .infinity)
