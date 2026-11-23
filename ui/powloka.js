@@ -100,6 +100,7 @@ function rysujProgramy() {
     el.classList.toggle('aktywny', !!S.aktywna && S.aktywna.id === p.id);
     el.classList.toggle('otwarty', p.otwarty);
     el.classList.toggle('laduje', p.laduje && !p.licznik);
+    el.classList.toggle('uspiony', !!p.uspiony);
 
     let licznik = el.querySelector('.licznik');
     if (p.licznik > 0) {
@@ -162,8 +163,9 @@ function rysujKarty() {
       elementyKart.set(k.id, el);
     }
     if (!przeciagany && nav.children[i] !== el) nav.insertBefore(el, nav.children[i] || null);
-    el.title = k.odAI ? `${k.tytul} (otwarta przez AI)` : k.tytul;
+    el.title = (k.odAI ? `${k.tytul} (otwarta przez AI)` : k.tytul) + (k.uspiona ? ' · uśpiona, otworzy się od nowa' : '');
     el.classList.toggle('od-ai', !!k.odAI);
+    el.classList.toggle('uspiona', !!k.uspiona);
     el.classList.toggle('aktywna', !!S.aktywna && S.aktywna.id === k.id);
     el.classList.toggle('laduje', k.laduje);
     const miejsce = el.querySelector('.ikonka');

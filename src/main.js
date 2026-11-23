@@ -397,6 +397,9 @@ function wyslij(kanal, dane) {
 }
 
 function laduj(k, url) {
+  // karta odłożona albo uśpiona dostała nowy adres (np. od AI): przy otwarciu nie wraca do starego
+  k.odlozona = null;
+  k.uspiona = false;
   k.wc.loadURL(url).catch(() => { /* błąd obsługuje did-fail-load */ });
 }
 
@@ -428,7 +431,8 @@ function nowyObiektKarty(id, program, widok) {
     licznik: 0,
     blad: null,
     nowa: !program,
-    szukanie: false
+    szukanie: false,
+    ostatnio: Date.now() // ostatnie użycie (do usypiania nieużywanych kart)
   };
 }
 
@@ -497,6 +501,7 @@ function aktywuj(id) {
   if (aktywnaId && aktywnaId !== id) {
     const poprzednia = karty.get(aktywnaId);
     if (poprzednia) {
+      poprzednia.ostatnio = Date.now();
       poprzednia.widok.setVisible(false);
       if (poprzednia.szukanie) {
         poprzednia.wc.stopFindInPage('keepSelection');
@@ -506,10 +511,12 @@ function aktywuj(id) {
     }
   }
   aktywnaId = id;
+  k.ostatnio = Date.now();
   k.widok.setVisible(true);
   if (k.odlozona) {
     const u = k.odlozona;
     k.odlozona = null;
+    k.uspiona = false; // uśpiona karta budzi się przy otwarciu
     laduj(k, u);
   }
   ulozWidoki();
@@ -563,6 +570,71 @@ function przelacz(krok) {
   if (!lista.length) return;
   const i = Math.max(0, lista.indexOf(aktywnaId));
   przejdzDo(lista[(i + krok + lista.length) % lista.length]);
+}
+
+// ---------------------------------------------------------------- usypianie nieużywanych kart
+// Jak „Oszczędzanie pamięci” w Chrome (Karol, 23.11: 24 procesy LivePL i 3,4 GB pamięci). Karta albo program,
+// których nikt nie oglądał od USYPIANIE_PO, oddają proces i pamięć: zostają na pasku z tytułem i ikoną, a po
+// kliknięciu ładują się od nowa, tak jak karty przywrócone po starcie. Nie usypiamy: aktywnej karty, karty, która
+// gra dźwięk, nagrywa albo udostępnia ekran, ma otwarte narzędzia albo pełny ekran, programów działających w tle
+// (Poczta: powiadomienia i licznik nieprzeczytanych) ani strony, która nie pozwala się zamknąć (beforeunload,
+// np. niezapisany artykuł w panelu redakcji); taką zostawiamy na kolejne pół godziny.
+// LIVEPL_USYPIANIE_S (do testów): czas w sekundach zamiast pół godziny
+const USYPIANIE_PO = (Number(process.env.LIVEPL_USYPIANIE_S) || 30 * 60) * 1000;
+
+function mozeSpac(k, teraz) {
+  if (k.id === aktywnaId || k.odlozona || k.usypianie || k.nowa || k.blad || k.laduje) return false;
+  if (k.program && k.program.wTle) return false;
+  if (pelnyEkran === k.id) return false;
+  if (teraz - (k.ostatnio || teraz) < USYPIANIE_PO) return false;
+  if (!/^https?:/i.test(k.adres || '')) return false;
+  const wc = k.wc;
+  if (!wc || wc.isDestroyed()) return false;
+  try {
+    if (wc.isCurrentlyAudible() || wc.isDevToolsOpened() || wc.isBeingCaptured()) return false;
+  } catch {
+    return false;
+  }
+  return true;
+}
+
+function uspij(k) {
+  const wc = k.wc, stary = k.widok;
+  k.usypianie = true;
+  const zamien = () => {
+    k.usypianie = false;
+    if (!win || win.isDestroyed() || karty.get(k.id) !== k || k.widok !== stary) return;
+    try { win.contentView.removeChildView(stary); } catch { /* już odpięty */ }
+    // nowy, pusty widok: adres czeka w odlozona, proces strony powstanie dopiero przy otwarciu karty
+    const widok = utworzWidok(k.program);
+    k.widok = widok;
+    k.wc = widok.webContents;
+    k.odlozona = k.adres;
+    k.laduje = false;
+    k.uspiona = true;
+    dodajWidok(k);
+    wyslijStan();
+  };
+  const odmowa = () => {
+    // strona chce zostać (beforeunload): nic nie tracimy, spróbujemy później
+    wc.removeListener('destroyed', zamien);
+    k.usypianie = false;
+    k.ostatnio = Date.now();
+  };
+  wc.once('destroyed', zamien);
+  wc.once('will-prevent-unload', odmowa);
+  try {
+    wc.close({ waitForBeforeUnload: true });
+  } catch {
+    odmowa();
+  }
+}
+
+function usypiajNieuzywane() {
+  const teraz = Date.now();
+  for (const k of [...karty.values()]) {
+    if (mozeSpac(k, teraz)) uspij(k);
+  }
 }
 
 function zamknij(id) {
@@ -839,7 +911,8 @@ function stan() {
       licznik: k ? k.licznik : 0,
       laduje: !!(k && k.laduje),
       blad: !!(k && k.blad),
-      otwarty: !!k
+      otwarty: !!k,
+      uspiony: !!(k && k.uspiona)
     };
   });
   let aktywna = null;
@@ -866,7 +939,7 @@ function stan() {
     programy: programyStan,
     karty: dodatkowe.map(id => {
       const k = karty.get(id);
-      return { id, tytul: k.tytul || k.adres || 'Nowa karta', ikonka: k.ikonka, laduje: k.laduje, adres: k.adres, odAI: !!k.odAI };
+      return { id, tytul: k.tytul || k.adres || 'Nowa karta', ikonka: k.ikonka, laduje: k.laduje, adres: k.adres, odAI: !!k.odAI, uspiona: !!k.uspiona };
     }),
     ai: dostepAI.stan(),
     aktywna,
@@ -2485,6 +2558,8 @@ app.whenReady().then(() => {
   const sprawdzAuto = () => { if (ustawienia.autoAktualizacje !== false) aktualizacje.sprawdz(); };
   setTimeout(sprawdzAuto, 6000);
   setInterval(sprawdzAuto, 4 * 60 * 60 * 1000);
+  // co minutę: karty nieużywane od pół godziny oddają pamięć (usypiajNieuzywane)
+  setInterval(usypiajNieuzywane, 60 * 1000);
 
   // po starcie najwyżej jedno okienko (po „Nie teraz” każde wraca dopiero po dobie):
   // 1. „Zarejestruj tę przeglądarkę” — jednym przyciskiem; przy okazji instaluje certyfikat urzędu,

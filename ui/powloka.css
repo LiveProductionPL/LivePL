@@ -824,3 +824,7 @@ kbd {
   flex: none;
   padding-left: 4px;
 }
+
+/* uśpiona karta albo program (oddały pamięć, otworzą się od nowa): przygaszone */
+.karta.uspiona .ikonka, .karta.uspiona .tytul { opacity: .55; }
+.program.uspiony .ik, .program.uspiony img { opacity: .55; }
