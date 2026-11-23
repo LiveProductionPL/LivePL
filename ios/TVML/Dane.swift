@@ -1284,9 +1284,48 @@ struct Wydarzenie: Identifiable, Hashable {
     var miesiac: String { poczatek.map { Wydarzenie.fMiesiac.string(from: $0).uppercased() } ?? "" }
     var dzienTygodnia: String { poczatek.map { Wydarzenie.fTydzien.string(from: $0) } ?? "" }
 
-    /// „sobota, 28 listopada 2026 · 18:00–20:00” albo „… · cały dzień”.
+    private static var kalendarz: Calendar {
+        var k = Calendar(identifier: .gregorian)
+        k.timeZone = TimeZone(identifier: "Europe/Warsaw") ?? .current
+        return k
+    }
+
+    /// Koniec do pokazania: całodniowe kończą się często o północy następnego dnia, wtedy ostatni dzień to dzień wcześniej.
+    var koniecDnia: Date? {
+        guard let k = koniec else { return nil }
+        let c = Wydarzenie.kalendarz.dateComponents([.hour, .minute, .second], from: k)
+        if calyDzien && c.hour == 0 && c.minute == 0 && c.second == 0 { return k.addingTimeInterval(-1) }
+        return k
+    }
+
+    /// Wydarzenie na kilka dni (np. wystawa): koniec innego dnia niż początek.
+    var wielodniowe: Bool {
+        guard let p = poczatek, let k = koniecDnia else { return false }
+        return !Wydarzenie.kalendarz.isDate(k, inSameDayAs: p)
+    }
+
+    /// Wielodniowe, które w danym dniu już trwa: zaczęło się wcześniej i jeszcze się nie skończyło.
+    func trwaW(_ dzien: Date) -> Bool {
+        guard wielodniowe, let p = poczatek, let k = koniecDnia else { return false }
+        let start = Wydarzenie.kalendarz.startOfDay(for: dzien)
+        return p < start && k >= start
+    }
+
+    /// „20 lis – 5 gru” (wielodniowe).
+    var zakres: String {
+        guard let p = poczatek, let k = koniecDnia else { return "" }
+        return Wydarzenie.fKrotka.string(from: p) + " – " + Wydarzenie.fKrotka.string(from: k)
+    }
+
+    /// „sobota, 28 listopada 2026 · 18:00–20:00” albo „… · cały dzień”; wielodniowe:
+    /// „piątek, 20 listopada 2026 – sobota, 5 grudnia 2026”.
     var dataPelna: String {
         guard let p = poczatek else { return "" }
+        if wielodniowe, let k = koniecDnia {
+            let od = Wydarzenie.fPelna.string(from: p) + (calyDzien ? "" : " " + Wydarzenie.fGodzina.string(from: p))
+            let doKonca = Wydarzenie.fPelna.string(from: k) + (calyDzien ? "" : " " + Wydarzenie.fGodzina.string(from: k))
+            return od + " – " + doKonca
+        }
         var t = Wydarzenie.fPelna.string(from: p)
         if calyDzien { return t + " · " + Napisy.t("app.eventAllDay", "cały dzień") }
         t += " · " + Wydarzenie.fGodzina.string(from: p)
@@ -1304,6 +1343,7 @@ struct Wydarzenie: Identifiable, Hashable {
     static var fMiesiac: DateFormatter { Jezyk.format("LLL") }
     static var fTydzien: DateFormatter { Jezyk.format("EEE") }
     static var fPelna: DateFormatter { Jezyk.format("EEEE, d MMMM yyyy") }
+    static var fKrotka: DateFormatter { Jezyk.format("d MMM") }
     static var fISO: DateFormatter { Jezyk.format("yyyy-MM-dd", posix: true) }
 }
 

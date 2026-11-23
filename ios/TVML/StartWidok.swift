@@ -749,6 +749,34 @@ struct KartaPogody: View {
 struct WierszWydarzenia: View {
     @EnvironmentObject private var m: Magazyn
     let wydarzenie: Wydarzenie
+    /// Dzień wybrany w kalendarzu („2026-11-23”); nil = dziś. Wystawa, która trwa od 20 listopada, w dniu 23 listopada
+    /// ma na kafelku 23 LIS, a nie dzień rozpoczęcia (Karol, 23.11: „co tu robi ta data?”).
+    var naDzien: String? = nil
+
+    private var dzienOdniesienia: Date { naDzien.flatMap { Wydarzenie.fISO.date(from: $0) } ?? Date() }
+
+    /// Dzień i miesiąc na kafelku: wybrany dzień, gdy wielodniowe już trwa, inaczej dzień rozpoczęcia.
+    private var kafelek: (dzien: String, miesiac: String) {
+        guard wydarzenie.trwaW(dzienOdniesienia) else { return (wydarzenie.dzien, wydarzenie.miesiac) }
+        let d = dzienOdniesienia
+        return (Wydarzenie.fDzien.string(from: d), Wydarzenie.fMiesiac.string(from: d).uppercased())
+    }
+
+    /// Linia pod tytułem: przy wielodniowym zakres „20 lis – 5 gru”, inaczej dzień tygodnia i godzina; potem miejsce.
+    private var podpis: String {
+        var czesci: [String] = []
+        if wydarzenie.wielodniowe {
+            czesci.append(wydarzenie.zakres)
+        } else {
+            let kiedy: String = wydarzenie.obraz == nil
+                ? wydarzenie.dzienTygodnia
+                : wydarzenie.dzienTygodnia + " " + wydarzenie.dzien + " " + wydarzenie.miesiac.lowercased()
+            czesci.append(kiedy)
+            czesci.append(wydarzenie.godzina)
+        }
+        czesci.append(wydarzenie.miejsce)
+        return czesci.filter { !$0.isEmpty }.joined(separator: " · ")
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
@@ -758,9 +786,10 @@ struct WierszWydarzenia: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     .accessibilityHidden(true)
             } else {
+                let k = kafelek
                 VStack(spacing: 0) {
-                    Text(wydarzenie.dzien).font(Czcionka.naglowek(22)).foregroundStyle(m.motyw.napisNaAkcencie)
-                    Text(wydarzenie.miesiac).czcionka(11, .bold).foregroundStyle(m.motyw.napisNaAkcencie)
+                    Text(k.dzien).font(Czcionka.naglowek(22)).foregroundStyle(m.motyw.napisNaAkcencie)
+                    Text(k.miesiac).czcionka(11, .bold).foregroundStyle(m.motyw.napisNaAkcencie)
                 }
                 .frame(width: 52)
                 .frame(minHeight: 56)
@@ -768,7 +797,7 @@ struct WierszWydarzenia: View {
             }
             VStack(alignment: .leading, spacing: 3) {
                 Text(wydarzenie.tytul).czcionka(15, .semibold).foregroundStyle(Barwy.tekst).lineLimit(3)
-                Text([wydarzenie.obraz == nil ? wydarzenie.dzienTygodnia : wydarzenie.dzienTygodnia + " " + wydarzenie.dzien + " " + wydarzenie.miesiac.lowercased(), wydarzenie.godzina, wydarzenie.miejsce].filter { !$0.isEmpty }.joined(separator: " · "))
+                Text(podpis)
                     .czcionka(12).foregroundStyle(Barwy.slaby).lineLimit(2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -992,7 +1021,7 @@ struct KalendarzWidok: View {
             if let lista = listaDnia, !lista.isEmpty {
                 VStack(spacing: 0) {
                     ForEach(Array(lista.enumerated()), id: \.element.id) { i, w in
-                        Button { otworz(w) } label: { WierszWydarzenia(wydarzenie: w) }.buttonStyle(.plain)
+                        Button { otworz(w) } label: { WierszWydarzenia(wydarzenie: w, naDzien: wybranyDzien) }.buttonStyle(.plain)
                         if i < lista.count - 1 { Barwy.ramka.frame(height: 1) }
                     }
                 }
