@@ -83,8 +83,8 @@ class Artykul(j: JSONObject) {
     /** „1 dzień temu”, jak na stronie. */
     val kiedy: String get() = data?.let { Daty.temu(it) } ?: ""
 
-    override fun equals(other: Any?) = other is Artykul && other.id == id
-    override fun hashCode() = id
+    // bez equals po numerze: stan Compose pomija wartość „równą” poprzedniej, więc tłumaczenie tego samego artykułu
+    // (ten sam numer) albo lista po zmianie języka nie odświeżałyby ekranu; listy i ekrany mają własne klucze z numerem
 
     companion object {
         const val SPONSOROWANE = "artykuly-sponsorowane"
@@ -378,8 +378,7 @@ class Wydarzenie(j: JSONObject) {
             return t
         }
 
-    override fun equals(other: Any?) = other is Wydarzenie && other.id == id
-    override fun hashCode() = id
+    // bez equals po numerze, jak w Artykul: nowa wersja wydarzenia (inny język) ma odświeżać ekran
 }
 
 /** Sonda z /api/v1/spotlight albo /api/v1/polls/{id}: pytanie, odpowiedzi i wyniki (pokazywane dopiero po głosie). */

@@ -99,7 +99,7 @@ fun ArtykulEkran(m: Magazyn, poczatkowy: Artykul) {
     fun pl(t: String): AnnotatedString = if (polskiTekst) AnnotatedString(t, SpanStyle(localeList = LocaleList("pl-PL"))) else AnnotatedString(t)
     val wielkosc = listOf(16, 18, 21)[m.rozmiar.coerceIn(0, 2)]
     val przewijanie = rememberScrollState()
-    // klucze to treść, a nie artykuł: Artykul porównuje się po numerze, a tłumaczenie ma ten sam numer
+    // klucze to treść: ten sam artykuł po przetłumaczeniu ma inną treść
     val bloki = remember(pelny?.tresc, oryginal?.tresc, pokazOryginal) {
         (if (pokazOryginal && oryginal != null) oryginal else pelny)?.tresc?.let { Html.bloki(it) }
     }
