@@ -225,6 +225,10 @@ Potrzebne są Node, kompilator C# z Windows (jest w każdym Windows) i `xz.exe` 
 
 Stronę app.livepl.eu przygotowuje `node ../app-livepl/przygotuj.mjs ..\Wydania\LivePL\x.y.z\LivePL-Instalator-x.y.z.exe <folder>`. Jeśli obok leżą pełny instalator i pakiet (także w `na-serwer`), strona dostaje przycisk do instalatora internetowego, link „Pełny instalator” i sumy obu plików, a do `pobierz/` trafiają wszystkie trzy.
 
+Instalator kopiuje nową wersję obok (`LivePL.nowa-…`) i dopiero na końcu podmienia folder programu. Gdy coś zablokuje plik (np. antywirus LivePL.exe), poprzednia wersja zostaje, a komunikat mówi, co kliknąć w Zabezpieczeniach Windows. Krótkie blokady przy skanowaniu nowego pliku instalator sam ponawia.
+
+PowerShell (certyfikaty, urząd LivePL, YubiKey, BitLocker) LivePL uruchamia jawnie przez `-Command`, bez zakodowanych poleceń i bez `-ExecutionPolicy Bypass`: programy antywirusowe dla firm, np. Bitdefender Endpoint Security, uznają zakodowane polecenia za zachowanie wirusa i usuwają cały program.
+
 Test instalatora bez dotykania systemu: `--cel=<folder>` instaluje do tego folderu bez skrótów, wpisu w Windows i certyfikatu. Zmienna `LIVEPL_PAKIET_ADRES` (tylko `https://` albo `http://127.0.0.1`) każe instalatorowi internetowemu pobrać pakiet z innego adresu, a suma i tak musi się zgadzać.
 
 ## Licencja
