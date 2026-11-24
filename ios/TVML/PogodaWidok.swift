@@ -636,9 +636,10 @@ struct ScenaPogody: View {
     private func panorama(ctx: inout GraphicsContext, w: CGFloat, h: CGFloat) {
         // kafel: skala najwyżej 1,2 (na iPadzie miasto na środku, a nie powiększone na pół karty)
         let s = kafel ? min(w / 358, 1.2) : w / 358
-        let lewo = (w - 358 * s) / 2
-        // kafel: cienki pas ziemi o stałej wysokości, pod nim belka z datą (KartaPogody)
-        let gora = kafel ? h - Self.pasZiemiKafla - 108 * s : h - 130 * s
+        // kafel (karta Startu, prawie kwadrat): ratusz na 0,666 szerokości jak w scenach świątecznych, linia ziemi
+        // na h·0,645 jak Rynek, ziemia do dołu karty pod kolumnami i plakietką (Karol 24.11: „Nic nie widać … kiepsko”)
+        let lewo = kafel ? w * 0.666 - 186 * s : (w - 358 * s) / 2
+        let gora = kafel ? h * 0.645 - 108 * s : h - 130 * s
         func r(_ x: CGFloat, _ y: CGFloat, _ sz: CGFloat, _ wy: CGFloat) -> CGRect { CGRect(x: lewo + x * s, y: gora + y * s, width: sz * s, height: wy * s) }
         func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: lewo + x * s, y: gora + y * s) }
         let miasto = noc ? Color(hex: "#0a1226") : Color(hex: "#1c2b45")

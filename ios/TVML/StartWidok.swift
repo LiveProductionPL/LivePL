@@ -608,7 +608,7 @@ struct KafelPogody: View {
                         efekt: m.pogoda?.efekt, okolicznosciowy: m.motyw.rodzaj != .zwykly,
                         scenaKarty: scena,
                         warunki: WarunkiSceny.z(stan: m.pogoda?.ikona ?? "", efekt: m.pogoda?.efekt, dzien: m.pogoda?.dzien ?? true,
-                                                ustawienia: m.ustawieniaScen[m.pogoda?.ikona ?? ""], karta: false, bezRuchu: bezRuchu))
+                                                ustawienia: m.ustawieniaScen[m.pogoda?.ikona ?? ""], karta: true, bezRuchu: bezRuchu))
         }
         .buttonStyle(.plain)
         .accessibilityLabel(opisDostepnosci(linie))

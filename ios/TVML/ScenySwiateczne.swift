@@ -37,7 +37,7 @@ enum ScenySwiateczne {
         let kr = koloryRatusza(u)
         ratuszKorpus(g, u, kr)
         ratuszWieza(g, u, kr)
-        if u.karta { poduszki(g, u) }
+        // poduszki pod kolumnami rysuje karta (SwiftUI), nie scena
         pierwszyPlan(g, u)
         if u.scena != .sylwester { platki(g, u) }
     }
@@ -103,7 +103,8 @@ fileprivate extension ScenySwiateczne {
         let h: CGFloat = size.height
         let scH: CGFloat = h / 276
         let karta: Bool = warunki.karta
-        let ygKarta: CGFloat = h * 0.856 - 2 * scH
+        // karta Startu: postacie i instalacja wyżej, nad kolumnami i plakietką z datą (Karol 24.11, test Androida 16)
+        let ygKarta: CGFloat = h * 0.79
         let yg: CGFloat = karta ? ygKarta : h * 0.86
         let waska: Bool = w < 560
         let cxR: CGFloat = waska ? w * 0.666 : w * 0.68
@@ -1124,7 +1125,9 @@ fileprivate extension ScenySwiateczne {
         let stopy: [Gradient.Stop] = [stC(rgba(212, 175, 55, a0), 0), stC(rgba(212, 175, 55, 0), 1)]
         poswiata(g, CGPoint(x: cx, y: u.yg - 26 * s), 2, 44 * s, stopy)
 
-        let cokol = zaokr(cx - 33 * s, u.yg - 8.5 * s, 66 * s, 8.5 * s, 2.5 * s)
+        // Sylwester: „2026/2027” na szerszym cokole (Karol: „Tu rok 2026/2027 bym dał i by go było widać”)
+        let szer: CGFloat = u.scena == .sylwester ? 98 : 66
+        let cokol = zaokr(cx - szer / 2 * s, u.yg - 8.5 * s, szer * s, 8.5 * s, 2.5 * s)
         wypelnij(g, cokol, hx(0x0e1628))
         obrys(g, cokol, hx(0xdabe48), max(1.1, 1.4 * s))
 
@@ -1204,8 +1207,10 @@ fileprivate extension ScenySwiateczne {
     static func napisRoku(_ g: GraphicsContext, _ u: Uklad) {
         let s = u.scH
         let rok: Int = u.miesiac == 1 ? u.rok : u.rok + 1
-        let tekst: String = String(rok)
-        let fs: CGFloat = max(16, (23 * s).rounded())
+        // Sylwester: stary i nowy rok, mniejszą czcionką, żeby zmieścił się na cokole; Nowy Rok: sam nowy rok
+        let sylwester: Bool = u.scena == .sylwester
+        let tekst: String = sylwester ? "\(rok - 1)/\(rok)" : String(rok)
+        let fs: CGFloat = sylwester ? max(13, (17 * s).rounded()) : max(16, (23 * s).rounded())
         // JS: linia bazowa w yg - 13.5scH; środek cyfr ok. 0.355 em wyżej
         let bazowa: CGFloat = u.yg - 13.5 * s
         let srodekY: CGFloat = bazowa - fs * 0.355

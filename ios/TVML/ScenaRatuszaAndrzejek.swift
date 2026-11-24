@@ -779,7 +779,8 @@ enum ScenaAndrzejek {
         let scH: CGFloat = h / 276
         let karta: Bool = warunki.karta
         // linia podłogi: w karcie tuż nad kartą daty
-        let ygKarty: CGFloat = h * 0.80 + h * 0.056 - 2 * scH
+        // karta Startu: wyżej, nad kolumnami i plakietką z datą (jak sceny świąteczne)
+        let ygKarty: CGFloat = h * 0.79
         let yg: CGFloat = karta ? ygKarty : (h * 0.755)
 
         niebo(&ctx, w: w, h: h, noc: noc)

@@ -195,7 +195,7 @@ enum GaleriaPogody {
                 var data = etykieta.string(from: chwila)
                 data = data.prefix(1).uppercased(with: Locale(identifier: "pl_PL")) + data.dropFirst()
                 let warunki = WarunkiSceny.z(stan: jasno ? "sunny" : "clear-night", efekt: nil, dzien: jasno,
-                                             ustawienia: nil, karta: false, bezRuchu: false)
+                                             ustawienia: nil, karta: true, bezRuchu: false)
                 let karta = KartaPogody(temperatura: "−3,0°C", opis: "Zachmurzenie duże",
                                         prognoza: [(nazwa: "Pn", max: "−1,0°", ikona: "snowy"), (nazwa: "Wt", max: "0,5°", ikona: "snowy"), (nazwa: "Śr", max: "−2,4°", ikona: "snowy")],
                                         pomiary: [("Wiatr", "22,0 km/h"), ("Wilgotność", "92,0%"), ("Ciśnienie", "1018,5 hPa")], ikonaTeraz: "cloudy",
