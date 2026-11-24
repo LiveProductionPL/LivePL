@@ -56,10 +56,12 @@ struct StartWidok: View {
         }
         .refreshable { await m.odswiez(wymus: true) }
         .background(Barwy.tlo)
-        .sheet(item: $strona) { s in Safari(url: URL(string: "https://tvml.pl/" + s.sciezka)!).ignoresSafeArea() }
+        // #alert: formularz w aplikacji, gdy serwer go zgłasza (config.alerts.native), inaczej strona
+        .sheet(item: $strona) { s in OknoStrony(strona: s) }
         .sheet(item: $film) { f in
             if let adres = f.osadzenie { Odtwarzacz(adres: adres) }
         }
+        .onAppear { if UstawieniaAlertu.otworzNaStarcie() { strona = StronaWWW(sciezka: "#alert") } }
     }
 }
 
@@ -80,7 +82,7 @@ struct BlokWidok: View {
         case "weather":
             KafelPogody()
         case "alert":
-            // formularz Alertu TVML od razu (tvml.pl/#alert, PR #124 w Panel-TVML), a nie sama strona główna
+            // formularz Alertu TVML: w aplikacji (AlertWidok), a bez config.alerts.native tvml.pl/#alert (PR #124 w Panel-TVML)
             Button { strona = StronaWWW(sciezka: "#alert") } label: {
                 Label(Napisy.t("app.reportIncident", "Zgłoś zdarzenie (Alert TVML)"), systemImage: "exclamationmark.triangle.fill")
                     .czcionka(15, .bold).foregroundStyle(.white)

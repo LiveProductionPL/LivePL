@@ -44,7 +44,7 @@ struct WiecejWidok: View {
     var body: some View {
         List {
             Section {
-                // formularz Alertu TVML otwiera się od razu (tvml.pl/#alert), więc bez podpowiedzi, gdzie go szukać
+                // formularz Alertu TVML od razu: w aplikacji (AlertWidok) albo tvml.pl/#alert, gdy serwer go nie zgłasza
                 Button { strona = StronaWWW(sciezka: "#alert") } label: {
                     Label(Napisy.t("app.reportIncident", "Zgłoś zdarzenie (Alert TVML)"), systemImage: "exclamationmark.triangle")
                         .czcionka(16, .bold).foregroundStyle(Color(hex: "#c8102e"))
@@ -116,7 +116,7 @@ struct WiecejWidok: View {
         }
         .scrollContentBackground(.hidden)
         .background(Barwy.tlo)
-        .sheet(item: $strona) { s in Safari(url: URL(string: "https://tvml.pl/" + s.sciezka)!).ignoresSafeArea() }
+        .sheet(item: $strona) { s in OknoStrony(strona: s) }
         .task { if m.stronyGotowe == nil { await m.sprawdzStrony() } }
     }
 

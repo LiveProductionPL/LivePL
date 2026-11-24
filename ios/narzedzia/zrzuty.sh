@@ -89,6 +89,10 @@ if [ -n "${5:-}" ] && [ -d "$5" ]; then
   # wygląd z motywem: Wigilia (sanie przy logo) i Andrzejki (świeca przy logo, kolory Nocy wróżb)
   zrzut 18-tvml-wigilia dark -motyw wigilia -tvml-jezyk pl
   zrzut 19-tvml-andrzejki dark -motyw andrzejki -tvml-jezyk pl
+  # „Zgłoś zdarzenie” w aplikacji (AlertWidok): pusty, wypełniony przykładem (dół), potwierdzenie; nic nie idzie do serwera
+  zrzut 20-tvml-alert light -ekran alert -alert-natywny YES -tvml-jezyk pl
+  zrzut 21-tvml-alert-wypelniony dark -ekran alert -alert-natywny YES -alert-przyklad YES -tvml-jezyk pl
+  zrzut 22-tvml-alert-wyslany light -ekran alert -alert-natywny YES -alert-przyklad wyslane -tvml-jezyk pl
   # „Większy tekst” na poziomie AX3 (górna granica w aplikacji)
   xcrun simctl ui "$UDID" content_size accessibility-extra-large || true
   zrzut 15-tvml-duzy-tekst light
