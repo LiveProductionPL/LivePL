@@ -43,6 +43,42 @@ import androidx.compose.foundation.clickable
  * Domyślnie wyłączone; o zgodę Androida 13+ aplikacja pyta dopiero po włączeniu głównego przełącznika.
  * Po odmowie zostaje przycisk do ustawień powiadomień w telefonie.
  */
+/**
+ * Okno przy pierwszym uruchomieniu (także po aktualizacji), raz: „Włączyć powiadomienia o nowych wpisach?” (Karol, 24.11).
+ * „Tak” → na Androidzie 13+ systemowa prośba o zgodę, a po niej (i od razu na starszych) rejestracja ze wszystkimi
+ * tematami. „Nie” → nic, bez prośby systemowej i bez ponownego pytania.
+ */
+@Composable
+fun PytanieOPowiadomienia() {
+    val kontekst = LocalContext.current
+    // odbiornik odpowiedzi systemu zawsze w kompozycji: gdyby znikał razem z oknem, zgoda nigdy by nie wróciła
+    var czekaNaSystem by remember { mutableStateOf(false) }
+    val prosba = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { tak ->
+        czekaNaSystem = false
+        Powiadomienia.przygotuj(kontekst)
+        if (tak) Powiadomienia.ustawWlaczone(kontekst, true) else Powiadomienia.zapytano(kontekst)
+    }
+    if (!Powiadomienia.doZapytania || czekaNaSystem) return
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = {},
+        title = { Text(tl("app.pushAskTitle", "Włączyć powiadomienia o nowych wpisach?")) },
+        text = { Text(tl("app.pushAskText", "Pilne informacje i nowe artykuły z Leszna i powiatu. Tematy zmienisz w Więcej → Powiadomienia.")) },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = {
+                when {
+                    Powiadomienia.zgodaSystemu(kontekst) -> Powiadomienia.ustawWlaczone(kontekst, true)
+                    Build.VERSION.SDK_INT >= 33 -> { czekaNaSystem = true; prosba.launch(Manifest.permission.POST_NOTIFICATIONS) }
+                    // starszy Android z powiadomieniami wyłączonymi w ustawieniach: zapamiętujemy wybór, system ich nie pokaże
+                    else -> Powiadomienia.ustawWlaczone(kontekst, true)
+                }
+            }) { Text(tl("app.yes", "Tak"), fontWeight = FontWeight.Bold) }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = { Powiadomienia.zapytano(kontekst) }) { Text(tl("app.no", "Nie")) }
+        },
+    )
+}
+
 @Composable
 fun PowiadomieniaEkran(m: Magazyn) {
     val b = LocalBarwy.current

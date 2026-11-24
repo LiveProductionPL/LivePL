@@ -1,14 +1,21 @@
 package pl.tvml
 
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
-import android.view.View
-import android.view.ViewGroup
-import android.webkit.WebChromeClient
+import android.content.pm.ActivityInfo
+import android.os.Handler
+import android.os.Looper
+import android.view.MotionEvent
+import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.FrameLayout
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,11 +41,19 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -47,7 +62,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.platform.LocalAccessibilityManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -58,8 +80,16 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.net.toUri
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val tloWideo = kolor(0x070d1a)
@@ -135,73 +165,252 @@ fun KafelFilmu(f: Film, modifier: Modifier = Modifier, zPodpisem: Boolean = true
     if (otwarty) Odtwarzacz(f.id) { otwarty = false }
 }
 
+/** Stany odtwarzacza YouTube IFrame API (YT.PlayerState). */
+private object StanYT {
+    const val NIE_RUSZYL = -1
+    const val KONIEC = 0
+    const val GRA = 1
+    const val BUFOROWANIE = 3
+}
+
+private val ID_FILMU = Regex("[A-Za-z0-9_-]{6,20}")
+
+private fun Context.aktywnosc(): Activity? {
+    var c: Context = this
+    while (c is ContextWrapper) {
+        if (c is Activity) return c
+        c = c.baseContext
+    }
+    return null
+}
+
+/** Most JavaScript → Kotlin: stan, czas i długość filmu co pół sekundy, kod błędu YouTube. Zawsze na wątku głównym. */
+private class MostFilmu(val naStan: (Int, Double, Double) -> Unit, val naBlad: (Int) -> Unit) {
+    private val glowny = Handler(Looper.getMainLooper())
+    @JavascriptInterface fun stan(s: Int, czas: Double, dlugosc: Double) { glowny.post { naStan(s, czas, dlugosc) } }
+    @JavascriptInterface fun blad(kod: Int) { glowny.post { naBlad(kod) } }
+}
+
+private fun mmss(s: Double): String {
+    val c = s.coerceAtLeast(0.0).toInt()
+    return if (c >= 3600) "%d:%02d:%02d".format(c / 3600, c / 60 % 60, c % 60) else "%d:%02d".format(c / 60, c % 60)
+}
+
 /**
- * Film z YouTube bez ciasteczek śledzących (youtube-nocookie), na czarnym tle, z pełnym ekranem.
- * YouTube od 2025 r. wymaga strony osadzającej (inaczej „Błąd 153”), więc odtwarzacz stoi na stronie o adresie
- * https://tvml.pl, a iframe ma parametr origin i referrerpolicy. Zapasowo „Otwórz w YouTube”.
+ * Film z YouTube od razu na pełnym ekranie w poziomie (Karol, 24.11, „droga 1”): odtwarzacz IFrame API bez
+ * przycisków i podpowiedzi YouTube (controls=0, rel=0, iv_load_policy=3, fs=0, disablekb=1), z własnym paskiem:
+ * start/pauza, ±10 s, postęp z przewijaniem, zamknij. Logo i tytułu YouTube nie zasłaniamy (warunki YouTube API):
+ * róg z logo zostaje wolny, a stuknięcia przechodzą do odtwarzacza. youtube-nocookie na stronie o adresie
+ * https://tvml.pl (bez tego „Błąd 153”). Paski systemowe schowane (wracają po przesunięciu palcem); po zamknięciu
+ * poprzednia orientacja. Przy błędzie odtwarzania „Otwórz w YouTube”.
  */
-@SuppressLint("SetJavaScriptEnabled")
+@SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
 @Composable
 fun Odtwarzacz(id: String, zamknij: () -> Unit) {
     val kontekst = LocalContext.current
-    Dialog(onDismissRequest = zamknij, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Column(Modifier.fillMaxSize().background(Color.Black)) {
-            Row(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    tl("app.openYoutube", "Otwórz w YouTube"),
-                    Modifier.clip(CircleShape).clickable(role = Role.Button) {
-                        runCatching { kontekst.startActivity(Intent(Intent.ACTION_VIEW, "https://www.youtube.com/watch?v=$id".toUri())) }
-                    }.padding(horizontal = 12.dp, vertical = 10.dp),
-                    color = szaryWideo, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                )
-                Box(Modifier.weight(1f))
-                Text(
-                    tl("app.done", "Gotowe"),
-                    Modifier.clip(CircleShape).clickable(role = Role.Button, onClick = zamknij).padding(horizontal = 12.dp, vertical = 10.dp),
-                    color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold,
-                )
+    val aktywnosc = remember(kontekst) { kontekst.aktywnosc() }
+    DisposableEffect(aktywnosc) {
+        val poprzednia = aktywnosc?.requestedOrientation
+        aktywnosc?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        onDispose { if (aktywnosc != null && poprzednia != null) aktywnosc.requestedOrientation = poprzednia }
+    }
+    var stan by remember { mutableIntStateOf(StanYT.NIE_RUSZYL) }
+    var czas by remember { mutableDoubleStateOf(0.0) }
+    var dlugosc by remember { mutableDoubleStateOf(0.0) }
+    var przeciagany by remember { mutableStateOf<Float?>(null) }
+    var blad by remember { mutableStateOf(if (ID_FILMU.matches(id)) null else 2) }
+    var widoczne by remember { mutableStateOf(true) }
+    var dotyk by remember { mutableLongStateOf(0L) }
+    var web by remember { mutableStateOf<WebView?>(null) }
+    // z TalkBackiem pasek zostaje cały czas (jak z VoiceOver na iPhonie)
+    val czytnik = remember(kontekst) {
+        (kontekst.getSystemService(Context.ACCESSIBILITY_SERVICE) as? android.view.accessibility.AccessibilityManager)?.isTouchExplorationEnabled == true
+    }
+    fun pokaz() { widoczne = true; dotyk = System.nanoTime() }
+    fun js(kod: String) { web?.evaluateJavascript("try{$kod}catch(e){}", null); pokaz() }
+    // pasek chowa się po 3 s grania (z TalkBackiem dłużej, według ustawień dostępności)
+    val dostepnosc = LocalAccessibilityManager.current
+    LaunchedEffect(widoczne, dotyk, stan) {
+        if (widoczne && stan == StanYT.GRA && przeciagany == null) {
+            delay(dostepnosc?.calculateRecommendedTimeoutMillis(3000, containsIcons = true, containsControls = true) ?: 3000)
+            widoczne = false
+        }
+    }
+    // w tle film staje (i nie gra dźwięk), po powrocie można go wznowić paskiem
+    val cykl = LocalLifecycleOwner.current
+    DisposableEffect(cykl) {
+        val obserwator = LifecycleEventObserver { _, z ->
+            when (z) {
+                Lifecycle.Event.ON_PAUSE -> { web?.evaluateJavascript("try{gracz.pauseVideo()}catch(e){}", null); web?.onPause() }
+                Lifecycle.Event.ON_RESUME -> web?.onResume()
+                else -> {}
             }
-            AndroidView(
+        }
+        cykl.lifecycle.addObserver(obserwator)
+        onDispose { cykl.lifecycle.removeObserver(obserwator) }
+    }
+    Dialog(onDismissRequest = zamknij, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+        val widok = LocalView.current
+        DisposableEffect(widok) {
+            val okno = (widok.parent as? DialogWindowProvider)?.window
+            val sterownik = okno?.let { WindowCompat.getInsetsController(it, widok) }
+            sterownik?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            sterownik?.hide(WindowInsetsCompat.Type.systemBars())
+            onDispose { sterownik?.show(WindowInsetsCompat.Type.systemBars()) }
+        }
+        Box(Modifier.fillMaxSize().background(Color.Black)) {
+            if (blad == null) AndroidView(
                 factory = { ctx ->
-                    val pojemnik = FrameLayout(ctx)
-                    val web = WebView(ctx).apply {
+                    WebView(ctx).apply {
                         setBackgroundColor(android.graphics.Color.BLACK)
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.mediaPlaybackRequiresUserGesture = false
                         settings.userAgentString = settings.userAgentString + " " + Siec.agent
                         webViewClient = object : WebViewClient() {
-                            // linki z odtwarzacza (logo YouTube, „Obejrzyj na YouTube”) w aplikacji YouTube albo przeglądarce
+                            // logo YouTube i tytuł filmu prowadzą do YouTube: w aplikacji YouTube albo w przeglądarce
                             override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean {
                                 if (!r.isForMainFrame) return false
                                 runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, r.url)) }
                                 return true
                             }
                         }
-                        webChromeClient = object : WebChromeClient() {
-                            private var pelny: View? = null
-                            override fun onShowCustomView(view: View, callback: CustomViewCallback) {
-                                pelny = view
-                                pojemnik.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-                            }
-                            override fun onHideCustomView() {
-                                pelny?.let { pojemnik.removeView(it) }
-                                pelny = null
+                        addJavascriptInterface(MostFilmu({ s, t, d -> stan = s; czas = t; dlugosc = d }, { k -> blad = k }), "TVML")
+                        if (BuildConfig.DEBUG) webChromeClient = object : android.webkit.WebChromeClient() {
+                            override fun onConsoleMessage(m: android.webkit.ConsoleMessage): Boolean {
+                                android.util.Log.d("TVML-Film", "${m.message()} (${m.lineNumber()})")
+                                return true
                             }
                         }
                         val strona = """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
-                            |<style>html,body{margin:0;height:100%;background:#000}iframe{position:absolute;inset:0;width:100%;height:100%;border:0}</style></head>
-                            |<body><iframe src="https://www.youtube-nocookie.com/embed/$id?autoplay=1&playsinline=1&rel=0&origin=https%3A%2F%2Ftvml.pl" referrerpolicy="strict-origin-when-cross-origin"
-                            |allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></body></html>""".trimMargin()
+                            |<style>html,body{margin:0;height:100%;background:#000;overflow:hidden}#p{position:absolute;inset:0;width:100%;height:100%}</style></head>
+                            |<body><div id="p"></div><script>
+                            |var gracz;
+                            |function zglos(){try{TVML.stan(gracz.getPlayerState(),gracz.getCurrentTime()||0,gracz.getDuration()||0)}catch(e){}}
+                            |function onYouTubeIframeAPIReady(){gracz=new YT.Player('p',{host:'https://www.youtube-nocookie.com',videoId:'$id',width:'100%',height:'100%',
+                            |playerVars:{autoplay:1,controls:0,rel:0,iv_load_policy:3,fs:0,playsinline:1,disablekb:1,origin:'https://tvml.pl'},
+                            |events:{onReady:function(e){e.target.playVideo();zglos()},onStateChange:zglos,onError:function(e){TVML.blad(e.data|0)}}})}
+                            |setInterval(zglos,500);
+                            |</script><script src="https://www.youtube.com/iframe_api"></script></body></html>""".trimMargin()
                         loadDataWithBaseURL(Siec.BAZA, strona, "text/html", "utf-8", null)
+                        web = this
                     }
-                    pojemnik.addView(web, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
-                    pojemnik.tag = web
-                    pojemnik
                 },
-                onRelease = { (it.tag as? WebView)?.destroy() },
-                modifier = Modifier.fillMaxWidth().weight(1f),
+                onRelease = { it.destroy(); web = null },
+                modifier = Modifier.fillMaxSize(),
             )
+            // przezroczysta warstwa nad filmem (bez przyciemniania, logo i tytuł YouTube zostają widoczne): stuknięcie
+            // pokazuje albo chowa pasek, więc nic nie otwiera YouTube przypadkiem (jak na iPhonie)
+            Box(
+                Modifier.fillMaxSize().clearAndSetSemantics { }
+                    .pointerInput(Unit) { detectTapGestures { if (widoczne) widoczne = false else pokaz() } },
+            )
+            if (blad != null) {
+                // błąd YouTube (osadzanie wyłączone, „potwierdź, że nie jesteś botem”…): czarne tło zasłania stronę błędu,
+                // zostaje komunikat, „Otwórz w YouTube” i samo „Zamknij”
+                Box(Modifier.fillMaxSize().background(Color.Black))
+                BladFilmu(id)
+                PrzyciskFilmu(Ikony.zamknij, tl("app.close", "Zamknij"), Modifier.align(Alignment.TopStart).padding(start = 20.dp, top = 12.dp), 44.dp, onClick = zamknij)
+            } else AnimatedVisibility(widoczne || stan != StanYT.GRA || czytnik, Modifier.fillMaxSize(), enter = fadeIn(), exit = fadeOut()) {
+                PasekFilmu(
+                    gotowy = dlugosc > 0,
+                    gra = stan == StanYT.GRA || stan == StanYT.BUFOROWANIE,
+                    czas = przeciagany?.let { it * dlugosc } ?: czas, dlugosc = dlugosc,
+                    naPrzycisk = {
+                        when (stan) {
+                            StanYT.GRA, StanYT.BUFOROWANIE -> js("gracz.pauseVideo()")
+                            StanYT.KONIEC -> js("gracz.seekTo(0,true);gracz.playVideo()")
+                            else -> js("gracz.playVideo()")
+                        }
+                    },
+                    naPrzesun = { o ->
+                        val cel = (czas + o).coerceIn(0.0, (dlugosc - 1).coerceAtLeast(0.0))
+                        czas = cel
+                        js("gracz.seekTo($cel,true)")
+                    },
+                    naSuwak = { przeciagany = it; pokaz() },
+                    naSuwakKoniec = { przeciagany?.let { u -> js("gracz.seekTo(${u * dlugosc},true)"); czas = u * dlugosc }; przeciagany = null },
+                    zamknij = zamknij,
+                )
+            }
         }
+    }
+}
+
+/**
+ * Własny pasek filmu jak na iPhonie: zamknij w lewym górnym rogu, przyciski na środku (nieaktywne, dopóki film
+ * się nie wczyta), postęp na dole z wolnym prawym miejscem na logo YouTube.
+ */
+@Composable
+private fun PasekFilmu(
+    gotowy: Boolean, gra: Boolean, czas: Double, dlugosc: Double,
+    naPrzycisk: () -> Unit, naPrzesun: (Int) -> Unit, naSuwak: (Float) -> Unit, naSuwakKoniec: () -> Unit, zamknij: () -> Unit,
+) {
+    Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))) {
+        PrzyciskFilmu(Ikony.zamknij, tl("app.close", "Zamknij"), Modifier.align(Alignment.TopStart).padding(start = 20.dp, top = 12.dp), 44.dp, onClick = zamknij)
+        Row(
+            Modifier.align(Alignment.Center).graphicsLayer { alpha = if (gotowy) 1f else 0.5f },
+            horizontalArrangement = Arrangement.spacedBy(44.dp), verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PrzyciskFilmu(Ikony.cofnij, tl("app.videoBack10", "Cofnij o 10 sekund"), rozmiar = 57.dp, napis = "10", wlaczony = gotowy) { naPrzesun(-10) }
+            PrzyciskFilmu(
+                if (gra) Ikony.pauza else Ikony.odtworz,
+                if (gra) tl("app.pause", "Pauza") else tl("app.play", "Odtwórz"),
+                rozmiar = 76.dp, wlaczony = gotowy, onClick = naPrzycisk,
+            )
+            PrzyciskFilmu(Ikony.przewin, tl("app.videoForward10", "Do przodu o 10 sekund"), rozmiar = 57.dp, napis = "10", wlaczony = gotowy) { naPrzesun(10) }
+        }
+        Row(
+            Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(start = 24.dp, end = 130.dp, bottom = 18.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(mmss(czas), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            val opis = tl("app.videoProgress", "Postęp filmu")
+            val wartosc = "${mmss(czas)} / ${mmss(dlugosc)}"
+            Slider(
+                value = if (dlugosc > 0) (czas / dlugosc).toFloat().coerceIn(0f, 1f) else 0f,
+                onValueChange = naSuwak, onValueChangeFinished = naSuwakKoniec, enabled = gotowy,
+                modifier = Modifier.weight(1f).semantics { contentDescription = opis; stateDescription = wartosc },
+                colors = SliderDefaults.colors(thumbColor = Barwy.zloto, activeTrackColor = Barwy.zloto, inactiveTrackColor = Color.White.copy(alpha = 0.35f)),
+            )
+            Text(mmss(dlugosc), color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun PrzyciskFilmu(
+    ikona: androidx.compose.ui.graphics.vector.ImageVector, opis: String, modifier: Modifier = Modifier, rozmiar: androidx.compose.ui.unit.Dp,
+    napis: String? = null, wlaczony: Boolean = true, onClick: () -> Unit,
+) {
+    Box(
+        modifier.size(rozmiar).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f))
+            .clickable(enabled = wlaczony, role = Role.Button, onClickLabel = opis, onClick = onClick).semantics { contentDescription = opis },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(ikona, null, tint = Color.White, modifier = Modifier.size(rozmiar * 0.5f))
+        if (napis != null) Text(napis, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 2.dp))
+    }
+}
+
+/**
+ * Film, którego YouTube nie pozwala odtworzyć w aplikacji (osadzanie wyłączone, „potwierdź, że nie jesteś botem”):
+ * komunikat i przejście do YouTube, jak na iPhonie (komunikatBledu).
+ */
+@Composable
+private fun androidx.compose.foundation.layout.BoxScope.BladFilmu(id: String) {
+    val kontekst = LocalContext.current
+    Column(
+        Modifier.align(Alignment.Center).padding(24.dp).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.08f)).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp), horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(tl("app.videoUnavailable", "Tego filmu nie da się odtworzyć w aplikacji."), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            tl("app.openYoutube", "Otwórz w YouTube"),
+            Modifier.clip(CircleShape).background(Barwy.zloto).clickable(role = Role.Button) {
+                runCatching { kontekst.startActivity(Intent(Intent.ACTION_VIEW, "https://www.youtube.com/watch?v=$id".toUri())) }
+            }.padding(horizontal = 18.dp, vertical = 10.dp),
+            color = kolor(0x1d1400), fontSize = 15.sp, fontWeight = FontWeight.Bold,
+        )
     }
 }

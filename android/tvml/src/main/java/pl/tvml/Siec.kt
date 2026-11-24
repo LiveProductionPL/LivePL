@@ -114,6 +114,41 @@ object Siec {
         runCatching { v1(trasa, parametry) as? JSONObject }.getOrNull()
 
     /**
+     * GET trasy v1 bez pamięci podręcznej i bez ETag (podgląd szkicu z panelu: config?preview=…): kod HTTP i obiekt JSON,
+     * także treść błędu (400 preview_invalid, 410 preview_expired). Kod 0 = brak sieci.
+     */
+    suspend fun v1BezSchowka(trasa: String, parametry: Map<String, String>): Pair<Int, JSONObject?> = withContext(Dispatchers.IO) {
+        val zJezykiem = if ("lang" in parametry) parametry else parametry + ("lang" to Jezyk.biezacy)
+        val zapytanie = zJezykiem.toSortedMap().entries.joinToString("&") { "${it.key}=${koduj(it.value)}" }
+        val kolejnosc = bazyV1()
+        for ((n, baza) in kolejnosc.withIndex()) {
+            val laczenie = if (baza.endsWith("route=")) "&" else "?"
+            val polaczenie = URL(BAZA + baza + trasa + laczenie + zapytanie).openConnection() as HttpURLConnection
+            try {
+                polaczenie.connectTimeout = 15000
+                polaczenie.readTimeout = 20000
+                polaczenie.useCaches = false
+                polaczenie.setRequestProperty("User-Agent", agent)
+                polaczenie.setRequestProperty("Referer", BAZA)
+                polaczenie.setRequestProperty("Accept-Language", Jezyk.naglowek)
+                polaczenie.setRequestProperty("Accept", "application/json")
+                polaczenie.setRequestProperty("Cache-Control", "no-cache")
+                val kod = polaczenie.responseCode
+                if (BuildConfig.DEBUG) android.util.Log.d("TVML-Siec", "$kod ${baza + trasa} (bez schowka)")
+                // brak trasy pod tym adresem: następny wariant (api/v1/ albo tvml-app.php?route=)
+                if (kod == 404 && n < kolejnosc.lastIndex) continue
+                val tekst = (if (kod >= 400) polaczenie.errorStream else polaczenie.inputStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
+                return@withContext kod to runCatching { JSONObject(tekst) }.getOrNull()
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
+            } finally {
+                polaczenie.disconnect()
+            }
+        }
+        0 to null
+    }
+
+    /**
      * POST z JSON-em do API (głos w sondzie, rejestracja powiadomień): kod HTTP i odpowiedź, bez pamięci podręcznej.
      * Bez identyfikatorów instalacji i urządzenia; jedyny wyjątek to token FCM w devices, gdy czytelnik zgodzi się na powiadomienia.
      */
@@ -148,6 +183,9 @@ object Siec {
         }
         throw ostatni
     }
+
+    /** Kolejność adresów API (najpierw ostatnio działający) dla wysyłki z własnym ciałem: Alert TVML (AlertSiec.kt). */
+    fun bazyV1(): List<String> = dzialajacaBaza?.let { d -> listOf(d) + bazyApi.filter { it != d } } ?: bazyApi
 
     suspend fun staryObiekt(sciezka: String): JSONObject? = runCatching { json(sciezka) as? JSONObject }.getOrNull()
     suspend fun staraLista(sciezka: String): List<JSONObject> = runCatching { (json(sciezka) as? JSONArray)?.obiekty() }.getOrNull() ?: emptyList()

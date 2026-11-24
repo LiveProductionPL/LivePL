@@ -46,7 +46,7 @@ android {
         targetSdk = 36
         versionCode = numerBudowy
         // jak na iPhonie i w API (minAppVersion.android); pod ikoną i w Sklepie samo „TVML”
-        versionName = "2.1.1"
+        versionName = "2.2"
         // zasoby, z których FirebaseInitProvider sam uruchamia Firebase (jak z wtyczki google-services)
         firebase.forEach { (nazwa, wartosc) -> resValue("string", nazwa, wartosc) }
         buildConfigField("boolean", "PUSH", firebase.isNotEmpty().toString())
@@ -110,6 +110,16 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-svg:3.3.0")
     // sanie przy logo w Wigilię: rysunek SVG ze strony (panel-special-themes.js), ta sama biblioteka co w coil-svg
     implementation("com.caverock:androidsvg-aar:1.4")
+    // „Nowa wersja TVML” pod paskiem: czy w Google Play jest nowsza wersja (Play In-App Updates, bez danych czytelnika)
+    implementation("com.google.android.play:app-update:2.1.0")
+    // Alert TVML (AlertPliki.kt): film przed wysyłką do MP4 720p H.264/AAC bez położenia w metadanych,
+    // zdjęcie obrócone według EXIF na starszych Androidach (od 9 robi to ImageDecoder).
+    // media3-container: rodzaje metadanych MP4, żeby do filmu przeszedł tylko obrót i czas (Transformer kopiuje resztę)
+    implementation("androidx.media3:media3-transformer:1.11.1")
+    implementation("androidx.media3:media3-effect:1.11.1")
+    implementation("androidx.media3:media3-common:1.11.1")
+    implementation("androidx.media3:media3-container:1.11.1")
+    implementation("androidx.exifinterface:exifinterface:1.4.1")
     // powiadomienia push: samo Firebase Cloud Messaging, bez firebase-analytics
     implementation(platform("com.google.firebase:firebase-bom:35.2.0"))
     implementation("com.google.firebase:firebase-messaging")

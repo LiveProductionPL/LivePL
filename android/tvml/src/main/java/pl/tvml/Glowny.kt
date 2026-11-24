@@ -50,8 +50,18 @@ fun Glowny(m: Magazyn) {
         if (!m.wroc()) m.naStart()
     }
 
+    // panel podniósł minimalną wersję: zamiast treści prośba o aktualizację w Google Play (jak na iPhonie)
+    if (m.wymaganaAktualizacja) {
+        EkranAktualizacji()
+        return
+    }
+    // raz przy pierwszym uruchomieniu (także po aktualizacji): czy włączyć powiadomienia (Tak / Nie)
+    PytanieOPowiadomienia()
+    OknoKoncaPodgladu(m)
     Column(Modifier.fillMaxSize().background(b.tlo)) {
         Baner(m)
+        PasekPodgladu(m)
+        KomunikatyAplikacji(m)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             val z = m.zakladki.firstOrNull { it.id == m.zakladka } ?: m.zakladki.first()
             val gora = sciezka.lastOrNull()
@@ -98,6 +108,7 @@ private fun klucz(e: Ekran): String = when (e) {
     Ekran.Ogloszenia -> "ogloszenia"
     Ekran.Powiadomienia -> "powiadomienia"
     is Ekran.JednoWydarzenie -> "w${e.wydarzenie.id}"
+    Ekran.Alert -> "alert"
 }
 
 @Composable
@@ -125,6 +136,7 @@ private fun EkranZakladki(m: Magazyn, e: Ekran) {
         Ekran.Ogloszenia -> OgloszeniaEkran(m)
         Ekran.Powiadomienia -> PowiadomieniaEkran(m)
         is Ekran.JednoWydarzenie -> WydarzenieEkran(m, e.wydarzenie)
+        Ekran.Alert -> AlertEkran(m)
     }
 }
 

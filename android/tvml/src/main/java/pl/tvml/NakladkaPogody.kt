@@ -64,8 +64,17 @@ class NakladkaPogody {
     // Cząstki (pola jak w JS)
     private class Gwiazda(val x: Double, val y: Double, val r: Double, val ph: Double, val sp: Double)
     private class Pyl(var x: Double, var y: Double, val r: Double, val vy: Double, val ph: Double)
-    private class Chmura(var x: Double, val y: Double, val s: Double, val vx: Double, val a: Double)
-    private class PasMgly(val y: Double, val hh: Double, var x: Double, val vx: Double, val a: Double)
+    /** Chmura; [obraz] to jej kłęby narysowane raz (gradienty jak na stronie) w kolorze [obrazKolor]. */
+    private class Chmura(var x: Double, val y: Double, val s: Double, val vx: Double, val a: Double) {
+        var obraz: android.graphics.Bitmap? = null
+        var obrazKolor = 0
+    }
+    /** Pasmo mgły; [obraz] to jego owal narysowany raz, dla szerokości płótna [obrazW]. */
+    private class PasMgly(val y: Double, val hh: Double, var x: Double, val vx: Double, val a: Double) {
+        var obraz: android.graphics.Bitmap? = null
+        var obrazKolor = 0
+        var obrazW = 0.0
+    }
     private class Kropla(var x: Double, var y: Double, val v: Double, val l: Double, val a: Double, val wd: Double, val sl: Double)
     private class Platek(var x: Double, var y: Double, val r: Double, val v: Double, val ph: Double, val a: Double, val dx: Double)
     private class Smuga(var x: Double, var y: Double, val l: Double, val v: Double, val a: Double)
@@ -129,7 +138,7 @@ class NakladkaPogody {
             "fog" -> 0.3
             else -> 0.0
         }
-        if (veil != 0.0) {
+        if (veil != 0.0 && "zaslona" !in ScenyStrony.wylaczone) {
             val col = if (fx.effect == "snow" || fx.effect == "fog") pal.fog else (if (p.dark) pal.storm else pal.cloud)
             val g = ctx.createLinearGradient(0.0, 0.0, 0.0, h * 0.7)
             g.addColorStop(0.0, col.a(veil)); g.addColorStop(1.0, col.a(0.0))
@@ -139,7 +148,7 @@ class NakladkaPogody {
         drawSky(ctx, s, w, h, now, dt, fx, phase, staticMode)
         drawCloudsAndFog(ctx, s, w, h, dt, fx, pal)
         drawPrecipitation(ctx, s, w, h, now, dt, pal)
-        drawLeaves(ctx, s, w, h, now, dt, fx)
+        if ("liscie" !in ScenyStrony.wylaczone) drawLeaves(ctx, s, w, h, now, dt, fx)
 
         // Burza: łagodny błysk (bez stroboskopu), najwyżej raz na 10 s, wyłączony przy ograniczonym ruchu
         if (p.flash && !staticMode) {
@@ -183,7 +192,7 @@ class NakladkaPogody {
     private fun drawCloudsAndFog(ctx: Plotno, s: Stan, w: Double, h: Double, dt: Double, fx: Fx, pal: Paleta) {
         // Chmury
         val cloudCol = if (s.plan.dark) pal.storm else pal.cloud
-        for (c in s.clouds) {
+        if ("chmury" !in ScenyStrony.wylaczone) for (c in s.clouds) {
             c.x += c.vx * dt
             if (c.x - c.s * 2 > w) c.x = -c.s * 2
             drawCloud(ctx, c, cloudCol)
@@ -195,15 +204,16 @@ class NakladkaPogody {
             if (f.x > w) f.x -= w
             if (f.x < 0.0) f.x += w
             // na stronie: koło z gradientem promienistym (a, 0,6 → a/2, 1 → 0) ściśnięte w pionie do wysokości pasma.
-            // Tu ta sama miękka plama jako gotowa maska rozciągnięta do owalu w kolorze mgły: identyczny obraz,
-            // a dla grafiki tylko rysowanie obrazka (ściśnięte gradienty promieniste wywracały grafikę emulatora)
+            // Tu ten sam owal narysowany raz do obrazka, a w klatce tylko przesuwany (gradienty promieniste w każdej
+            // klatce wywracały grafikę emulatora, także na CI)
             val r = w * 0.6
-            for (k in -1..1) {
+            val obraz = obrazMgly(f, r, pal.fog.a(1.0), pal.fog)
+            if ("mgla" !in ScenyStrony.wylaczone) for (k in -1..1) {
                 val cx = f.x + k * w
-                ctx.plamaMgly(cx - r, f.y - f.hh, 2 * r, 2 * f.hh, pal.fog.a(f.a))
+                ctx.obraz(obraz, cx - r, f.y - f.hh, 2 * r, 2 * f.hh)
             }
         }
-        if (s.plan.fog != 0) {
+        if (s.plan.fog != 0 && "dol" !in ScenyStrony.wylaczone) {
             val g = ctx.createLinearGradient(0.0, h * 0.35, 0.0, h)
             g.addColorStop(0.0, pal.fog.a(0.0)); g.addColorStop(1.0, pal.fog.a(0.22 + fx.intensity * 0.18))
             ctx.fillStyle = g; ctx.fillRect(0.0, 0.0, w, h)
@@ -340,18 +350,58 @@ class NakladkaPogody {
         ctx.restore()
     }
 
+    /** Chmura z kłębów jak na stronie (drawCloud), narysowana raz do obrazka i tylko przesuwana w klatce. */
     private fun drawCloud(ctx: Plotno, c: Chmura, col: Rgb) {
-        for (b in BLOBS) {
-            val bx = c.x + b[0] * c.s
-            val by = c.y + b[1] * c.s
-            val br = c.s * b[2]
-            // jak przy mgle: gradient wokół początku układu, płótno przesunięte do kłębu (stały gradient między klatkami)
-            val g = ctx.createRadialGradient(0.0, 0.0, br * 0.1, 0.0, 0.0, br)
-            g.addColorStop(0.0, col.a(c.a)); g.addColorStop(0.55, col.a(c.a * 0.5)); g.addColorStop(1.0, col.a(0.0))
-            ctx.save(); ctx.translate(bx, by)
-            ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0.0, 0.0, br, 0.0, PI * 2); ctx.fill()
-            ctx.restore()
+        val g = GRANICE
+        ctx.obraz(obrazChmury(c, col), c.x + g[0] * c.s, c.y + g[1] * c.s, (g[2] - g[0]) * c.s, (g[3] - g[1]) * c.s)
+    }
+
+    private fun obrazChmury(c: Chmura, col: Rgb): android.graphics.Bitmap {
+        val kolor = col.a(1.0)
+        c.obraz?.takeIf { c.obrazKolor == kolor }?.let { return it }
+        val q = SKALA_OBRAZOW
+        val g = GRANICE
+        val b = android.graphics.Bitmap.createBitmap(
+            ((g[2] - g[0]) * c.s * q).toInt().coerceAtLeast(1), ((g[3] - g[1]) * c.s * q).toInt().coerceAtLeast(1), android.graphics.Bitmap.Config.ARGB_8888,
+        )
+        val cv = android.graphics.Canvas(b)
+        for (k in BLOBS) {
+            val cx = ((k[0] - g[0]) * c.s * q).toFloat()
+            val cy = ((k[1] - g[1]) * c.s * q).toFloat()
+            val br = (c.s * k[2] * q).toFloat().coerceAtLeast(1f)
+            // createRadialGradient(bx, by, br * 0.1, bx, by, br): a, 0,55 → a/2, 1 → 0 (wewnętrzne koło 0,1 r pełne)
+            val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+            p.shader = android.graphics.RadialGradient(
+                cx, cy, br, intArrayOf(col.a(c.a), col.a(c.a), col.a(c.a * 0.5), col.a(0.0)), floatArrayOf(0f, 0.1f, 0.595f, 1f),
+                android.graphics.Shader.TileMode.CLAMP,
+            )
+            cv.drawCircle(cx, cy, br, p)
         }
+        c.obraz = b
+        c.obrazKolor = kolor
+        return b
+    }
+
+    /** Owal pasma mgły (2r × 2hh) z gradientem promienistym ściśniętym w pionie, jak na stronie, narysowany raz. */
+    private fun obrazMgly(f: PasMgly, r: Double, kolor: Int, col: Rgb): android.graphics.Bitmap {
+        f.obraz?.takeIf { f.obrazKolor == kolor && f.obrazW == r }?.let { return it }
+        // mgła jest bardzo miękka: wystarczy pół piksela na dp, obraz i tak jest rozciągany z wygładzaniem
+        val q = 0.5
+        val wPx = (2 * r * q).toInt().coerceAtLeast(2)
+        val hPx = (2 * f.hh * q).toInt().coerceAtLeast(2)
+        val b = android.graphics.Bitmap.createBitmap(wPx, hPx, android.graphics.Bitmap.Config.ARGB_8888)
+        val cv = android.graphics.Canvas(b)
+        val rr = wPx / 2f
+        cv.scale(1f, hPx / wPx.toFloat())
+        val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        p.shader = android.graphics.RadialGradient(
+            rr, rr, rr, intArrayOf(col.a(f.a), col.a(f.a * 0.5), col.a(0.0)), floatArrayOf(0f, 0.6f, 1f), android.graphics.Shader.TileMode.CLAMP,
+        )
+        cv.drawCircle(rr, rr, rr, p)
+        f.obraz = b
+        f.obrazKolor = kolor
+        f.obrazW = r
+        return b
     }
 
     companion object {
@@ -381,6 +431,18 @@ class NakladkaPogody {
             doubleArrayOf(0.0, 0.0, 1.0), doubleArrayOf(-0.9, 0.18, 0.7), doubleArrayOf(0.9, 0.2, 0.75),
             doubleArrayOf(0.35, -0.35, 0.72), doubleArrayOf(-0.4, -0.25, 0.6),
         )
+
+        /** Granice kłębów chmury w jednostkach jej rozmiaru: minX, minY, maxX, maxY. */
+        private val GRANICE: DoubleArray = BLOBS.fold(doubleArrayOf(1e9, 1e9, -1e9, -1e9)) { g, b ->
+            doubleArrayOf(min(g[0], b[0] - b[2]), min(g[1], b[1] - b[2]), max(g[2], b[0] + b[2]), max(g[3], b[1] + b[2]))
+        }
+
+        /** Piksele obrazków chmur na dp: połowa gęstości ekranu (kłęby są miękkie, rozciąganie ich nie psuje). */
+        private val SKALA_OBRAZOW: Double = try {
+            (Resources.getSystem().displayMetrics.density * 0.5).coerceAtLeast(1.0)
+        } catch (_: Exception) {
+            1.0
+        }
 
         private fun rnd(a: Double, b: Double): Double = a + Math.random() * (b - a)
 

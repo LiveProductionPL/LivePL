@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Alert TVML (AlertPliki.kt): zdjęcie i film z aparatu trafiają do cache/alert, skąd aplikacja je zmniejsza,
+     usuwa z nich metadane i po wysłaniu albo odrzuceniu kasuje. Nic poza tym katalogiem nie jest udostępniane. -->
+<paths>
+    <cache-path name="alert" path="alert/" />
+</paths>

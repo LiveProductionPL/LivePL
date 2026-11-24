@@ -337,14 +337,13 @@ class Plotno(var canvas: Canvas) {
     }
 
     /**
-     * Miękka plama mgły (pogoda-efekty.js: gradient promienisty a → a/2 przy 0,6 → 0) wpisana w owal x, y, w, h,
-     * w kolorze [kolor] (z kryciem), z bieżącym przekształceniem i globalAlpha płótna.
+     * Gotowy obrazek (np. chmura albo pasmo mgły narysowane raz) w prostokącie x, y, w, h, z wygładzaniem
+     * i globalAlpha płótna. Najprostsza operacja dla grafiki, bez gradientów liczonych w każdej klatce.
      */
-    fun plamaMgly(x: Double, y: Double, w: Double, h: Double, kolor: Int) {
-        val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-        p.color = kolor
-        p.alpha = (p.alpha * s.alpha).roundToInt().coerceIn(0, 255)
-        canvas.drawBitmap(MASKA_MGLY, null, RectF(x.toFloat(), y.toFloat(), (x + w).toFloat(), (y + h).toFloat()), p)
+    fun obraz(b: android.graphics.Bitmap, x: Double, y: Double, w: Double, h: Double) {
+        val p = Paint(Paint.FILTER_BITMAP_FLAG)
+        p.alpha = (255 * s.alpha).roundToInt().coerceIn(0, 255)
+        canvas.drawBitmap(b, null, RectF(x.toFloat(), y.toFloat(), (x + w).toFloat(), (y + h).toFloat()), p)
     }
 
     fun createLinearGradient(x0: Double, y0: Double, x1: Double, y1: Double) = Gradient(true, doubleArrayOf(x0, y0, x1, y1))
@@ -445,15 +444,6 @@ class Plotno(var canvas: Canvas) {
     }
 
     companion object {
-        /** Maska plamy mgły 256 × 256 (sam kanał krycia): 1 w środku, 0,5 przy 0,6 promienia, 0 na brzegu. */
-        private val MASKA_MGLY: android.graphics.Bitmap by lazy {
-            val n = 256
-            val b = android.graphics.Bitmap.createBitmap(n, n, android.graphics.Bitmap.Config.ALPHA_8)
-            val p = Paint(Paint.ANTI_ALIAS_FLAG)
-            p.shader = RadialGradient(n / 2f, n / 2f, n / 2f, intArrayOf(0xFFFFFFFF.toInt(), 0x80FFFFFF.toInt(), 0x00FFFFFF), floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP)
-            Canvas(b).drawCircle(n / 2f, n / 2f, n / 2f, p)
-            b
-        }
         private val pamiec = HashMap<String, Int>()
         private val ROZMIAR = Regex("""([\d.]+)px""")
         private val SZERYF = Regex("""(?i)(georgia|playfair|times|serif)""")

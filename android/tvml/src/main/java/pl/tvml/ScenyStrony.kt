@@ -226,17 +226,20 @@ object ScenyStrony {
             ?: PANORAMA
 
     /** Jedna klatka: niebo, gwiazdy, krajobraz sceny i przyciemnienie dołu (jak _drawCustomScene na stronie). */
+    /** Tylko w wersji testowej (--es wylacz tlo,niebo,panorama,ciemno,nakladka): szukanie elementu, który psuje grafikę emulatora. */
+    var wylaczone: Set<String> = emptySet()
+
     fun rysuj(r: RamaSceny) {
         if (r.sceneType == "beach" || r.sceneType == "ocean") {
             r.plazaIMorze()
             return
         }
         // panorama nie wypełnia płótna w całości: pod nią tło karty jak w CSS strony
-        if (r.sceneType == PANORAMA) r.tloKarty()
-        niebo(r)
+        if (r.sceneType == PANORAMA && "tlo" !in wylaczone) r.tloKarty()
+        if ("niebo" !in wylaczone) niebo(r)
         gwiazdy(r)
         when (r.sceneType) {
-            PANORAMA -> r.lesznoPanorama()
+            PANORAMA -> if ("panorama" !in wylaczone) r.lesznoPanorama()
             "autumn-forest" -> r.autumnForest()
             "autumn-lake" -> r.autumnLake()
             "park-lanterns" -> r.parkLanterns()
@@ -251,7 +254,7 @@ object ScenyStrony {
             in ratuszSezonowe -> r.ratuszSezonowy()
         }
         // weather-effects.js 3813–3823: przyciemnienie dolnej strefy pod napisami (bez Ratusza sezonowego i Andrzejek)
-        if (!r.isSeasonalLeszno && !r.isAndrzejkiScene) {
+        if (!r.isSeasonalLeszno && !r.isAndrzejkiScene && "ciemno" !in wylaczone) {
             val ctx = r.ctx
             val g = ctx.createLinearGradient(0.0, r.horizonY - 15, 0.0, r.h)
             g.addColorStop(0.0, "rgba(6, 10, 22, 0)")
@@ -330,30 +333,42 @@ fun ScenaStrony(
     if (svg != null) return ScenaZSvg(svg, noc, modifier)
     val ruch = ValueAnimator.areAnimatorsEnabled()
     val plotno = remember { Plotno(android.graphics.Canvas()) }
+    val plotnoNakladki = remember { Plotno(android.graphics.Canvas()) }
     val pamiec = remember(id) { HashMap<String, Any?>() }
     val nakladka = remember { NakladkaPogody() }
     val start = remember { System.nanoTime() / 1e9 }
     val czas = if (ruch) czasAnimacji().value - start else 37.0
-    Canvas(modifier.clearAndSetSemantics { }) {
-        drawIntoCanvas { c ->
-            val nc = c.nativeCanvas
-            val g = density.toDouble()
-            nc.save()
-            nc.scale(density, density)
-            plotno.nowaKlatka(nc)
-            val w = size.width / g
-            val h = size.height / g
-            val specjalna = ScenyStrony.specjalna(id)
-            val rama = RamaSceny(
-                plotno, w, h, czas, noc, stan, id, opcje, ZonedDateTime.now(Daty.strefa), ruch, pamiec,
-                ukryjGwiazdySceny = !specjalna && efekt != null && !NakladkaPogody.gwiazdy(efekt, noc),
-            )
-            ScenyStrony.rysuj(rama)
-            if (!specjalna && efekt != null) {
+    val specjalna = ScenyStrony.specjalna(id)
+    val zNakladka = !specjalna && efekt != null && "nakladka" !in ScenyStrony.wylaczone
+    androidx.compose.foundation.layout.Box(modifier.clearAndSetSemantics { }) {
+        Canvas(Modifier.matchParentSize()) {
+            drawIntoCanvas { c ->
+                val nc = c.nativeCanvas
+                val g = density.toDouble()
+                // restoreToCount: płótno wraca do stanu sprzed sceny także wtedy, gdy kod sceny zostawi save bez restore
+                val stan0 = nc.save()
+                nc.scale(density, density)
                 plotno.nowaKlatka(nc)
-                nakladka.rysuj(plotno, w, h, czas * 1000, efekt, noc, ruch)
+                val rama = RamaSceny(
+                    plotno, size.width / g, size.height / g, czas, noc, stan, id, opcje, ZonedDateTime.now(Daty.strefa), ruch, pamiec,
+                    ukryjGwiazdySceny = !specjalna && efekt != null && !NakladkaPogody.gwiazdy(efekt, noc),
+                )
+                ScenyStrony.rysuj(rama)
+                nc.restoreToCount(stan0)
             }
-            nc.restore()
+        }
+        // pogoda (pogoda-efekty.js) na osobnej warstwie z własnym płótnem, nie w tej samej klatce co scena:
+        // wspólne płótno z ponownym nowaKlatka w jednej klatce wywracało grafikę emulatora (CI 45374379981)
+        if (zNakladka && efekt != null) Canvas(Modifier.matchParentSize()) {
+            drawIntoCanvas { c ->
+                val nc = c.nativeCanvas
+                val g = density.toDouble()
+                val stan0 = nc.save()
+                nc.scale(density, density)
+                plotnoNakladki.nowaKlatka(nc)
+                nakladka.rysuj(plotnoNakladki, size.width / g, size.height / g, czas * 1000, efekt, noc, ruch)
+                nc.restoreToCount(stan0)
+            }
         }
     }
 }

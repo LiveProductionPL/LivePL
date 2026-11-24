@@ -44,6 +44,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -89,7 +95,8 @@ fun StartEkran(m: Magazyn) {
                 }
             }
             m.blad?.let { item(key = "blad") { Text(it, color = b.slaby, fontSize = 14.sp) } }
-            if (m.najnowsze.isEmpty() && m.laduje) item(key = "laduje") { Postep() }
+            // przy pierwszym wczytaniu w miejscu karuzeli jej szkielet (blok hero), kółko tylko bez karuzeli w układzie Startu
+            if (m.najnowsze.isEmpty() && m.laduje && kategoria == null && m.bloki.none { it.typ == "hero" }) item(key = "laduje") { Postep() }
             val slug = kategoria
             if (slug != null) {
                 val lista = m.wKategorii[slug].orEmpty()
@@ -111,13 +118,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.blok(m: Magazyn, blok
     when (blok.typ) {
         "hero" -> if (m.najnowsze.isNotEmpty()) item(key = blok.id) {
             Karuzela(m.najnowsze.take(if (blok.limit > 0) blok.limit else 5))
-        }
+        } else if (m.laduje) item(key = blok.id + "-szkielet") { SzkieletKaruzeli() }
         "weather" -> item(key = blok.id) { KafelPogody(m) }
         "alert" -> item(key = blok.id) {
             val kontekst = LocalContext.current
             Row(
                 Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(14.dp)).background(kolor(0xc8102e))
-                    .clickable(role = Role.Button) { otworzStrone(kontekst, Siec.ALERT) },
+                    // formularz w aplikacji przy config.alerts.native, inaczej jak dotąd tvml.pl/#alert
+                    .clickable(role = Role.Button) { m.zglosZdarzenie(kontekst) },
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -252,6 +260,36 @@ val SPOLECZNOSC = listOf(
     "Instagram" to "https://www.instagram.com/tvmlpl/",
     "TikTok" to "https://www.tiktok.com/@tvml.pl",
 )
+
+/**
+ * Szkielet karuzeli przy pierwszym wczytaniu (Karol, 24.11: „czemu taki odstęp?”): karta w docelowym rozmiarze
+ * (300 dp, rogi 18 dp) i kropki, łagodnie pulsujące; po wczytaniu karuzela wchodzi w to samo miejsce bez przeskoku.
+ * Przy „Usuń animacje” bez pulsowania.
+ */
+@Composable
+fun SzkieletKaruzeli() {
+    val b = LocalBarwy.current
+    val ruch = android.animation.ValueAnimator.areAnimatorsEnabled()
+    val krycie = if (ruch) {
+        rememberInfiniteTransition(label = "szkielet").animateFloat(
+            initialValue = 0.55f, targetValue = 1f,
+            animationSpec = infiniteRepeatable(tween<Float>(900), RepeatMode.Reverse),
+            label = "krycie",
+        ).value
+    } else 0.8f
+    val opis = tl("app.loading", "Wczytywanie")
+    Column(
+        Modifier.semantics { contentDescription = opis }.graphicsLayer { alpha = krycie },
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(Modifier.fillMaxWidth().height(300.dp).clip(RoundedCornerShape(18.dp)).background(b.ramka))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            repeat(5) { i ->
+                Box(Modifier.padding(horizontal = 3.dp).size(if (i == 0) 18.dp else 6.dp, 6.dp).clip(CircleShape).background(b.ramka))
+            }
+        }
+    }
+}
 
 @Composable
 fun Karuzela(artykuly: List<Artykul>) {

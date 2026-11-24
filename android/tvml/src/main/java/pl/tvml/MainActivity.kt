@@ -29,7 +29,9 @@ import okhttp3.OkHttpClient
  * Do zrzutów ekranu: --es ekran pogoda|artykul|wideo|wiecej|szukaj, --es motyw zima|czapeczka|wigilia|…,
  * --es wyglad dzien|noc, --es ikona zwykla|zima|swieta, --es jezyk pl|uk|en|system, --ez bezPowiadomien true,
  * --es scena autumn-forest|leszno-andrzejki|leszno-zima|… (scena pogody ze strony, ScenyStrony.znane), --es pora dzien|noc,
- * --ez dzienTestowy true (belka karty pogody z 11 listopada: święto i trzy imiona).
+ * --ez dzienTestowy true (belka karty pogody z 11 listopada: święto i trzy imiona),
+ * --es komunikat aktualizacja|redakcja|pilny|wymagana (pasek nowej wersji, komunikat redakcji, ekran aktualizacji),
+ * w wersji testowej --es ekran alert --ez alertNatywny true [--es alertPrzyklad YES|wyslane] (formularz Alertu TVML).
  */
 class MainActivity : ComponentActivity() {
     private lateinit var m: Magazyn
@@ -137,6 +139,8 @@ class MainActivity : ComponentActivity() {
         i.getStringExtra("jezyk")?.let { m.ustawJezyk(it) }
         if (i.getBooleanExtra("bezPowiadomien", false)) Powiadomienia.wylaczDoZrzutow(this)
         i.getStringExtra("scena")?.let { m.scenaTestowa = it; m.zegarScen++ }
+        i.getStringExtra("komunikat")?.let { m.komunikatTestowy = it }
+        if (BuildConfig.DEBUG) i.getStringExtra("wylacz")?.let { ScenyStrony.wylaczone = it.split(',').map { s -> s.trim() }.toSet() }
         if (i.getBooleanExtra("dzienTestowy", false)) {
             m.dzienTestowy = true
             m.dzisiaj = Dzisiaj("poniedziałek, 11 listopada 2026", listOf("Bartłomieja", "Marcina", "Prota"), java.time.LocalDate.of(2026, 11, 11), "Narodowe Święto Niepodległości")
@@ -149,11 +153,29 @@ class MainActivity : ComponentActivity() {
         // link do artykułu: https://tvml.pl/artykul/123[-tytul]
         i.data?.lastPathSegment?.takeIf { i.data?.pathSegments?.firstOrNull() == "artykul" }
             ?.takeWhile { it.isDigit() }?.toIntOrNull()?.let { m.otworzArtykul(it) }
+        // podgląd szkicu z panelu (kod QR): https://tvml.pl/app/podglad?t=… albo tvml://preview?t=…
+        i.data?.let { u ->
+            val podglad = (u.scheme == "tvml" && u.host == "preview") || (u.host == "tvml.pl" && u.path.orEmpty().startsWith("/app/podglad"))
+            if (podglad) u.getQueryParameter("t")?.let { m.wlaczPodglad(it) }
+        }
         // stuknięte powiadomienie: dane wiadomości FCM w extras (articleId albo url do artykułu)
         Powiadomienia.artykul(i)?.let { id ->
             listOf("articleId", "url").forEach { i.removeExtra(it) }
             m.otworzArtykul(id)
         }
+        // Alert TVML, tylko w wersji testowej (jak -alert-natywny i -alert-przyklad na iPhonie): --ez alertNatywny true
+        // (formularz w aplikacji bez config.alerts.native), --es alertPrzyklad YES|wyslane (przykład przewinięty na dół
+        // albo potwierdzenie A-1234; nic nie idzie do serwera). Formularz otwiera --es ekran alert.
+        if (BuildConfig.DEBUG) {
+            if (i.getBooleanExtra("alertNatywny", false)) m.alertNatywnyTestowy = true
+            i.getStringExtra("alertPrzyklad")?.let {
+                m.alertPrzyklad = it
+                m.formularzAlertu?.sprzataj()
+                m.formularzAlertu = null
+            }
+        }
+        // do zrzutów: pasek podglądu bez pytania serwera (jak -ekran podglad na iPhonie)
+        if (i.getStringExtra("ekran") == "podglad") m.podgladTestowy()
         val ekran = i.getStringExtra("ekran") ?: return
         lifecycleScope.launch {
             m.odswiezTeraz(wymus = start)
@@ -163,6 +185,8 @@ class MainActivity : ComponentActivity() {
                 "wiecej" -> m.pokaz(ZakladkaApp.Cel.Wiecej)
                 "szukaj" -> m.arkuszSzukaj = true
                 "artykul" -> m.najnowsze.firstOrNull()?.let { m.otworz(it) }
+                // jak stuknięcie „Zgłoś zdarzenie”: formularz w aplikacji albo strona (bez config.alerts.native i alertNatywny)
+                "alert" -> if (BuildConfig.DEBUG) m.zglosZdarzenie(this@MainActivity)
             }
         }
     }

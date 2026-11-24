@@ -41,8 +41,10 @@ data class TematPush(val id: String, val nazwa: String, val domyslny: Boolean) {
  * Powiadomienia push przez Firebase Cloud Messaging (projekt tvml-3f2b5), bez Firebase Analytics.
  * Kontrakt z serwerem tvml.pl (API 1.8.2, uzgodniony z sesją TVML Connect 23.11.2026):
  *
- * - domyślnie wyłączone; włącza je czytelnik w Więcej → Powiadomienia i dopiero wtedy Android 13+ pyta o zgodę.
- *   Przy pierwszym włączeniu zaznaczone są tematy z default: true (dziś tylko „Pilne”);
+ * - od 2.2 (Karol, 24.11: „domyślnie powinna być funkcja włączona … na wszystkie tematy”): przy pierwszym uruchomieniu
+ *   (także po aktualizacji) raz nasze okno „Włączyć powiadomienia o nowych wpisach?” Tak/Nie; „Tak” → na Androidzie 13+
+ *   systemowa prośba o zgodę → rejestracja ze WSZYSTKIMI tematami; „Nie” → nic i bez ponownego pytania. Przełącznik
+ *   w Więcej → Powiadomienia przy pierwszym włączeniu też zaznacza wszystkie tematy; każdy można odznaczyć;
  * - POST devices {platform, token, topics, appVersion, lang}: przy starcie, po zmianie tokenu, tematów albo języka;
  *   bez identyfikatora urządzenia, tylko token FCM;
  * - POST devices/delete {token}: po wyłączeniu, odebraniu zgody, odznaczeniu wszystkich tematów albo
@@ -70,6 +72,9 @@ object Powiadomienia {
         private set
     var wybrane by mutableStateOf<Set<String>>(emptySet())
         private set
+    /** Pokazać okno „Włączyć powiadomienia o nowych wpisach?” (raz, gdy push działa, a czytelnik jeszcze nie decydował). */
+    var doZapytania by mutableStateOf(false)
+        private set
 
     private fun ustawienia(ctx: Context) = ctx.applicationContext.getSharedPreferences("powiadomienia", Context.MODE_PRIVATE)
 
@@ -92,7 +97,15 @@ object Powiadomienia {
         }.getOrDefault(emptyList())
         val wlasne = u.getStringSet("wybrane", null)
         wybrane = if (wlasne != null) wlasne.filter { w -> tematy.any { it.id == w } }.toSet()
-        else tematy.filter { it.domyslny }.map { it.id }.toSet()
+        else tematy.map { it.id }.toSet()
+        doZapytania = dostepne(ctx) && naSerwerze && tematy.isNotEmpty() && !wlaczone &&
+            !u.getBoolean("zapytano", false) && !u.getBoolean("doZrzutow", false)
+    }
+
+    /** Odpowiedź z okna przy pierwszym uruchomieniu; pytamy tylko raz (także po „Nie”). */
+    fun zapytano(ctx: Context) {
+        ustawienia(ctx).edit { putBoolean("zapytano", true) }
+        przygotuj(ctx)
     }
 
     /** config.push z serwera; zapamiętany, bo usługa FCM działa też wtedy, gdy aplikacja nie jest otwarta. */
@@ -105,11 +118,12 @@ object Powiadomienia {
         przygotuj(ctx)
     }
 
-    /** Główny przełącznik. Przy pierwszym włączeniu wybór startuje od tematów domyślnych (default: true). */
+    /** Główny przełącznik. Przy pierwszym włączeniu zaznaczone są wszystkie tematy (każdy można potem odznaczyć). */
     fun ustawWlaczone(ctx: Context, tak: Boolean) {
         ustawienia(ctx).edit {
             putBoolean("uzytkownik", tak)
-            if (tak && !ustawienia(ctx).contains("wybrane")) putStringSet("wybrane", tematy.filter { it.domyslny }.map { it.id }.toSet())
+            putBoolean("zapytano", true)
+            if (tak && !ustawienia(ctx).contains("wybrane")) putStringSet("wybrane", tematy.map { it.id }.toSet())
         }
         przygotuj(ctx)
         zarejestruj(ctx)

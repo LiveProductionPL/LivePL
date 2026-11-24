@@ -26,6 +26,8 @@ sealed interface Ekran {
     data object Ogloszenia : Ekran
     data object Powiadomienia : Ekran
     data class JednoWydarzenie(val wydarzenie: Wydarzenie) : Ekran
+    /** „Zgłoś zdarzenie (Alert TVML)” w aplikacji (AlertEkran.kt), gdy serwer go zgłasza (config.alerts.native). */
+    data object Alert : Ekran
 }
 
 /** Wszystko, co aplikacja pobiera z tvml.pl. Jedno źródło dla wszystkich ekranów (Magazyn na iPhonie). */
@@ -154,6 +156,50 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
     private val trescStron = mutableMapOf<String, TrescPodstrony>()
     /** Podpis w stopce „Więcej” (config.about.footer). */
     var stopka by mutableStateOf("Telewizja TVML · Leszno")
+    /** Komunikat redakcji z panelu (config.message, od API 1.2), jak na iPhonie. */
+    var komunikat by mutableStateOf<Komunikat?>(null)
+    /** Nowsza wersja w Google Play: łagodna prośba o aktualizację pod paskiem (do zamknięcia). */
+    var nowaWersja by mutableStateOf<Komunikat?>(null)
+    /** Panel podniósł minimalną wersję (config.minAppVersion.android): ekran z przyciskiem do Google Play. */
+    var wymaganaAktualizacja by mutableStateOf(false)
+    private var sprawdzonoSklep = 0L
+    /** Zamknięte krzyżykiem komunikaty (ostatnie 50), żeby nie wracały po odświeżeniu. */
+    var zamknieteKomunikaty by mutableStateOf(
+        ustawienia.getString("zamkniete-komunikaty", "").orEmpty().split('\n').filter { it.isNotEmpty() }.toSet(),
+    )
+        private set
+
+    fun zamknijKomunikat(id: String) {
+        val lista = (zamknieteKomunikaty.toList() - id + id).takeLast(50)
+        zamknieteKomunikaty = lista.toSet()
+        ustawienia.edit().putString("zamkniete-komunikaty", lista.joinToString("\n")).apply()
+    }
+    /**
+     * Formularz „Zgłoś zdarzenie” w aplikacji (config.alerts, API 1.9.0), zapisany na czas bez sieci jak i18n.
+     * Brak klucza, native: false albo stara wersja API = dalej tvml.pl/#alert w karcie przeglądarki.
+     */
+    var alerty by mutableStateOf(UstawieniaAlertu.z(runCatching { JSONObject(ustawienia.getString("alerts", "{}") ?: "{}") }.getOrNull()))
+        private set
+    /** Do zrzutów (tylko wersja testowa): --ez alertNatywny true, ekran w aplikacji bez config.alerts.native. */
+    var alertNatywnyTestowy = false
+    /** Do zrzutów (tylko wersja testowa): --es alertPrzyklad YES|wyslane, przykład bez wysyłania. */
+    var alertPrzyklad: String? = null
+    /** Otwarty formularz Alertu TVML: zostaje przy przejściu do innej zakładki, znika po „Gotowe” albo „Odrzuć”. */
+    var formularzAlertu: FormularzAlertu? = null
+
+    fun alertNatywny(): Boolean = alerty.natywny || alertNatywnyTestowy
+
+    /** „Zgłoś zdarzenie (Alert TVML)”: decyzja w chwili stuknięcia, formularz w aplikacji albo strona jak dotąd. */
+    fun zglosZdarzenie(kontekst: Context) {
+        if (!alertNatywny()) {
+            otworzStrone(kontekst, Siec.ALERT)
+            return
+        }
+        // po wysłanym zgłoszeniu nowe zaczyna się od pustego formularza
+        formularzAlertu?.takeIf { it.wyslane }?.let { it.sprzataj(); formularzAlertu = null }
+        otworz(Ekran.Alert)
+    }
+
     /** Czy w „Więcej” pokazać ogłoszenia i fotorelacje (tylko gdy coś w nich jest). */
     var maOgloszenia by mutableStateOf(false)
     var maFotorelacje by mutableStateOf(true)
@@ -232,8 +278,77 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
         zakres.launch { odswiezTeraz(wymus) }
     }
 
+    /** Podgląd szkicu aplikacji z panelu (kod QR → tvml.pl/app/podglad?t=… albo tvml://preview?t=…), jak na iPhonie. */
+    data class Podglad(val token: String, val etykieta: String = "", val doKiedy: java.time.ZonedDateTime? = null, val rewizja: String = "", val testowy: Boolean = false)
+
+    /** Trwający podgląd: tylko w pamięci, bez zapisu; cała aplikacja (Start, zakładki, wygląd) działa na config ze szkicu. */
+    var podglad by mutableStateOf<Podglad?>(null)
+        private set
+    /** Okno „Podgląd zakończony” (wygasł albo zakończony w panelu). */
+    var podgladZakonczony by mutableStateOf(false)
+    private var koniecPodgladu: kotlinx.coroutines.Job? = null
+
+    /** Link z kodu QR: token base64url 16–128 znaków, inne ignorujemy bez pytania serwera. */
+    fun wlaczPodglad(token: String) {
+        if (!Regex("[A-Za-z0-9_-]{16,128}").matches(token)) return
+        podglad = Podglad(token)
+        podgladZakonczony = false
+        odswiez(wymus = true)
+    }
+
+    /** Do zrzutów: pasek podglądu z etykietą jak z panelu, bez pytania serwera (--es ekran podglad). */
+    fun podgladTestowy() {
+        podglad = Podglad("test", "Podgląd: Karol, 14:05", java.time.ZonedDateTime.now(Daty.strefa).plusMinutes(30), "1", testowy = true)
+    }
+
+    /** „Zakończ” albo wygaśnięcie: powrót do opublikowanego config; przy wygaśnięciu okno z wyjaśnieniem. */
+    fun zakonczPodglad(wygasl: Boolean) {
+        if (podglad == null) return
+        koniecPodgladu?.cancel()
+        podglad = null
+        if (wygasl) podgladZakonczony = true
+        odswiez(wymus = true)
+    }
+
+    private fun zaplanujKoniecPodgladu(p: Podglad) {
+        koniecPodgladu?.cancel()
+        val koniec = p.doKiedy ?: return
+        koniecPodgladu = zakres.launch {
+            kotlinx.coroutines.delay(java.time.Duration.between(java.time.ZonedDateTime.now(), koniec).toMillis().coerceAtLeast(0) + 1000)
+            if (podglad?.token == p.token) zakonczPodglad(wygasl = true)
+        }
+    }
+
+    /**
+     * config: przy podglądzie GET config?preview=…&features=ai-themes bez pamięci podręcznej; 400/410 kończy podgląd
+     * i wraca do zwykłego config, inny błąd albo brak sieci zostawia to, co widać (null).
+     */
+    private suspend fun pobierzKonfiguracje(): JSONObject? {
+        val p = podglad
+        if (p != null && !p.testowy) {
+            val (kod, j) = Siec.v1BezSchowka("config", mapOf("preview" to p.token, "features" to "ai-themes"))
+            when {
+                kod in 200..299 && j != null -> {
+                    val pv = j.o("preview")
+                    val nowy = p.copy(etykieta = pv.s("label"), doKiedy = Daty.iso(pv.s("expiresAt")), rewizja = pv.s("revision"))
+                    podglad = nowy
+                    zaplanujKoniecPodgladu(nowy)
+                    return j
+                }
+                kod == 400 || kod == 410 -> {
+                    koniecPodgladu?.cancel()
+                    podglad = null
+                    podgladZakonczony = true
+                }
+                else -> return null
+            }
+        }
+        return Siec.v1Obiekt("config")
+    }
+
     suspend fun odswiezTeraz(wymus: Boolean = false) {
-        if (!wymus && System.currentTimeMillis() - ostatnio < 120_000) return
+        // przy podglądzie bez przerwy 2 min: każde odświeżenie pobiera szkic od nowa
+        if (!wymus && podglad == null && System.currentTimeMillis() - ostatnio < 120_000) return
         laduje = true
         try {
             if (odswiezV1()) {
@@ -245,19 +360,37 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
         } finally {
             laduje = false
         }
+        // nowsza wersja w Google Play: najwyżej co 6 godzin (Play Core, bez danych o czytelniku)
+        if (komunikatTestowy == null && System.currentTimeMillis() - sprawdzonoSklep > 6 * 3_600_000L) {
+            sprawdzonoSklep = System.currentTimeMillis()
+            nowaWersja = AktualizacjaAplikacji.nowszaWSklepie(aplikacja)?.let { AktualizacjaAplikacji.komunikat(it) }
+        }
     }
+
+    /** Do zrzutów: --es komunikat aktualizacja|redakcja|pilny|wymagana. */
+    var komunikatTestowy: String? = null
+        set(v) {
+            field = v
+            when (v) {
+                "aktualizacja" -> nowaWersja = AktualizacjaAplikacji.komunikat(99)
+                "redakcja" -> komunikat = Komunikat("test", "Utrudnienia w ruchu", "Od poniedziałku remont ul. Słowiańskiej, objazd przez al. Jana Pawła II.", "warning", "https://tvml.pl/", tl("app.readMore", "Więcej"))
+                "pilny" -> komunikat = Komunikat("test-pilny", "Komunikat pilny", "Przerwa w dostawie wody na Zatorzu do godz. 18.", "urgent", null, "")
+                "wymagana" -> wymaganaAktualizacja = true
+            }
+        }
 
     /** Nowe API (/api/v1): config, artykuły, najczęściej czytane, wideo, pogoda. */
     private suspend fun odswiezV1(): Boolean {
         val jezykZapytan = Jezyk.biezacy
         // API 1.8.3 podaje scenę SVG motywów ze Studia motywów zawsze (weatherSceneType/weatherSceneSvgUrl), bez features
-        val k = zakres.async { Siec.v1Obiekt("config") }
+        val k = zakres.async { pobierzKonfiguracje() }
         val a = zakres.async { Siec.v1Obiekt("articles", mapOf("limit" to "20")) }
         val b = zakres.async { Siec.v1Obiekt("articles/most-read", mapOf("limit" to "10")) }
         val d = zakres.async { Siec.v1Obiekt("videos", mapOf("limit" to "12")) }
         val e = zakres.async { Siec.v1Obiekt("weather") }
         val lista = a.await() ?: return false
-        val konf = k.await() ?: return false
+        // podgląd bez sieci albo z błędem serwera: zostaje to, co widać (bez przechodzenia na stare API)
+        val konf = k.await() ?: return podglad != null
         // język zmieniony w trakcie pobierania: te odpowiedzi są w poprzednim języku, więc tylko nowe pobranie
         if (Jezyk.biezacy != jezykZapytan) return true
         najnowsze = Artykul.widoczne(lista.lista("items"))
@@ -287,8 +420,16 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
 
     private fun zastosuj(konf: JSONObject) {
         Jezyk.zKonfiguracji(konf)
+        if (komunikatTestowy == null) {
+            komunikat = Komunikat.z(konf.optJSONObject("message"))
+            wymaganaAktualizacja = AktualizacjaAplikacji.wymagana(konf.o("minAppVersion").s("android"))
+        }
         Powiadomienia.zKonfiguracji(aplikacja, konf.o("push"))
         konfiguracjaPush++
+        // formularz „Zgłoś zdarzenie” w aplikacji (config.alerts.native); bez klucza dalej tvml.pl/#alert
+        val al = konf.optJSONObject("alerts") ?: JSONObject()
+        alerty = UstawieniaAlertu.z(al)
+        ustawienia.edit { putString("alerts", al.toString()) }
         val m = Motyw.zV1(konf.o("theme"), konf.s("apiVersion").ifEmpty { "1.0.0" })
         if (m != null && motywTestowy == null) motyw = m
         // scena pogody z harmonogramu (API 1.8.3: theme.weatherScene/backgroundScene/weatherSceneType/dateBar/stages,

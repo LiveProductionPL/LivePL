@@ -4,8 +4,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Android 13+: zgoda na powiadomienia; aplikacja pyta dopiero po włączeniu w Więcej → Powiadomienia -->
+    <!-- Android 13+: zgoda na powiadomienia; system pyta dopiero po „Tak” w naszym oknie przy pierwszym uruchomieniu
+         albo po włączeniu w Więcej → Powiadomienia -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Alert TVML (AlertEkran.kt): położenie tylko po przycisku „Dodaj moje położenie”, zgoda w czasie działania;
+         wystarczy przybliżone. Bez CAMERA: zdjęcie i film robi aplikacja aparatu (z nim intencja aparatu wymagałaby
+         osobnej zgody). Telefony i tablety bez GPS dalej mogą zainstalować TVML. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <uses-feature android:name="android.hardware.location.network" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
     <!-- karta przeglądarki dla stron tvml.pl (Custom Tabs) -->
     <queries>
@@ -49,12 +59,24 @@
             android:name="delivery_metrics_exported_to_big_query_enabled"
             android:value="false" />
 
+        <!-- Alert TVML: aparat zapisuje zdjęcie albo film do cache/alert (res/xml/pliki.xml), tylko z prawem do tego pliku -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.pliki"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/pliki" />
+        </provider>
+
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density"
             android:exported="true"
             android:launchMode="singleTask"
-            android:theme="@style/Theme.TVML.Start">
+            android:theme="@style/Theme.TVML.Start"
+            android:windowSoftInputMode="adjustResize">
             <!-- linki do artykułów otwierają się w aplikacji, gdy tvml.pl poda assetlinks.json dla tego pakietu.
                  Bez www.tvml.pl: Cloudflare przekierowuje www (301) także dla /.well-known/assetlinks.json, a weryfikacja
                  App Links nie przyjmuje przekierowań, więc Play zgłaszał błąd domeny (Karol, 24.11: „bez takich błędów”) -->
@@ -65,6 +87,15 @@
                 <data android:scheme="https" />
                 <data android:host="tvml.pl" />
                 <data android:pathPrefix="/artykul/" />
+                <!-- podgląd szkicu aplikacji z panelu: kod QR prowadzi do https://tvml.pl/app/podglad?t=… -->
+                <data android:pathPrefix="/app/podglad" />
+            </intent-filter>
+            <!-- zapasowy przycisk na stronie podglądu: tvml://preview?t=… (bez weryfikacji domeny) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tvml" android:host="preview" />
             </intent-filter>
         </activity>
 

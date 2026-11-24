@@ -69,7 +69,8 @@ fun WiecejEkran(m: Magazyn) {
         Naglowek(m.zakladki.firstOrNull { it.cel == ZakladkaApp.Cel.Wiecej }?.tytul?.ifEmpty { null } ?: tl("app.tab.more", "Więcej"), wielkosc = 24)
         Row(
             Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(14.dp)).background(kolor(0xc8102e))
-                .clickable(role = Role.Button) { otworzStrone(kontekst, Siec.ALERT) },
+                // formularz w aplikacji przy config.alerts.native, inaczej jak dotąd tvml.pl/#alert
+                .clickable(role = Role.Button) { m.zglosZdarzenie(kontekst) },
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {

@@ -1,1 +1,6 @@
-Wersje językowe: polski, ukraiński i angielski. Powiadomienia o nowych wpisach z wyborem tematów i gmin (Więcej → Powiadomienia). Panorama Leszna i sceny pogody z animacjami jak na tvml.pl, z datą i imieninami pod grafiką. Świąteczne motywy, w tym Andrzejki i sanie w Wigilię. Kalendarz wydarzeń z zakresem dat wydarzeń wielodniowych. Przycisk „Zgłoś zdarzenie” otwiera od razu formularz Alertu TVML. Poprawki i drobne usprawnienia.
+Nowości w TVML 2.2:
+• Zgłoś zdarzenie ma teraz własny formularz w aplikacji: wybierz rodzaj zdarzenia, opisz je, dodaj zdjęcie lub film i, jeśli chcesz, swoje położenie.
+• Filmy obejrzysz na pełnym ekranie, w poziomie.
+• Powiadomienia o nowych wpisach włączysz jednym „Tak” przy pierwszym uruchomieniu; tematy zmienisz w Więcej → Powiadomienia.
+• Linki do artykułów z TVML.pl otwierają się w aplikacji.
+• Świąteczny wygląd: Andrzejki i sanie przy logo w Wigilię.
