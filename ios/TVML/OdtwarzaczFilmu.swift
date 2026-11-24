@@ -65,8 +65,12 @@ struct Odtwarzacz: View {
                 .contentShape(Rectangle())
                 .onTapGesture { przelaczPasek() }
                 .accessibilityHidden(true)
-            if pasek || !s.gra || voiceOver { przyciski }
-            if s.blad != nil { komunikatBledu }
+            if s.blad != nil {
+                // błąd: zasłaniamy stronę błędu YouTube i zostawiamy tylko komunikat i „Zamknij”
+                Color.black.ignoresSafeArea()
+                komunikatBledu
+                VStack { gornyPasek; Spacer() }
+            } else if pasek || !s.gra || voiceOver { przyciski }
         }
         .statusBarHidden()
         .persistentSystemOverlays(.hidden)
@@ -76,17 +80,21 @@ struct Odtwarzacz: View {
         .onChange(of: s.czas) { _, nowy in if !przesuwa { pozycja = nowy } }
     }
 
+    private var gornyPasek: some View {
+        HStack {
+            Button { zamknij() } label: {
+                Image(systemName: "xmark").font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
+                    .frame(width: 44, height: 44).background(.black.opacity(0.45), in: Circle())
+            }
+            .accessibilityLabel(Napisy.t("app.close", "Zamknij"))
+            Spacer()
+        }
+        .padding(.horizontal, 20).padding(.top, 12)
+    }
+
     private var przyciski: some View {
         VStack(spacing: 0) {
-            HStack {
-                Button { zamknij() } label: {
-                    Image(systemName: "xmark").font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
-                        .frame(width: 44, height: 44).background(.black.opacity(0.45), in: Circle())
-                }
-                .accessibilityLabel(Napisy.t("app.close", "Zamknij"))
-                Spacer()
-            }
-            .padding(.horizontal, 20).padding(.top, 12)
+            gornyPasek
             Spacer()
             HStack(spacing: 44) {
                 przycisk("gobackward.10", Napisy.t("app.videoBack10", "Cofnij o 10 sekund"), rozmiar: 30) { s.przeskocz(-10); planujChowanie() }
@@ -135,7 +143,7 @@ struct Odtwarzacz: View {
                     .background(Barwy.zloto, in: Capsule()).foregroundStyle(Color(hex: "#1d1400"))
             }
         }
-        .padding(24).background(.black.opacity(0.75), in: RoundedRectangle(cornerRadius: 16))
+        .padding(24).background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16))
     }
 
     private func przelaczPasek() {
