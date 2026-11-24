@@ -155,6 +155,14 @@ fileprivate extension ScenySwiateczne {
         Path(ellipseIn: CGRect(x: x - rx, y: y - ry, width: rx * 2, height: ry * 2))
     }
 
+    /// Obrócona elipsa jak ctx.ellipse(x, y, rx, ry, rot, 0, 2π); kąt w układzie ekranu (y w dół), jak na płótnie
+    static func elipsaObr(_ x: CGFloat, _ y: CGFloat, _ rx: CGFloat, _ ry: CGFloat, _ rot: CGFloat) -> Path {
+        let baza = Path(ellipseIn: CGRect(x: -rx, y: -ry, width: rx * 2, height: ry * 2))
+        let obrot = CGAffineTransform(rotationAngle: rot)
+        let przesun = CGAffineTransform(translationX: x, y: y)
+        return baza.applying(obrot.concatenating(przesun))
+    }
+
     static func wielokat(_ pkt: [CGPoint]) -> Path {
         var p = Path()
         guard let pierwszy = pkt.first else { return p }
@@ -860,65 +868,147 @@ fileprivate extension ScenySwiateczne {
         let kopiec: Color = u.noc ? hx(0xd8e8f8) : hx(0xf6fbff)
         wypelnij(g, elipsa(cx + 10 * s, u.yg + 1 * s, 38 * s, 5.5 * s), kopiec)
 
-        // Worek i laska cukrowa
-        wypelnij(g, elipsa(L.x(-8), L.y(12.5), 7 * sc, 11 * sc), hx(0xac7c4a))
-        obrys(g, laskaCukrowa(L), hx(0xdc143c), max(1.5, 2.1 * s))
+        // Mikołaj narysowany od nowa, jak na Androidzie (na stronie bryły bez twarzy i z płaską czapką; Karol 24.11:
+        // „6 grudnia Mikołaj też wygląda jak by go ktoś wypluł”): worek z prezentami i laską cukrową, buty, płaszcz
+        // rozszerzony do dołu z białym futrem i pasem ze złotą klamrą, ręka trzymająca worek i druga machająca, twarz
+        // z rumieńcami, puszysta broda z wąsami, złote okulary i opadająca czapka z futrzanym otokiem i pomponem.
+        // Wymiary i miejsce jak na stronie.
+        worekMikolaja(g, u, L)
 
-        // Buty i płaszcz
+        // Buty z noskami
         let but: Color = hx(0x1a161a)
-        wypelnij(g, prost(L.x(-4.6), L.y(5.2), 3.8 * sc, 5.2 * sc), but)
-        wypelnij(g, prost(L.x(1.0), L.y(5.2), 3.8 * sc, 5.2 * sc), but)
-        wypelnij(g, wielokat([L.p(-8.8, 5), L.p(-6.2, 24.8), L.p(6.4, 24.8), L.p(9.0, 5)]), hx(0xcc1630))
+        wypelnij(g, zaokr(L.x(-5.6), L.y(4.4), 5.0 * sc, 4.4 * sc, 1.6 * sc), but)
+        wypelnij(g, zaokr(L.x(0.6), L.y(4.4), 5.0 * sc, 4.4 * sc, 1.6 * sc), but)
 
-        // Machająca ręka w białej rękawicy
-        let reka = L.p(13.2, 27.5)
-        obrys(g, linia(L.p(6.2, 21.5), CGPoint(x: reka.x, y: reka.y + machanie)), hx(0xd01832), max(3.5, 5.2 * s))
-        let mit = L.p(13.6, 27.8)
-        wypelnij(g, kolo(mit.x, mit.y + machanie, 3.0 * s), Color.white)
-
-        // Futro, pas, klamra
-        let futro: Color = hx(0xfffdfa)
-        wypelnij(g, zaokr(L.x(-9.4), L.y(7.5), 19 * sc, 3.2 * sc, 3 * s), futro)
-        wypelnij(g, prost(L.x(-1.6), L.y(24.5), 3.2 * sc, 19.5 * sc), futro)
-        wypelnij(g, prost(L.x(-7.5), L.y(15.2), 15.2 * sc, 2.8 * sc), hx(0x1c1616))
-        obrys(g, prost(L.x(-2.1), L.y(15.6), 4.2 * sc, 3.5 * sc), hx(0xf5cc4e), max(1.2, 1.8 * s))
-
+        plaszczMikolaja(g, L)
+        rekiMikolaja(g, u, L, machanie)
         mikolajGlowa(g, u, L, machanie)
         prezentyMikolaja(g, L)
+    }
+
+    /// Worek jutowy ze związaną szyjką, wystające z niego prezenty i laska cukrowa
+    static func worekMikolaja(_ g: GraphicsContext, _ u: Uklad, _ L: Lok) {
+        let s = u.scH
+        let sc = L.sc
+        let juta: Color = hx(0xa87545)
+        wypelnij(g, elipsaObr(L.x(-9.5), L.y(11.5), 7.6 * sc, 10.2 * sc, -0.12), juta)
+        wypelnij(g, elipsaObr(L.x(-11.5), L.y(9.0), 3.2 * sc, 6.0 * sc, -0.12), hx(0x8c5e34))
+        wypelnij(g, prost(L.x(-13.2), L.y(24.6), 4.4 * sc, 4.0 * sc), hx(0x14764a))
+        wypelnij(g, prost(L.x(-11.4), L.y(24.6), 0.8 * sc, 4.0 * sc), hx(0xf5ce58))
+        wypelnij(g, prost(L.x(-8.6), L.y(23.6), 3.6 * sc, 3.2 * sc), hx(0xc01630))
+        // szyjka worka i sznurek
+        let szyjka = wielokat([L.p(-13.6, 20.4), L.p(-5.4, 20.4), L.p(-7.6, 21.6), L.p(-11.4, 21.6)])
+        wypelnij(g, szyjka, juta)
+        obrys(g, linia(L.p(-12.6, 20.6), L.p(-6.4, 20.6)), hx(0x6b4423), max(1.0, 1.2 * s))
+        obrys(g, laskaCukrowa(L), hx(0xdc143c), max(1.5, 2.1 * s))
     }
 
     /// Hak laski: łuk od π do 2π, potem w dół
     static func laskaCukrowa(_ L: Lok) -> Path {
         var p = Path()
-        let c = L.p(-9.5, 24.5)
-        let r: CGFloat = 2.4 * L.sc
+        let c = L.p(-3.6, 25.2)
+        let r: CGFloat = 1.8 * L.sc
         for k in 0...12 {
             let a: CGFloat = CGFloat.pi + CGFloat.pi * CGFloat(k) / 12
             let pt = CGPoint(x: c.x + cos(a) * r, y: c.y + sin(a) * r)
             if k == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
         }
-        p.addLine(to: L.p(-7.1, 21))
+        p.addLine(to: L.p(-1.8, 20.0))
         return p
+    }
+
+    /// Płaszcz rozszerzony do dołu z zaokrąglonym brzegiem i ciemniejszym bokiem, białe futro i pas ze złotą klamrą
+    static func plaszczMikolaja(_ g: GraphicsContext, _ L: Lok) {
+        let sc = L.sc
+        var plaszcz = Path()
+        plaszcz.move(to: L.p(-9.4, 6.2))
+        plaszcz.addQuadCurve(to: L.p(-6.4, 25.6), control: L.p(-8.6, 17.0))
+        plaszcz.addQuadCurve(to: L.p(6.4, 25.6), control: L.p(0, 27.4))
+        plaszcz.addQuadCurve(to: L.p(9.4, 6.2), control: L.p(8.6, 17.0))
+        plaszcz.addQuadCurve(to: L.p(-9.4, 6.2), control: L.p(0, 4.4))
+        plaszcz.closeSubpath()
+        wypelnij(g, plaszcz, hx(0xcc1630))
+        // ciemniejszy bok płaszcza (bryła)
+        var bok = Path()
+        bok.move(to: L.p(5.0, 25.2))
+        bok.addQuadCurve(to: L.p(9.4, 6.2), control: L.p(8.6, 17.0))
+        bok.addLine(to: L.p(6.4, 5.6))
+        bok.addQuadCurve(to: L.p(5.0, 25.2), control: L.p(6.8, 16.0))
+        bok.closeSubpath()
+        wypelnij(g, bok, hx(0xa8102a))
+
+        // Białe futro: dół płaszcza i pas z przodu
+        let futro: Color = hx(0xfffdfa)
+        wypelnij(g, zaokr(L.x(-9.8), L.y(8.2), 19.6 * sc, 3.4 * sc, 1.7 * sc), futro)
+        wypelnij(g, zaokr(L.x(-1.7), L.y(25.4), 3.4 * sc, 17.6 * sc, 1.2 * sc), futro)
+
+        // Pas ze złotą klamrą
+        let pas: Color = hx(0x1c1616)
+        wypelnij(g, prost(L.x(-8.3), L.y(15.4), 16.6 * sc, 2.8 * sc), pas)
+        wypelnij(g, zaokr(L.x(-2.3), L.y(15.9), 4.6 * sc, 3.8 * sc, 0.6 * sc), hx(0xf5cc4e))
+        wypelnij(g, prost(L.x(-1.1), L.y(14.9), 2.2 * sc, 1.8 * sc), pas)
+    }
+
+    /// Lewa ręka trzyma worek, prawa macha; białe rękawice i futrzany mankiet
+    static func rekiMikolaja(_ g: GraphicsContext, _ u: Uklad, _ L: Lok, _ machanie: CGFloat) {
+        let s = u.scH
+        let sc = L.sc
+        let rekaw: Color = hx(0xcc1630)
+        let lwR: CGFloat = max(3.5, 4.6 * s)
+        var lewa = Path()
+        lewa.move(to: L.p(-6.0, 23.4))
+        lewa.addQuadCurve(to: L.p(-9.0, 18.6), control: L.p(-9.6, 21.0))
+        obrys(g, lewa, rekaw, lwR)
+        let dlon = L.p(12.6, 28.4)
+        obrys(g, linia(L.p(6.0, 23.4), CGPoint(x: dlon.x, y: dlon.y + machanie)), rekaw, lwR)
+        wypelnij(g, kolo(L.x(-9.0), L.y(18.2), 2.2 * sc), Color.white)
+        let rekawica = L.p(13.4, 29.0)
+        wypelnij(g, kolo(rekawica.x, rekawica.y + machanie, 2.3 * sc), Color.white)
+        let mankiet = L.p(11.6, 27.6)
+        let wMankietu: CGFloat = machanie * 0.8
+        wypelnij(g, kolo(mankiet.x, mankiet.y + wMankietu, 1.6 * sc), hx(0xfffdfa))
     }
 
     static func mikolajGlowa(_ g: GraphicsContext, _ u: Uklad, _ L: Lok, _ machanie: CGFloat) {
         let s = u.scH
         let sc = L.sc
-        wypelnij(g, kolo(L.x(0), L.y(28.5), 4.8 * sc), hx(0xfed6bc))
-        let broda = wielokat([L.p(-5.8, 28), L.p(5.8, 28), L.p(4.4, 20.8), L.p(0, 17.4), L.p(-4.4, 20.8)])
-        wypelnij(g, broda, Color.white)
-        // Złote okulary
-        let lwO: CGFloat = max(1.0, 1.3 * s)
-        obrys(g, kolo(L.x(-2.0), L.y(30), 1.5 * sc), hx(0xebbe3e), lwO)
-        obrys(g, kolo(L.x(2.0), L.y(30), 1.5 * sc), hx(0xebbe3e), lwO)
-        // Czapka z pomponem
+        // Głowa: twarz, rumieńce, oczy, nos
+        wypelnij(g, kolo(L.x(0), L.y(29.4), 4.6 * sc), hx(0xfed6bc))
+        let rumieniec: Color = rgba(232, 120, 120, 0.55)
+        wypelnij(g, kolo(L.x(-2.7), L.y(28.4), 1.1 * sc), rumieniec)
+        wypelnij(g, kolo(L.x(2.7), L.y(28.4), 1.1 * sc), rumieniec)
+        let oko: Color = hx(0x2a1a12)
+        wypelnij(g, kolo(L.x(-1.6), L.y(30.4), 0.55 * sc), oko)
+        wypelnij(g, kolo(L.x(1.6), L.y(30.4), 0.55 * sc), oko)
+        wypelnij(g, kolo(L.x(0), L.y(29.0), 1.1 * sc), hx(0xf0a98e))
+
+        // Puszysta broda z wąsami
+        let kleby: [(CGFloat, CGFloat)] = [(-3.8, 26.4), (3.8, 26.4), (-2.6, 23.4), (2.6, 23.4), (0, 21.4), (0, 24.6)]
+        for (bx, by) in kleby {
+            wypelnij(g, kolo(L.x(bx), L.y(by), 2.7 * sc), Color.white)
+        }
+        wypelnij(g, elipsaObr(L.x(-1.9), L.y(27.9), 2.2 * sc, 1.1 * sc, 0.25), Color.white)
+        wypelnij(g, elipsaObr(L.x(1.9), L.y(27.9), 2.2 * sc, 1.1 * sc, -0.25), Color.white)
+
+        // Złote okulary jak na stronie
+        let lwO: CGFloat = max(0.9, 1.1 * s)
+        obrys(g, kolo(L.x(-1.7), L.y(30.4), 1.4 * sc), hx(0xebbe3e), lwO)
+        obrys(g, kolo(L.x(1.7), L.y(30.4), 1.4 * sc), hx(0xebbe3e), lwO)
+
+        // Czapka opadająca na bok, futrzany otok i pompon
         let w35: CGFloat = machanie * 0.35
-        let szpic = L.p(9.6, 39.2)
-        let czapka = wielokat([L.p(-5.6, 31.8), L.p(5.6, 31.8), CGPoint(x: szpic.x, y: szpic.y + w35), L.p(-1.8, 41.2)])
+        let zgiecie = L.p(8.4, 40.6)
+        let szpic = L.p(9.4, 36.4)
+        var czapka = Path()
+        czapka.move(to: L.p(-5.0, 32.4))
+        czapka.addQuadCurve(to: L.p(4.2, 41.4), control: L.p(-2.6, 42.0))
+        czapka.addQuadCurve(to: CGPoint(x: szpic.x, y: szpic.y + w35), control: CGPoint(x: zgiecie.x, y: zgiecie.y + w35))
+        czapka.addQuadCurve(to: L.p(5.0, 32.4), control: L.p(5.6, 37.6))
+        czapka.closeSubpath()
         wypelnij(g, czapka, hx(0xd61630))
-        wypelnij(g, zaokr(L.x(-6.4), L.y(33.8), 12.8 * sc, 3.0 * sc, 3 * s), Color.white)
-        let pom = L.p(10.0, 39.0)
-        wypelnij(g, kolo(pom.x, pom.y + w35, 3.4 * s), Color.white)
+        wypelnij(g, zaokr(L.x(-6.2), L.y(34.6), 12.4 * sc, 3.2 * sc, 1.6 * sc), Color.white)
+        let pom = L.p(9.6, 35.8)
+        wypelnij(g, kolo(pom.x, pom.y + w35, 2.2 * sc), Color.white)
     }
 
     static func prezentyMikolaja(_ g: GraphicsContext, _ L: Lok) {
@@ -1015,9 +1105,14 @@ fileprivate extension ScenySwiateczne {
     static func sanie(_ g: GraphicsContext, _ u: Uklad) {
         let s = u.scH
         let flyU: CGFloat = fmodP(u.t * 0.085, 1)
-        let sx0: CGFloat = -75 * s + flyU * (u.w + 150 * s)
-        let sy0: CGFloat = u.h * 0.16 + sin(u.t * 2.2) * 3.5 * s
-        let scS: CGFloat = 1.48 * s
+        // Karta na Starcie: sanie większe i niżej, w wolnym pasie między temperaturą a kolumnami (nad nimi zasłaniały napisy)
+        let wiekszeSanie: CGFloat = u.karta ? 1.35 : 1
+        let startX: CGFloat = -75 * s * wiekszeSanie
+        let trasa: CGFloat = u.w + 150 * s * wiekszeSanie
+        let sx0: CGFloat = startX + flyU * trasa
+        let wysLotu: CGFloat = u.karta ? u.h * 0.43 : u.h * 0.16
+        let sy0: CGFloat = wysLotu + sin(u.t * 2.2) * 3.5 * s
+        let scS: CGFloat = 1.48 * s * wiekszeSanie
         let L = Lok(cx: sx0, cy: sy0, sc: scS, ky: 1)
         let zloto: Color = u.noc ? hx(0xf8d66c) : hx(0xda9e20)
 
@@ -1033,14 +1128,23 @@ fileprivate extension ScenySwiateczne {
             wypelnij(g, kolo(L.x(dx), L.y(dy), r), rgba(255, 236, 150, a))
         }
 
-        // Płoza, kadłub, Mikołaj
-        obrys(g, linia(L.p(-2, 5.6), L.p(17, 4.5)), zloto, max(1.4, 2.0 * s))
+        // Płoza z podwiniętym przodem
+        var ploza = Path()
+        ploza.move(to: L.p(-2, 5.6))
+        ploza.addLine(to: L.p(17, 4.5))
+        ploza.addQuadCurve(to: L.p(19.6, 1.4), control: L.p(20.5, 4.2))
+        obrys(g, ploza, zloto, max(1.4, 2.0 * s))
+
+        // Mikołaj w saniach; jego dół zasłania pudło sań rysowane po nim
+        mikolajWSaniach(g, L, zloto)
+
+        // Złote pudło sań z ozdobnym zawijasem z przodu i czerwoną linią ozdobną
         let kadlub = wielokat([L.p(-0.5, 3.8), L.p(13.5, 2.6), L.p(16.2, -2.8), L.p(6.5, -1.4), L.p(-2.0, -4.2)])
         wypelnij(g, kadlub, zloto)
-        let mk = L.p(7.5, -4)
-        wypelnij(g, kolo(mk.x, mk.y, 3.6 * s), hx(0xd01832))
-        let mb = L.p(8.0, -6.8)
-        wypelnij(g, kolo(mb.x, mb.y, 2.3 * s), Color.white)
+        let rZaw: CGFloat = 1.5 * scS
+        let zawijas = lukElipsy(L.x(16.6), L.y(-4.2), rZaw, rZaw, CGFloat.pi * 0.5, CGFloat.pi * 2.2, 24)
+        obrys(g, zawijas, zloto, max(1.0, 1.2 * scS))
+        obrys(g, linia(L.p(0.4, 0.6), L.p(13.0, -0.4)), hx(0xd01832), max(0.8, 0.7 * scS))
 
         // Lejce i renifery
         obrys(g, linia(L.p(14.5, -1.2), L.p(42, -5.8)), rgba(255, 242, 180, 0.82), max(0.9, 1.1 * s))
@@ -1048,6 +1152,44 @@ fileprivate extension ScenySwiateczne {
         for (ri, rp) in renifery.enumerated() {
             renifer(g, u, L, rx: rp.0, ry: rp.1, ri: ri, zloto: zloto)
         }
+    }
+
+    /// Mikołaj w saniach, jak na Androidzie (na stronie tylko czerwone i białe kółko; Karol 24.11: „Mikołaj jak przelatuje
+    /// wygląda tragicznie i czapki nie ma”): worek z prezentem z tyłu, czerwony płaszcz z pasem, ręka na lejcach,
+    /// twarz, biała broda i czerwona czapka z białym otokiem i pomponem. Wymiary w jednostkach sań (L.sc = scS).
+    static func mikolajWSaniach(_ g: GraphicsContext, _ L: Lok, _ zloto: Color) {
+        let sc = L.sc
+        let czerwien: Color = hx(0xd01832)
+        // worek z prezentem
+        wypelnij(g, elipsaObr(L.x(1.6), L.y(-5.6), 3.4 * sc, 3.9 * sc, -0.25), hx(0x7a3b1d))
+        wypelnij(g, prost(L.x(-1.4), L.y(-10.4), 3.6 * sc, 3.2 * sc), hx(0x2e7d32))
+        wypelnij(g, prost(L.x(0.1), L.y(-10.4), 0.7 * sc, 3.2 * sc), zloto)
+        // płaszcz z białym futrem i czarnym pasem
+        wypelnij(g, elipsa(L.x(8.2), L.y(-5.4), 3.3 * sc, 3.9 * sc), czerwien)
+        wypelnij(g, prost(L.x(8.0), L.y(-8.9), 0.9 * sc, 6.2 * sc), Color.white)
+        wypelnij(g, prost(L.x(5.1), L.y(-4.4), 6.3 * sc, 0.9 * sc), hx(0x1b1b1b))
+        // ręka na lejcach
+        obrys(g, linia(L.p(9.6, -6.6), L.p(12.6, -4.6)), czerwien, max(1.2, 1.5 * sc))
+        wypelnij(g, kolo(L.x(12.8), L.y(-4.5), 0.75 * sc), Color.white)
+        // twarz, broda, oko, nos
+        wypelnij(g, kolo(L.x(8.9), L.y(-10.9), 2.0 * sc), hx(0xf4c7a1))
+        var broda = Path()
+        broda.move(to: L.p(6.8, -10.5))
+        broda.addQuadCurve(to: L.p(9.6, -7.2), control: L.p(7.6, -6.6))
+        broda.addQuadCurve(to: L.p(11.0, -10.4), control: L.p(11.4, -8.0))
+        broda.closeSubpath()
+        wypelnij(g, broda, Color.white)
+        wypelnij(g, kolo(L.x(9.9), L.y(-11.4), 0.32 * sc), hx(0x2a1a12))
+        wypelnij(g, kolo(L.x(10.8), L.y(-10.5), 0.5 * sc), hx(0xe8a08a))
+        // czapka z białym otokiem i pomponem
+        var czapka = Path()
+        czapka.move(to: L.p(6.6, -12.2))
+        czapka.addQuadCurve(to: L.p(4.0, -16.2), control: L.p(7.6, -16.4))
+        czapka.addQuadCurve(to: L.p(11.2, -12.2), control: L.p(9.0, -17.2))
+        czapka.closeSubpath()
+        wypelnij(g, czapka, czerwien)
+        wypelnij(g, prost(L.x(6.3), L.y(-13.0), 5.2 * sc, 1.3 * sc), Color.white)
+        wypelnij(g, kolo(L.x(3.9), L.y(-16.2), 0.95 * sc), Color.white)
     }
 
     static func renifer(_ g: GraphicsContext, _ u: Uklad, _ L: Lok, rx: CGFloat, ry: CGFloat, ri: Int, zloto: Color) {
@@ -1125,8 +1267,9 @@ fileprivate extension ScenySwiateczne {
         let stopy: [Gradient.Stop] = [stC(rgba(212, 175, 55, a0), 0), stC(rgba(212, 175, 55, 0), 1)]
         poswiata(g, CGPoint(x: cx, y: u.yg - 26 * s), 2, 44 * s, stopy)
 
-        // Sylwester: „2026/2027” na szerszym cokole (Karol: „Tu rok 2026/2027 bym dał i by go było widać”)
-        let szer: CGFloat = u.scena == .sylwester ? 98 : 66
+        // Sylwester: „2026/2027” na szerszym cokole (Karol: „Tu rok 2026/2027 bym dał i by go było widać”);
+        // mniejsza czcionka i cokół ±38, żeby napis nie nachodził na temperaturę w kolumnie prognozy (jak na Androidzie)
+        let szer: CGFloat = u.scena == .sylwester ? 76 : 66
         let cokol = zaokr(cx - szer / 2 * s, u.yg - 8.5 * s, szer * s, 8.5 * s, 2.5 * s)
         wypelnij(g, cokol, hx(0x0e1628))
         obrys(g, cokol, hx(0xdabe48), max(1.1, 1.4 * s))
@@ -1207,10 +1350,11 @@ fileprivate extension ScenySwiateczne {
     static func napisRoku(_ g: GraphicsContext, _ u: Uklad) {
         let s = u.scH
         let rok: Int = u.miesiac == 1 ? u.rok : u.rok + 1
-        // Sylwester: stary i nowy rok, mniejszą czcionką, żeby zmieścił się na cokole; Nowy Rok: sam nowy rok
+        // Sylwester: stary i nowy rok, mniejszą czcionką (12·scH), żeby zmieścił się na cokole i nie nachodził
+        // na temperaturę w kolumnie; Nowy Rok: sam nowy rok
         let sylwester: Bool = u.scena == .sylwester
         let tekst: String = sylwester ? "\(rok - 1)/\(rok)" : String(rok)
-        let fs: CGFloat = sylwester ? max(13, (17 * s).rounded()) : max(16, (23 * s).rounded())
+        let fs: CGFloat = sylwester ? max(11, (12 * s).rounded()) : max(16, (23 * s).rounded())
         // JS: linia bazowa w yg - 13.5scH; środek cyfr ok. 0.355 em wyżej
         let bazowa: CGFloat = u.yg - 13.5 * s
         let srodekY: CGFloat = bazowa - fs * 0.355
