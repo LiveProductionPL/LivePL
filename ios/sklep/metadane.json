@@ -8,12 +8,12 @@
   },
   "aplikacje": {
     "eu.livepl.przegladarka": {
-      "name": "LivePL",
-      "subtitle": "Przeglądarka Live Production",
+      "name": "LivePL: przeglądarka i tłumacz",
+      "subtitle": "Bez reklam i bez śledzenia",
       "primaryCategory": "PRODUCTIVITY",
       "secondaryCategory": "UTILITIES",
       "promotionalText": "Programy Live Production, karty i Twoje strony w jednym miejscu. Tłumacz stron działa w telefonie, bez wysyłania tekstu.",
-      "keywords": "przeglądarka,livepl,live production,poczta,tvml,tłumacz,karty,firma,leszno,strony",
+      "keywords": "internet,www,strony,karty,prywatność,bezpieczna,tłumaczenie,translate,poczta,firma,liveproduction",
       "description": "LivePL to przeglądarka firmy Live Production. Programy firmy, otwarte karty i Twoje strony masz w jednym miejscu, tak jak w LivePL na komputerze.\n\nSTART\n• Programy firmy jednym stuknięciem: Poczta, Live Production, TVML i więcej.\n• Pole „Adres albo szukaj”: wpisz adres strony albo to, czego szukasz.\n• Moje strony: dodaj dowolne strony, a pojawią się na ekranie Start.\n\nKARTY I PASEK\n• Każdy program ma własną kartę, która pamięta, gdzie skończyłeś.\n• Dolny pasek z ikonami programów i licznikiem kart.\n• Karty wracają po ponownym uruchomieniu.\n\nTŁUMACZ STRON\n• Strony w obcych językach przetłumaczysz na polski jednym stuknięciem.\n• Tłumaczy telefon (Apple Translation), więc tekst stron nie trafia do nikogo.\n• „Pokaż oryginał” przywraca stronę.\n\nBEZPIECZEŃSTWO\n• Aplikacja zna certyfikaty urzędu LivePL dla stron firmy, niczego nie trzeba instalować.\n• Telefon rejestruje się w urzędzie LivePL kluczem w Secure Enclave, którego nie da się skopiować.\n• Bez reklam i bez śledzenia.\n\nWYGODA\n• Tryb dzień, noc albo automatycznie, jak telefon.\n• Pobieranie plików, udostępnianie, znajdź na stronie, otwórz w Safari.\n• Logowanie do poczty firmowej trzyma 90 dni.\n\nPoczta firmowa jest też w osobnej aplikacji Poczta LivePL.",
       "ageRating": {
         "unrestrictedWebAccess": true,
@@ -21,12 +21,12 @@
       }
     },
     "eu.livepl.poczta": {
-      "name": "Poczta LivePL",
-      "subtitle": "Firmowa poczta Live Production",
+      "name": "Poczta LivePL – firmowy e-mail",
+      "subtitle": "Skrzynka Live Production",
       "primaryCategory": "BUSINESS",
       "secondaryCategory": "PRODUCTIVITY",
       "promotionalText": "Firmowa poczta Live Production w osobnej aplikacji: liczba nieprzeczytanych na ikonie i logowanie, które trzyma 90 dni.",
-      "keywords": "poczta,email,e-mail,livepl,live production,skrzynka,firma,konta,leszno,wiadomości",
+      "keywords": "email,mail,kontakty,kalendarz,zadania,pliki,załączniki,konta,biuro,wiadomości,leszno",
       "description": "Poczta LivePL to firmowa poczta Live Production (poczta.livepl.eu) w osobnej aplikacji, na cały ekran i z własną ikoną.\n\n• Liczba nieprzeczytanych wiadomości na ikonie aplikacji.\n• Logowanie trzyma 90 dni od ostatniego użycia, bez ciągłego wpisywania hasła.\n• Wiele kont w jednym miejscu i szybkie przełączanie między nimi.\n• Załączniki: podgląd, zapisywanie w Plikach i wysyłanie zdjęć z telefonu.\n• Tryb dzień i noc.\n• Linki z wiadomości otwierają się w przeglądarce, a poczta zostaje na miejscu.\n• Telefon rejestruje się w urzędzie LivePL kluczem w Secure Enclave.\n• Bez reklam i bez śledzenia.\n\nDo logowania potrzebne jest konto pocztowe Live Production lub LivePL.",
       "ageRating": {
         "unrestrictedWebAccess": false,
@@ -34,12 +34,12 @@
       }
     },
     "eu.livepl.connect": {
-      "name": "LivePL Connect",
-      "subtitle": "Zdalny pulpit Live Production",
+      "name": "LivePL Connect: zdalny pulpit",
+      "subtitle": "Pomoc zdalna i dostęp do PC",
       "primaryCategory": "UTILITIES",
       "secondaryCategory": "BUSINESS",
       "promotionalText": "Połącz się z komputerem z telefonu: wpisz ID i hasło z programu LivePL Connect i już widzisz jego ekran. Obraz jest szyfrowany od komputera do telefonu.",
-      "keywords": "zdalny pulpit,pomoc zdalna,komputer,windows,sterowanie,livepl,connect,live production,ekran",
+      "keywords": "komputer,windows,sterowanie,ekran,remote,desktop,serwis,informatyk,wsparcie,połączenie,laptop,it",
       "description": "LivePL Connect to zdalny pulpit Live Production. Z iPhone'a albo iPada połączysz się z komputerem, na którym działa program LivePL Connect: widzisz jego ekran i sterujesz nim jak na miejscu.\n\nPOŁĄCZENIE\n• Wpisz ID i hasło, które pokazuje program LivePL Connect na tamtym komputerze, albo jego stałe hasło.\n• Ostatnie połączenia masz pod ręką na ekranie startowym.\n• Obraz i sterowanie są szyfrowane od urządzenia do urządzenia (WebRTC, DTLS). Zwykle płyną bezpośrednio, a gdy sieć na to nie pozwala, przez przekaźnik LivePL, który nie może ich odczytać.\n\nSTEROWANIE\n• Tryb dotyku: stuknięcie to kliknięcie, przytrzymanie to prawy przycisk, przesunięcie jednym palcem przewija, dwa palce powiększają.\n• Tryb myszy: ekran działa jak touchpad laptopa, wygodny przy drobnych elementach.\n• Pisanie klawiaturą telefonu i pasek klawiszy: Ctrl, Alt, Shift, Win, Esc, Tab, strzałki i F1–F12.\n• „Dopasuj” pokazuje cały ekran komputera.\n\nWYGODA\n• Pełny ekran, w pionie i w poziomie.\n• Telefon nie gaśnie w trakcie połączenia.\n• Wibracja potwierdza przytrzymanie palca.\n• Tryb dzień i noc, jak w telefonie.\n\nBEZPIECZEŃSTWO\n• Każde połączenie wymaga hasła z komputera, z którym się łączysz.\n• Telefon rejestruje się w urzędzie LivePL kluczem w Secure Enclave, którego nie da się skopiować.\n• Bez reklam i bez śledzenia.\n\nProgram LivePL Connect na komputer z Windows pobierzesz z app.livepl.eu.",
       "ageRating": {
         "unrestrictedWebAccess": false,
@@ -47,15 +47,15 @@
       }
     },
     "com.LiveProduction.TVML": {
-      "name": "TVML",
-      "subtitle": "Wiadomości z Leszna i regionu",
+      "name": "Telewizja TVML Leszno",
+      "subtitle": "Wiadomości, wideo i pogoda",
       "primaryCategory": "NEWS",
       "secondaryCategory": null,
       "privacyPolicyUrl": "https://tvml.pl/strona/polityka-prywatnosci",
       "supportUrl": "https://tvml.pl/strona/kontakt",
       "marketingUrl": "https://tvml.pl/",
       "promotionalText": "Nowe TVML: wiadomości z Leszna i powiatu, pilne komunikaty, wideo i pogoda ze sceną leszczyńskiego Ratusza, zawsze pod ręką.",
-      "keywords": "leszno,wiadomości,telewizja,pogoda,powiat leszczyński,sport,wideo,lokalne,rydzyna,osieczna,region",
+      "keywords": "leszczyński,powiat,lokalne,sport,alert,korki,rydzyna,osieczna,lipno,święciechowa,włoszakowice,wijewo",
       "whatsNew": "Zupełnie nowa aplikacja TVML: wiadomości z Leszna i powiatu, pilne komunikaty, wideo, pogoda na 14 dni ze sceną leszczyńskiego Ratusza i odsłuchiwanie artykułów.",
       "description": "TVML to aplikacja Telewizji TVML i serwisu tvml.pl. Najświeższe wiadomości z Leszna i powiatu leszczyńskiego, materiały wideo i pogoda masz zawsze pod ręką.\n\nSTART\n• Najważniejsze tematy dnia i pilne komunikaty redakcji.\n• Pasek „NA ŻYWO” z najnowszymi wiadomościami.\n• Najnowsze, najczęściej czytane i fotorelacje, w kolejności ustalonej przez redakcję.\n• Wiadomości z gmin powiatu leszczyńskiego i działy: sport, kultura i inne.\n\nARTYKUŁY\n• Wygodne czytanie, trzy rozmiary tekstu.\n• „Odsłuchaj”: telefon przeczyta artykuł na głos.\n• Zapisz na później, udostępnij znajomym, przeczytaj komentarze.\n• Szukaj w artykułach tvml.pl.\n\nWIDEO\n• Najnowsze materiały Telewizji TVML, odtwarzane w aplikacji.\n\nPOGODA\n• Pogoda dla Leszna: teraz, godzina po godzinie i na 14 dni.\n• Scena z leszczyńskim Ratuszem zmienia się razem z pogodą i porą dnia: słońce, deszcz, śnieg, burza, mgła, a nocą gwiazdy.\n• Imieniny na każdy dzień.\n\nWYGODA\n• Tryb dzień, noc albo jak w telefonie.\n• Alert TVML: zgłoś redakcji zdarzenie z okolicy.\n• Bez logowania i bez śledzenia.",
       "ageRating": {
@@ -74,5 +74,6 @@
     "notatkaLivePL": "PURPOSE AND AUDIENCE: LivePL is the web browser of Live Production (Leszno, Poland), which runs the LIVEPL hosting and domain service (https://livepl.eu), the local news service TVML (https://tvml.pl) and other web services. A desktop version for Windows already exists; this app brings the same browser to iPhone and iPad. Audience: LIVEPL hosting customers and their staff, Live Production staff and local readers. The Start screen gives one-tap access to the company programs (webmail, company website, TVML news), each in its own tab that remembers where you left off; any site can be added to \"My pages\". Pages in other languages can be translated into Polish on the device with Apple's Translation framework (page text is not sent anywhere). The app trusts certificates of the LivePL certificate authority used on company sites without a configuration profile, and the device can be registered in that authority with a key kept in the Secure Enclave. No ads, no tracking.\n\nACCOUNTS AND CONTENT: LivePL has no accounts of its own (no registration, no sign-in to the app, so no account deletion). Websites opened in it have their own sign-in pages; no sign-in is needed to review the app. No user-generated content of its own, no paid content.\n\nACCESS: No setup needed. Open the app: the Start screen shows the company programs and the \"Address or search\" field. Tap a program (e.g. TVML) or type any address. To try the translator, open a page in another language (e.g. bbc.com) and tap \"Przetłumacz na polski\" (Translate into Polish) in the menu. Camera, microphone and location are requested only when a website asks, with the standard iOS prompt.\n\nEXTERNAL SERVICES: Websites the user opens (built-in programs are our own sites: poczta.livepl.eu, liveproduction.pl, tvml.pl); Google Search for text typed in the \"Address or search\" field that is not an address; the LivePL certificate authority (cert.livepl.eu, run by Live Production) for the device certificate; Apple's iTunes Search API only to check whether our Poczta LivePL app is in the App Store before suggesting it. On the device only Apple frameworks (WebKit, Translation, Secure Enclave). No third-party analytics, advertising, AI, payment or sign-in services.\n\nREGIONS: The app works the same in all regions. The interface is in Polish because Live Production and its services are Polish; websites appear in their own language.\n\nREGULATED INDUSTRY / THIRD-PARTY MATERIAL: Not applicable. Like other browsers, the app only displays the websites the user opens.\n\nSCREEN RECORDING: attached to our reply in App Review, recorded on a physical iPhone with the latest iOS: launch, Start screen, programs in their own tabs, translating a page and showing the original, My pages, open tabs, the browser menu, light and dark appearance, device registration screen.",
     "notatkaConnect": "TEST COMPUTER: Our test computer runs 24/7 with a fixed ID. Enter the ID from the \"User name\" field and the password from the \"Password\" field of the Sign-In Information section, then tap \"Połącz\" (Connect). You will see the Windows desktop of the test computer and can control it.\n\nPURPOSE AND AUDIENCE: LivePL Connect is the remote desktop app of Live Production (Leszno, Poland), which runs the LIVEPL hosting service (https://livepl.eu). Live Production technicians and staff use it to help customers, and users use it to reach their own computers. The free LivePL Connect program for Windows (open source, MIT license, https://app.livepl.eu) shows an ID and a password on the computer; with this app you enter them on an iPhone or iPad, see the whole screen and control it (touch mode, mouse mode, phone keyboard with a key bar, \"Fit\", landscape). It is a generic remote desktop client that mirrors the entire host screen, not specific software or services. Screen and control data are encrypted end to end (WebRTC, DTLS): usually directly between the devices, otherwise through a LivePL relay that cannot read them. No ads, no tracking.\n\nACCOUNTS AND CONTENT: No accounts (no registration, no sign-in to the app, so no account deletion). Each connection is authorized only by the password shown on or set in the program on the computer. No user-generated content, no paid content. The app asks no permissions; it only keeps the screen awake during a session.\n\nEXTERNAL SERVICES: connect.livepl.eu, the connection server run by Live Production (matches devices by ID, never sees screen content; the password is checked by the program on the computer); a TURN relay run by Live Production (only when a direct connection is not possible, carries encrypted data it cannot read); Google's public STUN server (stun.l.google.com) only to find the device's public network address; the LivePL certificate authority (cert.livepl.eu, run by Live Production) for the device certificate whose key stays in the Secure Enclave. On the device only Apple frameworks (WebKit with WebRTC, Secure Enclave). No third-party analytics, advertising, AI, payment or sign-in services.\n\nREGIONS: The app works the same in all regions. The interface is in Polish because Live Production and its services are Polish.\n\nREGULATED INDUSTRY / THIRD-PARTY MATERIAL: Not applicable. Users see only the screen of a computer whose password they were given.\n\nSCREEN RECORDING: attached to our reply in App Review, recorded on a physical iPhone with the latest iOS: launch, entering ID and password, connecting, the session notice on the computer, touch control, typing with the key bar, landscape, disconnecting, recent connections. The recording connects to our test computer with exactly the ID and password from the Sign-In Information section; they are shown on purpose, so you can see that these credentials work.",
     "notatkaTVML": "TVML to aplikacja serwisu informacyjnego tvml.pl (Telewizja TVML, Leszno). Nie wymaga logowania. Wszystkie treści (artykuły, wideo z YouTube, pogoda, kolejność ekranu Start, wydania okolicznościowe) pochodzą z API serwisu (https://tvml.pl/api/v1/), którym zarządza redakcja w panelu tvml.pl. Komentarze są tylko do odczytu i moderuje je redakcja; każdy komentarz można zgłosić ikoną chorągiewki (wiadomość do redakcja@tvml.pl). W wydaniu zimowym i świątecznym aplikacja zmienia wygląd i ikonę, tak jak tvml.pl. Wydawcą serwisu jest Stowarzyszenie Leszczyńskie Media; aplikację przygotowuje i publikuje Live Production."
-  }
+  },
+  "_aso": "Nazwy, podtytuły i słowa kluczowe z C:claude\roboczeapp-designiosASO-propozycje.md, zatwierdzone przez Karola 24.11.2026 („Tak, wprowadź”). W App Store Connect wchodzą z najbliższą wersją każdej aplikacji (TVML od 2.3)."
 }
