@@ -688,11 +688,9 @@ struct KartaPogody: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            grafika
-            belka
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 18))
+        // belka z datą leży w karcie, na dole sceny, jak plakietka na tvml.pl
+        grafika
+            .clipShape(RoundedRectangle(cornerRadius: 18))
     }
 
     /// Grafika w proporcjach karty ze strony w telefonie (prawie kwadrat, Karol 24.11: „u mnie temperatura w inne dni
@@ -700,7 +698,7 @@ struct KartaPogody: View {
     /// Przy dużym tekście karta rośnie razem z nim.
     private var grafika: some View {
         ZStack(alignment: .topLeading) {
-            Color.clear.aspectRatio(1.12, contentMode: .fit)
+            Color.clear.aspectRatio(1.05, contentMode: .fit)
             tekst
         }
         .frame(maxWidth: .infinity)
@@ -749,8 +747,7 @@ struct KartaPogody: View {
             // jak na stronie: duża ikona, temperatura i opis
             HStack(alignment: .center, spacing: 12) {
                 if !ikonaTeraz.isEmpty {
-                    Image(systemName: ikonaPogody(noc && !ikonaTeraz.contains("night") && (ikonaTeraz.contains("clear") || ikonaTeraz.contains("sun")) ? "clear-night" : ikonaTeraz))
-                        .symbolRenderingMode(.multicolor).font(.system(size: 44)).accessibilityHidden(true)
+                    IkonaRysowana(stan: ikonaTeraz, noc: noc).frame(width: 58, height: 58).accessibilityHidden(true)
                 }
                 VStack(alignment: .leading, spacing: 0) {
                     Text(temperatura).czcionka(38, .heavy)
@@ -771,22 +768,24 @@ struct KartaPogody: View {
                                     .padding(.bottom, 6)
                             }
                             Text(d.nazwa).czcionka(13, .bold)
-                            Image(systemName: ikonaPogody(d.ikona)).symbolRenderingMode(.multicolor).font(.system(size: 30))
-                                .frame(height: 36).accessibilityHidden(true)
+                            IkonaRysowana(stan: d.ikona, noc: noc).frame(width: 40, height: 40).accessibilityHidden(true)
                             Text(d.max + "C").czcionka(14, .bold)
                         }
                         .shadow(color: cien, radius: 3).opacity(widac)
+                        // wąska poduszka pod kolumną jak na stronie: rgba(6,12,26,0.30) w nocy, 0.36 w dzień
+                        .padding(.horizontal, 9).padding(.vertical, 8)
+                        .background(Color(red: 6 / 255, green: 12 / 255, blue: 26 / 255).opacity(noc ? 0.30 : 0.36),
+                                    in: RoundedRectangle(cornerRadius: 11))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(Color.black.opacity(noc ? 0.3 : 0.36), in: RoundedRectangle(cornerRadius: 12))
                     }
                 }
             }
+            belka.padding(.top, 10)
         }
         .foregroundStyle(.white)
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 14)
         .padding(.top, 14)
-        .padding(.bottom, 14)
+        .padding(.bottom, 10)
     }
 
     /// Belka pod grafiką w kolorze podłoża sceny: medal, data, święto albo przedrostek motywu, imieniny.
@@ -810,12 +809,13 @@ struct KartaPogody: View {
             Spacer(minLength: 0)
         }
         .opacity(warstwa == .scena ? 0 : 1)
-        .padding(.horizontal, 14)
+        .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             if warstwa != .tekst {
-                p.tlo.overlay(alignment: .top) { if let a = p.akcent { a.frame(height: 3) } }
+                RoundedRectangle(cornerRadius: 14).fill(p.tlo.opacity(0.94))
+                    .overlay { RoundedRectangle(cornerRadius: 14).stroke(p.akcent ?? Color.white.opacity(0.25), lineWidth: 1) }
             }
         }
     }
@@ -1225,6 +1225,102 @@ struct WydarzenieWidok: View {
     private func szczegol(_ ikona: String, _ tekst: String) -> some View {
         Label { Text(tekst).czcionka(15).foregroundStyle(Barwy.tekst) } icon: {
             Image(systemName: ikona).foregroundStyle(m.motyw.akcent)
+        }
+    }
+}
+
+/// Ikona pogody rysowana w stylu karty tvml.pl (księżyc, słońce, chmury, deszcz, śnieg, burza, mgła) zamiast symboli
+/// systemowych (Karol 24.11, karta jak na stronie). W nocy bezchmurne niebo to księżyc.
+struct IkonaRysowana: View {
+    let stan: String
+    let noc: Bool
+
+    var body: some View {
+        Canvas { ctx, s in
+            let w: CGFloat = min(s.width, s.height)
+            let ox: CGFloat = (s.width - w) / 2
+            let oy: CGFloat = (s.height - w) / 2
+            func kolo(_ x: CGFloat, _ y: CGFloat, _ r: CGFloat) -> Path {
+                Path(ellipseIn: CGRect(x: ox + (x - r) * w, y: oy + (y - r) * w, width: 2 * r * w, height: 2 * r * w))
+            }
+            func pkt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: ox + x * w, y: oy + y * w) }
+            let i = stan.lowercased()
+            let burza = i.contains("storm") || i.contains("thunder")
+            let snieg = i.contains("snow")
+            let deszcz = !snieg && (i.contains("rain") || i.contains("sleet") || i.contains("hail") || i.contains("shower") || i.contains("drizzle"))
+            let mgla = i.contains("fog")
+            let czesciowo = i.contains("partly") || i.contains("cloud-sun")
+            let chmura = i.contains("cloud") || i.contains("overcast") || burza || snieg || deszcz
+            let nocna = noc || i.contains("night")
+
+            func ksiezyc(_ cx: CGFloat, _ cy: CGFloat, _ r: CGFloat) {
+                ctx.fill(kolo(cx, cy, r * 1.3), with: .color(Color.white.opacity(0.07)))
+                ctx.fill(kolo(cx, cy, r), with: .linearGradient(Gradient(colors: [Color(hex: "#f4f5ff"), Color(hex: "#c3c8e4")]),
+                                                               startPoint: pkt(cx - r, cy - r), endPoint: pkt(cx + r, cy + r)))
+                ctx.fill(kolo(cx + r * 0.24, cy - r * 0.04, r * 0.76), with: .color(Color(hex: "#8a90ba").opacity(0.55)))
+            }
+            func slonce(_ cx: CGFloat, _ cy: CGFloat, _ r: CGFloat) {
+                ctx.fill(kolo(cx, cy, r * 1.45), with: .color(Color(hex: "#fbbf24").opacity(0.22)))
+                ctx.fill(kolo(cx, cy, r), with: .linearGradient(Gradient(colors: [Color(hex: "#fde68a"), Color(hex: "#f59e0b")]),
+                                                               startPoint: pkt(cx - r, cy - r), endPoint: pkt(cx + r, cy + r)))
+            }
+            func chmurka(_ dy: CGFloat, ciemna: Bool) {
+                var c = Path()
+                c.addPath(kolo(0.36, 0.56 + dy, 0.15))
+                c.addPath(kolo(0.53, 0.47 + dy, 0.2))
+                c.addPath(kolo(0.69, 0.58 + dy, 0.14))
+                c.addRoundedRect(in: CGRect(x: ox + 0.22 * w, y: oy + (0.56 + dy) * w, width: 0.6 * w, height: 0.16 * w),
+                                 cornerSize: CGSize(width: 0.08 * w, height: 0.08 * w))
+                let kol: Color = ciemna ? Color(hex: nocna ? "#9aa3bd" : "#cbd5e1") : Color(hex: nocna ? "#dfe4f2" : "#ffffff")
+                ctx.fill(c, with: .color(kol))
+            }
+
+            if mgla {
+                let linie: [CGFloat] = [0.4, 0.55, 0.7]
+                for (k, y) in linie.enumerated() {
+                    let wciecie: CGFloat = k % 2 == 0 ? 0 : 0.07
+                    var l = Path()
+                    l.move(to: pkt(0.18 + wciecie, y))
+                    l.addLine(to: pkt(0.82 - wciecie, y))
+                    ctx.stroke(l, with: .color(Color(hex: "#e2e8f0").opacity(0.9)), style: StrokeStyle(lineWidth: 0.07 * w, lineCap: .round))
+                }
+                return
+            }
+            if !chmura && !czesciowo {
+                if nocna { ksiezyc(0.5, 0.5, 0.36) } else { slonce(0.5, 0.5, 0.3) }
+                return
+            }
+            if czesciowo {
+                if nocna { ksiezyc(0.38, 0.36, 0.22) } else { slonce(0.38, 0.36, 0.2) }
+            }
+            let opad = deszcz || snieg || burza
+            chmurka(opad ? -0.08 : 0, ciemna: opad || (!czesciowo && i.contains("overcast")))
+            if deszcz {
+                let xs: [CGFloat] = [0.38, 0.52, 0.66]
+                for x in xs {
+                    var l = Path()
+                    l.move(to: pkt(x, 0.72))
+                    l.addLine(to: pkt(x - 0.05, 0.86))
+                    ctx.stroke(l, with: .color(Color(hex: "#60a5fa")), style: StrokeStyle(lineWidth: 0.05 * w, lineCap: .round))
+                }
+            }
+            if snieg {
+                let platki: [(CGFloat, CGFloat)] = [(0.36, 0.76), (0.52, 0.82), (0.68, 0.76), (0.44, 0.9), (0.6, 0.9)]
+                for (x, y) in platki {
+                    ctx.fill(kolo(x, y, 0.035), with: .color(.white))
+                }
+            }
+            if burza {
+                var b = Path()
+                b.move(to: pkt(0.54, 0.66))
+                b.addLine(to: pkt(0.44, 0.82))
+                b.addLine(to: pkt(0.52, 0.82))
+                b.addLine(to: pkt(0.46, 0.96))
+                b.addLine(to: pkt(0.62, 0.76))
+                b.addLine(to: pkt(0.54, 0.76))
+                b.closeSubpath()
+                ctx.fill(b, with: .color(Color(hex: "#facc15")))
+            }
         }
     }
 }
