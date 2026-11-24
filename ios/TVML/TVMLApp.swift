@@ -111,7 +111,8 @@ struct Glowny: View {
             }
         }
         .onChange(of: m.motyw) { _, nowy in
-            guard motywTestowy == nil else { return }
+            // podgląd dnia (TestFlight) i zrzuty nie zmieniają ikony aplikacji
+            guard motywTestowy == nil, m.podgladDnia == nil else { return }
             ustawIkone(nowy.ikona)
         }
         .onChange(of: wyborJezyka) { _, _ in Task { await m.zmienJezyk() } }

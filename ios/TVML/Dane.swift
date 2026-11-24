@@ -546,8 +546,33 @@ final class Magazyn: ObservableObject {
     @Published var chwilaSceny = Date()
     private var zegarSceny: Task<Void, Never>?
 
-    /// Tylko TestFlight (Więcej → Podgląd dnia): karta pogody liczona na wybraną chwilę, tylko w pamięci.
-    @Published var podgladDnia: Date?
+    /// Tylko TestFlight (Więcej → Podgląd dnia): karta pogody i cała szata graficzna (motyw: kolory, pasek, logo)
+    /// liczone na wybraną chwilę, tylko w pamięci (Karol 24.11: „szata graficzna aplikacji nie zmieniła się”).
+    @Published var podgladDnia: Date? {
+        didSet { motyw = podgladDnia.map { motywNa($0) } ?? motywZConfig }
+    }
+    /// Motyw z config na dziś (bez podglądu) oraz harmonogram motywów z etapami (theme + upcomingThemes).
+    private(set) var motywZConfig: Motyw = .zwykly
+    private var harmonogramMotywow: [Slownik] = []
+    private var wersjaApiMotywu = "1.0.0"
+
+    /// Motyw na daną chwilę z harmonogramu: okno (from/until), w nim trwający etap (stages: variant, ornament, kolory,
+    /// pasek), zbudowany tak jak z config.theme. Poza oknami: dziś = motyw z config, inny dzień = zwykły.
+    func motywNa(_ chwila: Date) -> Motyw {
+        let iso = ISO8601DateFormatter()
+        func trwa(_ t: Slownik) -> Bool {
+            guard let od = iso.date(from: t.s("from")), let doKonca = iso.date(from: t.s("until")) else { return false }
+            return od <= chwila && chwila <= doKonca
+        }
+        for t in harmonogramMotywow where trwa(t) {
+            var th: Slownik = t
+            if let etap = t.lista("stages").first(where: { trwa($0) }) {
+                for (k, v) in etap where k != "id" && k != "from" && k != "until" { th[k] = v }
+            }
+            if let m = Motyw.zV1(th, wersjaApi: wersjaApiMotywu, teraz: chwila) { return m }
+        }
+        return Calendar.current.isDateInToday(chwila) ? motywZConfig : .zwykly
+    }
 
     /// Scena teraz: z okna harmonogramu, jeśli trwa, inaczej bieżąca z serwera (w TestFlight: na dzień z podglądu).
     var aktywnaScena: WyborSceny.Scena { wyborSceny.scena(na: podgladDnia ?? max(chwilaSceny, Date())) }
@@ -680,7 +705,11 @@ final class Magazyn: ObservableObject {
         zaplanujZmianeSceny()
         if jezyk != Jezyk.biezacy { jezyk = Jezyk.biezacy }
         najnowsze = lista.lista("items").compactMap(Artykul.widoczny)
-        if let m = Motyw.zV1(konf.slownik("theme"), wersjaApi: konf.s("apiVersion")) { motyw = m }
+        harmonogramMotywow = [konf.slownik("theme")] + konf.lista("upcomingThemes")
+        wersjaApiMotywu = konf.s("apiVersion")
+        if let m = Motyw.zV1(konf.slownik("theme"), wersjaApi: konf.s("apiVersion")) { motywZConfig = m }
+        // TestFlight, podgląd dnia: motyw liczony na wybraną chwilę, odświeżenie go nie nadpisuje
+        motyw = podgladDnia.map { motywNa($0) } ?? motywZConfig
         let z = konf.lista("tabs").compactMap(ZakladkaApp.init)
         if !z.isEmpty {
             var gotowe = Array(z.prefix(5))
