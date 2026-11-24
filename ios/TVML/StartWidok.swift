@@ -36,7 +36,7 @@ struct StartWidok: View {
                     Text(blad).czcionka(14).foregroundStyle(Barwy.slaby)
                 }
                 if m.najnowsze.isEmpty && m.laduje {
-                    ProgressView().frame(maxWidth: .infinity, minHeight: 300)
+                    SzkieletKaruzeli()
                 }
                 if let slug = kategoria {
                     let lista = m.wKategorii[slug] ?? []
@@ -348,6 +348,32 @@ struct Karuzela: View {
             .frame(maxWidth: .infinity)
             .accessibilityHidden(true)
         }
+    }
+}
+
+/// Szkielet karuzeli przy pierwszym wczytaniu zamiast kółka w pustym miejscu (Karol 24.11 przy zrzucie Androida:
+/// „czemu taki odstęp?”; tak samo na Androidzie): szara karta 300 pt i kropki, łagodny puls, przy „Ogranicz ruch” bez pulsu.
+struct SzkieletKaruzeli: View {
+    @Environment(\.accessibilityReduceMotion) private var bezRuchu
+    @State private var przygaszony = false
+
+    var body: some View {
+        VStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 18).fill(Barwy.ramka).frame(height: 300)
+            HStack(spacing: 6) {
+                ForEach(0..<5, id: \.self) { i in
+                    Capsule().fill(Barwy.ramka).frame(width: i == 0 ? 18 : 6, height: 6)
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .opacity(przygaszony && !bezRuchu ? 0.5 : 1)
+        .onAppear {
+            guard !bezRuchu else { return }
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { przygaszony = true }
+        }
+        .accessibilityElement()
+        .accessibilityLabel(Napisy.t("app.loading", "Wczytywanie"))
     }
 }
 
