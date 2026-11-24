@@ -2019,7 +2019,7 @@ function akcjaPanelu(nazwa, arg) {
     case 'tlo': ustawienia.chowajDoZasobnika = !ustawienia.chowajDoZasobnika; zapiszUstawienia(); break;
     case 'autostart': ustawAutostart(!czyAutostart()); break;
     case 'programy': shell.openPath(path.join(KATALOG, 'programy.json')); break;
-    case 'restart': app.relaunch(); wychodzimy = true; app.quit(); break;
+    case 'restart': uruchomPonownie(); break;
     case 'pamiec':
       session.fromPartition(PARTYCJA).clearCache().then(() => dodajWiadomosc('Wyczyszczono pamięć podręczną, logowania zostały'));
       break;
@@ -2105,8 +2105,12 @@ function pokazCzekajacaAktualizacje() {
   }, 1500);
 }
 
+// Ponowne uruchomienie na prośbę użytkownika (po aktualizacji, „Uruchom LivePL ponownie”): okno ma się pokazać.
+// app.relaunch() bez opcji przenosi argumenty obecnego procesu, więc LivePL uruchomiony z autostartu (--w-tle)
+// po „Uruchom ponownie” startował schowany przy zegarze (zgłoszenie Karola 24.11, 0.1.20).
+// Podmiana plików w start.js zostawia argumenty: start z logowania Windows dalej zostaje w tle.
 function uruchomPonownie() {
-  app.relaunch();
+  app.relaunch({ args: process.argv.slice(1).filter(a => a !== '--w-tle') });
   wychodzimy = true;
   app.quit();
 }
