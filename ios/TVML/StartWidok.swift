@@ -570,6 +570,11 @@ struct KafelPogody: View {
     /// „Poniedziałek, 23 listopada”; data z config.today (po uk/en przetłumaczona), bez roku, z wielkiej litery.
     /// Święto idzie osobną linią (PaletaBelki.linie), żeby nie ucinało się w pół słowa.
     private var data: String {
+        // TestFlight, podgląd dnia: data wybranego dnia zamiast dzisiejszej
+        if let dzien = m.podgladDnia {
+            let d = dzien.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(Jezyk.locale()))
+            return d.prefix(1).uppercased(with: Jezyk.locale()) + d.dropFirst()
+        }
         var data = m.dzisiaj?.etykieta ?? ""
         // rok jest zbędny na karcie: „… 2026”, „… 2026 р.”
         data = data.replacingOccurrences(of: #"\s*\d{4}(\s*р\.)?\s*$"#, with: "", options: .regularExpression)
@@ -589,7 +594,8 @@ struct KafelPogody: View {
 
     var body: some View {
         let scena = m.aktywnaScena
-        let linie = PaletaBelki.linie(scena, swieto: m.dzisiaj?.swieto, imieniny: imieniny)
+        let linie = m.podgladDnia.map { PaletaBelki.linie(scena, swieto: nil, imieniny: nil, dzisiaj: $0) }
+            ?? PaletaBelki.linie(scena, swieto: m.dzisiaj?.swieto, imieniny: imieniny)
         Button { m.pokaz(.pogoda) } label: {
             KartaPogody(temperatura: m.pogoda.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–",
                         opis: m.pogoda?.opis ?? "",

@@ -84,6 +84,8 @@ struct WiecejWidok: View {
                     Text(Napisy.t("app.textLarge", "Duży")).tag(2)
                 }
             }
+            // tylko w TestFlight: karta pogody na wybrany dzień (sceny z harmonogramu panelu)
+            if PodgladDnia.dostepny { PodgladDnia() }
             // API 1.8.0: język treści i napisów; tylko języki włączone w panelu (config.languages)
             if Jezyk.dostepne.count > 1 {
                 Section {
@@ -493,6 +495,52 @@ struct FotorelacjeWidok: View {
         .task {
             lista = await m.listaFotorelacji()
             laduje = false
+        }
+    }
+}
+
+/// Tylko TestFlight (i Xcode): „Podgląd dnia” w Więcej. Karta pogody na Starcie pokazuje scenę i belkę z wybranego dnia
+/// i godziny, liczone z harmonogramu motywów z panelu tak jak w dniu wydania (Karol, 24.11: „Przygotuj wersję test
+/// już poprawionymi”). Tylko w pamięci; w wersji z App Store tej sekcji nie ma.
+struct PodgladDnia: View {
+    @EnvironmentObject private var m: Magazyn
+    @State private var wybrana = Date()
+
+    static var dostepny: Bool {
+        #if DEBUG
+        return true
+        #else
+        return Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
+        #endif
+    }
+
+    var body: some View {
+        Section {
+            Toggle("Podgląd dnia", isOn: Binding(
+                get: { m.podgladDnia != nil },
+                set: { m.podgladDnia = $0 ? wybrana : nil }))
+            DatePicker("Dzień i godzina", selection: $wybrana, displayedComponents: [.date, .hourAndMinute])
+                .onChange(of: wybrana) { _, nowa in if m.podgladDnia != nil { m.podgladDnia = nowa } }
+            HStack {
+                ForEach([("28.11", 11, 28, 20), ("1.12", 12, 1, 12), ("6.12", 12, 6, 12), ("24.12", 12, 24, 20), ("31.12", 12, 31, 23)], id: .0) { s in
+                    Button(s.0) { ustaw(miesiac: s.1, dzien: s.2, godzina: s.3) }
+                        .buttonStyle(.bordered).font(.caption)
+                }
+            }
+        } header: {
+            Text("TestFlight")
+        } footer: {
+            Text("Karta pogody na Starcie pokaże scenę i belkę z tego dnia. Pora dnia na karcie zależy od prawdziwej godziny. Widać to tylko w TestFlight.")
+        }
+    }
+
+    private func ustaw(miesiac: Int, dzien: Int, godzina: Int) {
+        var k = Calendar(identifier: .gregorian)
+        k.timeZone = TimeZone(identifier: "Europe/Warsaw") ?? .current
+        let rok = k.component(.year, from: Date())
+        if let d = k.date(from: DateComponents(year: rok, month: miesiac, day: dzien, hour: godzina)) {
+            wybrana = d
+            m.podgladDnia = d
         }
     }
 }

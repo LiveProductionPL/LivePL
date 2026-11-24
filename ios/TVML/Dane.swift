@@ -546,8 +546,11 @@ final class Magazyn: ObservableObject {
     @Published var chwilaSceny = Date()
     private var zegarSceny: Task<Void, Never>?
 
-    /// Scena teraz: z okna harmonogramu, jeśli trwa, inaczej bieżąca z serwera.
-    var aktywnaScena: WyborSceny.Scena { wyborSceny.scena(na: max(chwilaSceny, Date())) }
+    /// Tylko TestFlight (Więcej → Podgląd dnia): karta pogody liczona na wybraną chwilę, tylko w pamięci.
+    @Published var podgladDnia: Date?
+
+    /// Scena teraz: z okna harmonogramu, jeśli trwa, inaczej bieżąca z serwera (w TestFlight: na dzień z podglądu).
+    var aktywnaScena: WyborSceny.Scena { wyborSceny.scena(na: podgladDnia ?? max(chwilaSceny, Date())) }
 
     /// Na najbliższej granicy (początek albo koniec motywu, północ w Warszawie) przełącza scenę od razu
     /// i pobiera config, bo etapy motywu (np. Mikołajki → Święta) i tło po motywie liczy serwer.
