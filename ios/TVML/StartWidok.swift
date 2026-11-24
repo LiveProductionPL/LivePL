@@ -599,7 +599,8 @@ struct KafelPogody: View {
         Button { m.pokaz(.pogoda) } label: {
             KartaPogody(temperatura: m.pogoda.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–",
                         opis: m.pogoda?.opis ?? "",
-                        prognoza: (m.pogoda?.dni ?? []).dropFirst().prefix(3).map { (nazwa: $0.nazwa, max: Pogoda.stopnie($0.max)) },
+                        prognoza: (m.pogoda?.dni ?? []).dropFirst().prefix(3).map { (nazwa: $0.nazwa, max: Pogoda.stopnie($0.max), ikona: $0.ikona) },
+                        pomiary: pomiaryKarty, ikonaTeraz: m.pogoda?.ikona ?? "",
                         data: data, wyroznienie: linie.wyroznienie, imieniny: linie.imieniny,
                         stan: StanPogody.z(ikony: m.pogoda?.ikona ?? "cloud"),
                         pora: PoraDnia.teraz(dzien: m.pogoda?.dzien ?? true),
@@ -611,6 +612,17 @@ struct KafelPogody: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(opisDostepnosci(linie))
+    }
+
+    /// Wiatr, wilgotność, ciśnienie nad prognozą (jak na karcie tvml.pl).
+    private var pomiaryKarty: [(nazwa: String, wartosc: String)] {
+        guard let p = m.pogoda else { return [] }
+        let przecinek = Jezyk.przecinek
+        return [
+            (Napisy.t("app.wind", "Wiatr"), p.wiatr.map { String(format: "%.1f km/h", $0).replacingOccurrences(of: ".", with: przecinek) } ?? "–"),
+            (Napisy.t("app.humidity", "Wilgotność"), p.wilgotnosc.map { String(format: "%.1f%%", $0).replacingOccurrences(of: ".", with: przecinek) } ?? "–"),
+            (Napisy.t("app.pressure", "Ciśnienie"), p.cisnienie.map { String(format: "%.1f hPa", $0).replacingOccurrences(of: ".", with: przecinek) } ?? "–")
+        ]
     }
 
     /// Dla VoiceOver: pogoda, data, święto albo motyw, imieniny (w częściach, bo długie złożenie zatyka kompilator).
@@ -632,7 +644,12 @@ struct KartaPogody: View {
 
     let temperatura: String
     let opis: String
-    let prognoza: [(nazwa: String, max: String)]
+    /// prognoza na 3 dni: nazwa dnia, temperatura i stan (ikona) jak na stronie
+    let prognoza: [(nazwa: String, max: String, ikona: String)]
+    /// wiatr, wilgotność i ciśnienie nad prognozą (jak na karcie tvml.pl); puste = bez tego wiersza
+    var pomiary: [(nazwa: String, wartosc: String)] = []
+    /// stan teraz (ikona przy temperaturze)
+    var ikonaTeraz: String = ""
     let data: String
     /// święto z kalendarza albo przedrostek motywu („Zima w Lesznie”, „Wieczór andrzejkowy”)
     var wyroznienie: String? = nil
@@ -678,11 +695,12 @@ struct KartaPogody: View {
         .clipShape(RoundedRectangle(cornerRadius: 18))
     }
 
-    /// Grafika w proporcjach zbliżonych do karty ze strony (scena rysowana jak na stronie, dół sceny pod tekstem);
-    /// przy dużym tekście karta rośnie razem z nim.
+    /// Grafika w proporcjach karty ze strony w telefonie (prawie kwadrat, Karol 24.11: „u mnie temperatura w inne dni
+    /// jest inaczej tu jest strasznie pusto”): scena jak na stronie, na niej temperatura, pomiary i prognoza w kolumnach.
+    /// Przy dużym tekście karta rośnie razem z nim.
     private var grafika: some View {
         ZStack(alignment: .topLeading) {
-            Color.clear.aspectRatio(1.85, contentMode: .fit)
+            Color.clear.aspectRatio(1.12, contentMode: .fit)
             tekst
         }
         .frame(maxWidth: .infinity)
@@ -718,41 +736,57 @@ struct KartaPogody: View {
     }
 
     private var tekst: some View {
-        // galeria: w warstwie sceny tekst niewidoczny, ale pigułki prognozy zostają (są częścią tła pod tekstem)
+        // galeria: w warstwie sceny tekst niewidoczny, ale poduszki kolumn zostają (są częścią tła pod tekstem)
         let widac: Double = warstwa == .scena ? 0 : 1
         let cien = Color.black.opacity(warstwa == .calosc ? 0.6 : 0)
         return VStack(alignment: .leading, spacing: 0) {
-            Text(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie").uppercased(with: Jezyk.locale())).czcionka(11, .bold).kerning(1)
-                .shadow(color: cien, radius: 4).opacity(widac)
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(temperatura).czcionka(30, .heavy)
-                    Text(opis).czcionka(13).lineLimit(1)
-                }
-                .shadow(color: cien, radius: 4).opacity(widac)
+            HStack {
+                Text(Napisy.t("app.weatherLeszno", "Pogoda w Lesznie").uppercased(with: Jezyk.locale())).czcionka(11, .bold).kerning(1)
                 Spacer(minLength: 8)
-                // przy bardzo dużym tekście prognoza na 3 dni nie mieści się obok temperatury (jest na ekranie Pogoda)
-                if !rozmiarTekstu.isAccessibilitySize {
-                    HStack(spacing: 6) {
-                        ForEach(Array(prognoza.enumerated()), id: \.offset) { _, d in
-                            VStack(spacing: 2) {
-                                Text(d.nazwa).czcionka(12).opacity(0.9)
-                                Text(d.max).czcionka(12, .bold)
+                Text(Napisy.t("app.weatherMore", "więcej") + " →").czcionka(12, .semibold).foregroundStyle(Barwy.zloto)
+            }
+            .shadow(color: cien, radius: 4).opacity(widac)
+            // jak na stronie: duża ikona, temperatura i opis
+            HStack(alignment: .center, spacing: 12) {
+                if !ikonaTeraz.isEmpty {
+                    Image(systemName: ikonaPogody(noc && !ikonaTeraz.contains("night") && (ikonaTeraz.contains("clear") || ikonaTeraz.contains("sun")) ? "clear-night" : ikonaTeraz))
+                        .symbolRenderingMode(.multicolor).font(.system(size: 44)).accessibilityHidden(true)
+                }
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(temperatura).czcionka(38, .heavy)
+                    Text(opis).czcionka(14).lineLimit(2)
+                }
+            }
+            .shadow(color: cien, radius: 4).opacity(widac)
+            .padding(.top, 10)
+            Spacer(minLength: 12)
+            // kolumny jak na stronie: pomiar nad prognozą dnia, na ciemnej poduszce (czytelne na ratuszu i śniegu)
+            if !rozmiarTekstu.isAccessibilitySize && !prognoza.isEmpty {
+                HStack(alignment: .top, spacing: 8) {
+                    ForEach(Array(prognoza.enumerated()), id: \.offset) { i, d in
+                        VStack(spacing: 3) {
+                            if i < pomiary.count {
+                                Text(pomiary[i].nazwa).czcionka(10).opacity(0.85).lineLimit(1).minimumScaleFactor(0.8)
+                                Text(pomiary[i].wartosc).czcionka(12, .bold).lineLimit(1).minimumScaleFactor(0.7)
+                                    .padding(.bottom, 6)
                             }
-                            .shadow(color: cien, radius: 3).opacity(widac)
-                            // pigułka jak na karcie ze strony: prognoza czytelna także na wieży Ratusza i śniegu
-                            .padding(.horizontal, 6).padding(.vertical, 5)
-                            .background(Color.black.opacity(0.26), in: RoundedRectangle(cornerRadius: 9))
+                            Text(d.nazwa).czcionka(13, .bold)
+                            Image(systemName: ikonaPogody(d.ikona)).symbolRenderingMode(.multicolor).font(.system(size: 30))
+                                .frame(height: 36).accessibilityHidden(true)
+                            Text(d.max + "C").czcionka(14, .bold)
                         }
+                        .shadow(color: cien, radius: 3).opacity(widac)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(Color.black.opacity(noc ? 0.3 : 0.36), in: RoundedRectangle(cornerRadius: 12))
                     }
                 }
             }
-            .padding(.top, 4)
         }
         .foregroundStyle(.white)
-        .padding(.horizontal, 18)
-        .padding(.top, 12)
-        .padding(.bottom, 12)
+        .padding(.horizontal, 16)
+        .padding(.top, 14)
+        .padding(.bottom, 14)
     }
 
     /// Belka pod grafiką w kolorze podłoża sceny: medal, data, święto albo przedrostek motywu, imieniny.

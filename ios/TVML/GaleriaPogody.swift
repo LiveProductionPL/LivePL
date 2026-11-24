@@ -73,7 +73,8 @@ enum GaleriaPogody {
         let scena = WyborSceny.Scena(id: v?.panoramaRoku != nil ? "leszno-panorama" : (v?.scena.rawValue ?? "autumn-forest"))
         // najdłuższe teksty, jakie zwykle bywają na karcie (temperatura z minusem, święto, trzy imiona)
         return KartaPogody(temperatura: "−12,4°C", opis: "Zachmurzenie duże",
-                           prognoza: [(nazwa: "Wt", max: "−10,7°"), (nazwa: "Śr", max: "−11,4°"), (nazwa: "Cz", max: "−9,6°")],
+                           prognoza: [(nazwa: "Wt", max: "−10,7°", ikona: "snowy"), (nazwa: "Śr", max: "−11,4°", ikona: "snowy"), (nazwa: "Cz", max: "−9,6°", ikona: "snowy")],
+                                        pomiary: [("Wiatr", "22,0 km/h"), ("Wilgotność", "92,0%"), ("Ciśnienie", "1018,5 hPa")], ikonaTeraz: "cloudy",
                            data: "Poniedziałek, 11 listopada",
                            wyroznienie: PaletaBelki.linie(scena, swieto: "Narodowe Święto Niepodległości", imieniny: nil).wyroznienie,
                            imieniny: PaletaBelki.linie(scena, swieto: nil, imieniny: "Imieniny: Bartłomieja, Marcina, Prota").imieniny,
@@ -196,7 +197,8 @@ enum GaleriaPogody {
                 let warunki = WarunkiSceny.z(stan: jasno ? "sunny" : "clear-night", efekt: nil, dzien: jasno,
                                              ustawienia: nil, karta: false, bezRuchu: false)
                 let karta = KartaPogody(temperatura: "−3,0°C", opis: "Zachmurzenie duże",
-                                        prognoza: [(nazwa: "Pn", max: "−1,0°"), (nazwa: "Wt", max: "0,5°"), (nazwa: "Śr", max: "−2,4°")],
+                                        prognoza: [(nazwa: "Pn", max: "−1,0°", ikona: "snowy"), (nazwa: "Wt", max: "0,5°", ikona: "snowy"), (nazwa: "Śr", max: "−2,4°", ikona: "snowy")],
+                                        pomiary: [("Wiatr", "22,0 km/h"), ("Wilgotność", "92,0%"), ("Ciśnienie", "1018,5 hPa")], ikonaTeraz: "cloudy",
                                         data: data, wyroznienie: linie.wyroznienie, imieniny: linie.imieniny,
                                         stan: .chmury, pora: jasno ? .dzien : .noc,
                                         scena: Motyw.zwykly.scena(miesiac: kal.component(.month, from: chwila)),
