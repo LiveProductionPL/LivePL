@@ -506,6 +506,13 @@ struct PodgladDnia: View {
     @EnvironmentObject private var m: Magazyn
     @State private var wybrana = Date()
 
+    struct Skrot { let nazwa: String; let miesiac: Int; let dzien: Int; let godzina: Int }
+    static let skroty: [Skrot] = [
+        Skrot(nazwa: "28.11", miesiac: 11, dzien: 28, godzina: 20), Skrot(nazwa: "1.12", miesiac: 12, dzien: 1, godzina: 12),
+        Skrot(nazwa: "6.12", miesiac: 12, dzien: 6, godzina: 12), Skrot(nazwa: "24.12", miesiac: 12, dzien: 24, godzina: 20),
+        Skrot(nazwa: "31.12", miesiac: 12, dzien: 31, godzina: 23)
+    ]
+
     static var dostepny: Bool {
         #if DEBUG
         return true
@@ -522,8 +529,8 @@ struct PodgladDnia: View {
             DatePicker("Dzień i godzina", selection: $wybrana, displayedComponents: [.date, .hourAndMinute])
                 .onChange(of: wybrana) { _, nowa in if m.podgladDnia != nil { m.podgladDnia = nowa } }
             HStack {
-                ForEach([("28.11", 11, 28, 20), ("1.12", 12, 1, 12), ("6.12", 12, 6, 12), ("24.12", 12, 24, 20), ("31.12", 12, 31, 23)], id: .0) { s in
-                    Button(s.0) { ustaw(miesiac: s.1, dzien: s.2, godzina: s.3) }
+                ForEach(Self.skroty, id: \.nazwa) { s in
+                    Button(s.nazwa) { ustaw(miesiac: s.miesiac, dzien: s.dzien, godzina: s.godzina) }
                         .buttonStyle(.bordered).font(.caption)
                 }
             }
