@@ -23,7 +23,8 @@ internal fun RamaSceny.andrzejki() {
     val isCard = sidebarMode
     // Linia „podłogi” pierwszego planu: w karcie bocznej tuż nad kartą daty (jak w scenach Ratusza).
     // W widoku z paskiem daty HTML (bez trybu karty) pasek zakrywa dolne ~20% — stawiamy obiekty tuż nad nim.
-    val yg = if (isCard) (h * 0.80 + (h * 0.20) * 0.28 - 2 * scH) else (h * 0.755)
+    // karta na Starcie: obiekty nad plakietką z datą, jak w scenach Ratusza (yg = h·0,79, tak samo na iOS)
+    val yg = if (kartaStartu) h * 0.79 else if (isCard) (h * 0.80 + (h * 0.20) * 0.28 - 2 * scH) else (h * 0.755)
 
     andrzejkiTlo(reduceMotion, ta, scH, isCard, yg)
 

@@ -685,60 +685,109 @@ private fun RamaSceny.swietyMikolajZWorkiem(g: RatuszSezonowyGeo) = with(g) {
     ctx.fillStyle = if (isNight) "#d8e8f8" else "#f6fbff"
     ctx.beginPath(); ctx.ellipse(cx + 10 * scH, yg + 1 * scH, 38 * scH, 5.5 * scH, 0.0, 0.0, Math.PI * 2); ctx.fill()
 
-    // Worek jutowy + laska cukrowa wystająca z worka
-    ctx.fillStyle = "#ac7c4a"
-    ctx.beginPath(); ctx.ellipse(SX(-8.0), SY(12.5), 7 * sc, 11 * sc, 0.0, 0.0, Math.PI * 2); ctx.fill()
+    // Mikołaj narysowany od nowa (na stronie bryły bez twarzy i z płaską czapką; Karol 24.11: „6 grudnia Mikołaj też
+    // wygląda jak by go ktoś wypluł”): worek z prezentami i laską cukrową, buty, płaszcz rozszerzony do dołu z białym
+    // futrem i pasem ze złotą klamrą, ręka trzymająca worek i druga machająca, twarz z rumieńcami, puszysta broda
+    // z wąsami, złote okulary i opadająca czapka z futrzanym otokiem i pomponem. Wymiary i miejsce jak na stronie.
+    // Worek jutowy ze związaną szyjką, wystające prezenty i laska cukrowa
+    ctx.fillStyle = "#a87545"
+    ctx.beginPath(); ctx.ellipse(SX(-9.5), SY(11.5), 7.6 * sc, 10.2 * sc, -0.12, 0.0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = "#8c5e34"
+    ctx.beginPath(); ctx.ellipse(SX(-11.5), SY(9.0), 3.2 * sc, 6.0 * sc, -0.12, 0.0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = "#14764a"; ctx.fillRect(SX(-13.2), SY(24.6), 4.4 * sc, 4.0 * sc)
+    ctx.fillStyle = "#f5ce58"; ctx.fillRect(SX(-11.4), SY(24.6), 0.8 * sc, 4.0 * sc)
+    ctx.fillStyle = "#c01630"; ctx.fillRect(SX(-8.6), SY(23.6), 3.6 * sc, 3.2 * sc)
+    ctx.fillStyle = "#a87545"
+    ctx.beginPath(); ctx.moveTo(SX(-13.6), SY(20.4)); ctx.lineTo(SX(-5.4), SY(20.4)); ctx.lineTo(SX(-7.6), SY(21.6)); ctx.lineTo(SX(-11.4), SY(21.6)); ctx.closePath(); ctx.fill()
+    ctx.strokeStyle = "#6b4423"
+    ctx.lineWidth = Math.max(1.0, 1.2 * scH)
+    ctx.beginPath(); ctx.moveTo(SX(-12.6), SY(20.6)); ctx.lineTo(SX(-6.4), SY(20.6)); ctx.stroke()
     ctx.strokeStyle = "#dc143c"
     ctx.lineWidth = Math.max(1.5, 2.1 * scH)
-    ctx.beginPath(); ctx.arc(SX(-9.5), SY(24.5), 2.4 * sc, Math.PI, 0.0); ctx.lineTo(SX(-7.1), SY(21.0)); ctx.stroke()
+    ctx.beginPath(); ctx.arc(SX(-3.6), SY(25.2), 1.8 * sc, Math.PI, 0.0); ctx.lineTo(SX(-1.8), SY(20.0)); ctx.stroke()
 
+    // Buty z noskami
     ctx.fillStyle = "#1a161a"
-    ctx.fillRect(SX(-4.6), SY(5.2), 3.8 * sc, 5.2 * sc)
-    ctx.fillRect(SX(1.0), SY(5.2), 3.8 * sc, 5.2 * sc)
+    rrPath(SX(-5.6), SY(4.4), 5.0 * sc, 4.4 * sc, 1.6 * sc); ctx.fill()
+    rrPath(SX(0.6), SY(4.4), 5.0 * sc, 4.4 * sc, 1.6 * sc); ctx.fill()
+
+    // Płaszcz rozszerzony do dołu, zaokrąglony brzeg
     ctx.fillStyle = "#cc1630"
     ctx.beginPath()
-    ctx.moveTo(SX(-8.8), SY(5.0)); ctx.lineTo(SX(-6.2), SY(24.8)); ctx.lineTo(SX(6.4), SY(24.8)); ctx.lineTo(SX(9.0), SY(5.0))
+    ctx.moveTo(SX(-9.4), SY(6.2))
+    ctx.quadraticCurveTo(SX(-8.6), SY(17.0), SX(-6.4), SY(25.6))
+    ctx.quadraticCurveTo(SX(0.0), SY(27.4), SX(6.4), SY(25.6))
+    ctx.quadraticCurveTo(SX(8.6), SY(17.0), SX(9.4), SY(6.2))
+    ctx.quadraticCurveTo(SX(0.0), SY(4.4), SX(-9.4), SY(6.2))
     ctx.closePath(); ctx.fill()
-
-    // Machająca ręka w białej rękawicy
-    ctx.strokeStyle = "#d01832"
-    ctx.lineWidth = Math.max(3.5, 5.2 * scH)
-    ctx.lineCap = "round"
-    ctx.beginPath(); ctx.moveTo(SX(6.2), SY(21.5)); ctx.lineTo(SX(13.2), SY(27.5) + wave); ctx.stroke()
-    ctx.fillStyle = "#ffffff"
-    ctx.beginPath(); ctx.arc(SX(13.6), SY(27.8) + wave, 3.0 * scH, 0.0, Math.PI * 2); ctx.fill()
-
-    ctx.fillStyle = "#fffdfa"
-    rrPath(SX(-9.4), SY(7.5), 19 * sc, 3.2 * sc, 3 * scH)
-    ctx.fill()
-    ctx.fillRect(SX(-1.6), SY(24.5), 3.2 * sc, 19.5 * sc)
-    ctx.fillStyle = "#1c1616"
-    ctx.fillRect(SX(-7.5), SY(15.2), 15.2 * sc, 2.8 * sc)
-    ctx.strokeStyle = "#f5cc4e"
-    ctx.lineWidth = Math.max(1.2, 1.8 * scH)
-    ctx.strokeRect(SX(-2.1), SY(15.6), 4.2 * sc, 3.5 * sc)
-
-    ctx.fillStyle = "#fed6bc"
-    ctx.beginPath(); ctx.arc(SX(0.0), SY(28.5), 4.8 * sc, 0.0, Math.PI * 2); ctx.fill()
-    ctx.fillStyle = "#ffffff"
+    // ciemniejszy bok płaszcza (bryła)
+    ctx.fillStyle = "#a8102a"
     ctx.beginPath()
-    ctx.moveTo(SX(-5.8), SY(28.0)); ctx.lineTo(SX(5.8), SY(28.0)); ctx.lineTo(SX(4.4), SY(20.8))
-    ctx.lineTo(SX(0.0), SY(17.4)); ctx.lineTo(SX(-4.4), SY(20.8))
-    ctx.closePath(); ctx.fill()
-    ctx.strokeStyle = "#ebbe3e"
-    ctx.lineWidth = Math.max(1.0, 1.3 * scH)
-    ctx.beginPath(); ctx.arc(SX(-2.0), SY(30.0), 1.5 * sc, 0.0, Math.PI * 2); ctx.stroke()
-    ctx.beginPath(); ctx.arc(SX(2.0), SY(30.0), 1.5 * sc, 0.0, Math.PI * 2); ctx.stroke()
+    ctx.moveTo(SX(5.0), SY(25.2)); ctx.quadraticCurveTo(SX(8.6), SY(17.0), SX(9.4), SY(6.2)); ctx.lineTo(SX(6.4), SY(5.6))
+    ctx.quadraticCurveTo(SX(6.8), SY(16.0), SX(5.0), SY(25.2)); ctx.closePath(); ctx.fill()
 
+    // Białe futro: dół płaszcza i pas z przodu
+    ctx.fillStyle = "#fffdfa"
+    rrPath(SX(-9.8), SY(8.2), 19.6 * sc, 3.4 * sc, 1.7 * sc); ctx.fill()
+    rrPath(SX(-1.7), SY(25.4), 3.4 * sc, 17.6 * sc, 1.2 * sc); ctx.fill()
+
+    // Pas ze złotą klamrą
+    ctx.fillStyle = "#1c1616"
+    ctx.fillRect(SX(-8.3), SY(15.4), 16.6 * sc, 2.8 * sc)
+    ctx.fillStyle = "#f5cc4e"
+    rrPath(SX(-2.3), SY(15.9), 4.6 * sc, 3.8 * sc, 0.6 * sc); ctx.fill()
+    ctx.fillStyle = "#1c1616"
+    ctx.fillRect(SX(-1.1), SY(14.9), 2.2 * sc, 1.8 * sc)
+
+    // Lewa ręka trzyma worek, prawa macha
+    ctx.lineCap = "round"
+    ctx.strokeStyle = "#cc1630"
+    ctx.lineWidth = Math.max(3.5, 4.6 * scH)
+    ctx.beginPath(); ctx.moveTo(SX(-6.0), SY(23.4)); ctx.quadraticCurveTo(SX(-9.6), SY(21.0), SX(-9.0), SY(18.6)); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(SX(6.0), SY(23.4)); ctx.lineTo(SX(12.6), SY(28.4) + wave); ctx.stroke()
+    ctx.fillStyle = "#ffffff"
+    ctx.beginPath(); ctx.arc(SX(-9.0), SY(18.2), 2.2 * sc, 0.0, Math.PI * 2); ctx.fill()
+    ctx.beginPath(); ctx.arc(SX(13.4), SY(29.0) + wave, 2.3 * sc, 0.0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = "#fffdfa"
+    ctx.beginPath(); ctx.arc(SX(11.6), SY(27.6) + wave * 0.8, 1.6 * sc, 0.0, Math.PI * 2); ctx.fill()
+
+    // Głowa: twarz, rumieńce, oczy, nos
+    ctx.fillStyle = "#fed6bc"
+    ctx.beginPath(); ctx.arc(SX(0.0), SY(29.4), 4.6 * sc, 0.0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = "rgba(232,120,120,0.55)"
+    ctx.beginPath(); ctx.arc(SX(-2.7), SY(28.4), 1.1 * sc, 0.0, Math.PI * 2); ctx.fill()
+    ctx.beginPath(); ctx.arc(SX(2.7), SY(28.4), 1.1 * sc, 0.0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = "#2a1a12"
+    ctx.beginPath(); ctx.arc(SX(-1.6), SY(30.4), 0.55 * sc, 0.0, Math.PI * 2); ctx.fill()
+    ctx.beginPath(); ctx.arc(SX(1.6), SY(30.4), 0.55 * sc, 0.0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = "#f0a98e"
+    ctx.beginPath(); ctx.arc(SX(0.0), SY(29.0), 1.1 * sc, 0.0, Math.PI * 2); ctx.fill()
+
+    // Puszysta broda z wąsami
+    ctx.fillStyle = "#ffffff"
+    listOf(-3.8 to 26.4, 3.8 to 26.4, -2.6 to 23.4, 2.6 to 23.4, 0.0 to 21.4, 0.0 to 24.6).forEach { (bx, by) ->
+        ctx.beginPath(); ctx.arc(SX(bx), SY(by), 2.7 * sc, 0.0, Math.PI * 2); ctx.fill()
+    }
+    ctx.beginPath(); ctx.ellipse(SX(-1.9), SY(27.9), 2.2 * sc, 1.1 * sc, 0.25, 0.0, Math.PI * 2); ctx.fill()
+    ctx.beginPath(); ctx.ellipse(SX(1.9), SY(27.9), 2.2 * sc, 1.1 * sc, -0.25, 0.0, Math.PI * 2); ctx.fill()
+
+    // Złote okulary jak na stronie
+    ctx.strokeStyle = "#ebbe3e"
+    ctx.lineWidth = Math.max(0.9, 1.1 * scH)
+    ctx.beginPath(); ctx.arc(SX(-1.7), SY(30.4), 1.4 * sc, 0.0, Math.PI * 2); ctx.stroke()
+    ctx.beginPath(); ctx.arc(SX(1.7), SY(30.4), 1.4 * sc, 0.0, Math.PI * 2); ctx.stroke()
+
+    // Czapka opadająca na bok, futrzany otok i pompon
     ctx.fillStyle = "#d61630"
     ctx.beginPath()
-    ctx.moveTo(SX(-5.6), SY(31.8)); ctx.lineTo(SX(5.6), SY(31.8))
-    ctx.lineTo(SX(9.6), SY(39.2) + wave * 0.35); ctx.lineTo(SX(-1.8), SY(41.2))
+    ctx.moveTo(SX(-5.0), SY(32.4))
+    ctx.quadraticCurveTo(SX(-2.6), SY(42.0), SX(4.2), SY(41.4))
+    ctx.quadraticCurveTo(SX(8.4), SY(40.6) + wave * 0.35, SX(9.4), SY(36.4) + wave * 0.35)
+    ctx.quadraticCurveTo(SX(5.6), SY(37.6), SX(5.0), SY(32.4))
     ctx.closePath(); ctx.fill()
     ctx.fillStyle = "#ffffff"
-    rrPath(SX(-6.4), SY(33.8), 12.8 * sc, 3.0 * sc, 3 * scH)
-    ctx.fill()
-    ctx.beginPath(); ctx.arc(SX(10.0), SY(39.0) + wave * 0.35, 3.4 * scH, 0.0, Math.PI * 2); ctx.fill()
+    rrPath(SX(-6.2), SY(34.6), 12.4 * sc, 3.2 * sc, 1.6 * sc); ctx.fill()
+    ctx.beginPath(); ctx.arc(SX(9.6), SY(35.8) + wave * 0.35, 2.2 * sc, 0.0, Math.PI * 2); ctx.fill()
 
     fun prezent(gx: Double, gyt: Double, gw: Double, gh: Double, bc: String, rc: String) {
         ctx.fillStyle = bc; ctx.fillRect(SX(gx), SY(gyt), gw * sc, gh * sc)
@@ -788,9 +837,11 @@ private fun RamaSceny.domekJarmarku(g: RatuszSezonowyGeo) = with(g) {
 private fun RamaSceny.zloteSanie(g: RatuszSezonowyGeo) = with(g) {
     // Złote Sanie Św. Mikołaja z galopującymi reniferami i Rudolfem lecące na żywo nad iglicą Ratusza!
     val flyU = (t * 0.085) % 1.0
-    val sx0 = -75 * scH + flyU * (w + 150 * scH)
-    val sy0 = h * 0.16 + Math.sin(t * 2.2) * 3.5 * scH
-    val scS = 1.48 * scH
+    // Karta na Starcie: sanie większe i niżej, w wolnym pasie między temperaturą a kolumnami (nad nimi zasłaniały napisy)
+    val wiekszeSanie = if (kartaStartu) 1.35 else 1.0
+    val sx0 = -75 * scH * wiekszeSanie + flyU * (w + 150 * scH * wiekszeSanie)
+    val sy0 = (if (kartaStartu) h * 0.43 else h * 0.16) + Math.sin(t * 2.2) * 3.5 * scH
+    val scS = 1.48 * scH * wiekszeSanie
     fun SX(d: Double) = sx0 + d * scS
     fun SY(d: Double) = sy0 + d * scS
     val gold = if (isNight) "#f8d66c" else "#da9e20"
@@ -802,18 +853,63 @@ private fun RamaSceny.zloteSanie(g: RatuszSezonowyGeo) = with(g) {
         ctx.fillStyle = Plotno.rgba(255, 236, 150, alfaToFixed2(0.18 + u * 0.72))
         ctx.beginPath(); ctx.arc(SX(dx), SY(dy), (0.8 + u * 1.1) * scS, 0.0, Math.PI * 2); ctx.fill()
     }
+    // płoza z podwiniętym przodem
     ctx.strokeStyle = gold
     ctx.lineWidth = Math.max(1.4, 2.0 * scH)
-    ctx.beginPath(); ctx.moveTo(SX(-2.0), SY(5.6)); ctx.lineTo(SX(17.0), SY(4.5)); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(SX(-2.0), SY(5.6)); ctx.lineTo(SX(17.0), SY(4.5))
+    ctx.quadraticCurveTo(SX(20.5), SY(4.2), SX(19.6), SY(1.4)); ctx.stroke()
+
+    // Mikołaj w saniach (na stronie tylko czerwone i białe kółko; Karol 24.11: „Mikołaj jak przelatuje wygląda
+    // tragicznie i czapki nie ma”): worek z prezentem z tyłu, czerwony płaszcz z pasem, ręka na lejcach,
+    // twarz, biała broda i czerwona czapka z białym otokiem i pomponem. Dół zasłania pudło sań.
+    ctx.fillStyle = "#7a3b1d"
+    ctx.beginPath(); ctx.ellipse(SX(1.6), SY(-5.6), 3.4 * scS, 3.9 * scS, -0.25, 0.0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = "#2e7d32"
+    ctx.fillRect(SX(-1.4), SY(-10.4), 3.6 * scS, 3.2 * scS)
+    ctx.fillStyle = gold
+    ctx.fillRect(SX(0.1), SY(-10.4), 0.7 * scS, 3.2 * scS)
+    ctx.fillStyle = "#d01832"
+    ctx.beginPath(); ctx.ellipse(SX(8.2), SY(-5.4), 3.3 * scS, 3.9 * scS, 0.0, 0.0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = "#ffffff"
+    ctx.fillRect(SX(8.0), SY(-8.9), 0.9 * scS, 6.2 * scS)
+    ctx.fillStyle = "#1b1b1b"
+    ctx.fillRect(SX(5.1), SY(-4.4), 6.3 * scS, 0.9 * scS)
+    ctx.strokeStyle = "#d01832"
+    ctx.lineCap = "round"
+    ctx.lineWidth = Math.max(1.2, 1.5 * scS)
+    ctx.beginPath(); ctx.moveTo(SX(9.6), SY(-6.6)); ctx.lineTo(SX(12.6), SY(-4.6)); ctx.stroke()
+    ctx.fillStyle = "#ffffff"
+    ctx.beginPath(); ctx.arc(SX(12.8), SY(-4.5), 0.75 * scS, 0.0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = "#f4c7a1"
+    ctx.beginPath(); ctx.arc(SX(8.9), SY(-10.9), 2.0 * scS, 0.0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = "#ffffff"
+    ctx.beginPath()
+    ctx.moveTo(SX(6.8), SY(-10.5)); ctx.quadraticCurveTo(SX(7.6), SY(-6.6), SX(9.6), SY(-7.2))
+    ctx.quadraticCurveTo(SX(11.4), SY(-8.0), SX(11.0), SY(-10.4)); ctx.closePath(); ctx.fill()
+    ctx.fillStyle = "#2a1a12"
+    ctx.beginPath(); ctx.arc(SX(9.9), SY(-11.4), 0.32 * scS, 0.0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = "#e8a08a"
+    ctx.beginPath(); ctx.arc(SX(10.8), SY(-10.5), 0.5 * scS, 0.0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = "#d01832"
+    ctx.beginPath()
+    ctx.moveTo(SX(6.6), SY(-12.2)); ctx.quadraticCurveTo(SX(7.6), SY(-16.4), SX(4.0), SY(-16.2))
+    ctx.quadraticCurveTo(SX(9.0), SY(-17.2), SX(11.2), SY(-12.2)); ctx.closePath(); ctx.fill()
+    ctx.fillStyle = "#ffffff"
+    ctx.fillRect(SX(6.3), SY(-13.0), 5.2 * scS, 1.3 * scS)
+    ctx.beginPath(); ctx.arc(SX(3.9), SY(-16.2), 0.95 * scS, 0.0, Math.PI * 2); ctx.fill()
+
+    // złote pudło sań z ozdobnym zawijasem z przodu
     ctx.fillStyle = gold
     ctx.beginPath()
     ctx.moveTo(SX(-0.5), SY(3.8)); ctx.lineTo(SX(13.5), SY(2.6)); ctx.lineTo(SX(16.2), SY(-2.8))
     ctx.lineTo(SX(6.5), SY(-1.4)); ctx.lineTo(SX(-2.0), SY(-4.2))
     ctx.closePath(); ctx.fill()
-    ctx.fillStyle = "#d01832"
-    ctx.beginPath(); ctx.arc(SX(7.5), SY(-4.0), 3.6 * scH, 0.0, Math.PI * 2); ctx.fill()
-    ctx.fillStyle = "#ffffff"
-    ctx.beginPath(); ctx.arc(SX(8.0), SY(-6.8), 2.3 * scH, 0.0, Math.PI * 2); ctx.fill()
+    ctx.strokeStyle = gold
+    ctx.lineWidth = Math.max(1.0, 1.2 * scS)
+    ctx.beginPath(); ctx.arc(SX(16.6), SY(-4.2), 1.5 * scS, Math.PI * 0.5, Math.PI * 2.2); ctx.stroke()
+    ctx.strokeStyle = "#d01832"
+    ctx.lineWidth = Math.max(0.8, 0.7 * scS)
+    ctx.beginPath(); ctx.moveTo(SX(0.4), SY(0.6)); ctx.lineTo(SX(13.0), SY(-0.4)); ctx.stroke()
 
     ctx.strokeStyle = "rgba(255,242,180,0.82)"
     ctx.lineWidth = Math.max(0.9, 1.1 * scH)
@@ -860,8 +956,8 @@ private fun RamaSceny.instalacjaNoworoczna(g: RatuszSezonowyGeo) = with(g) {
     ctx.fillStyle = "#0e1628"
     ctx.strokeStyle = "#dabe48"
     ctx.lineWidth = Math.max(1.1, 1.4 * scH)
-    // w Sylwestra szerszy cokół pod napis „2026/2027”
-    val polCokolu = if (sceneType == "leszno-sylwester") 49.0 else 33.0
+    // w Sylwestra szerszy cokół pod napis „2026/2027” (mniejsza czcionka, żeby mieścił się między kolumnami prognozy)
+    val polCokolu = if (sceneType == "leszno-sylwester") 38.0 else 33.0
     rrPath(cx - polCokolu * scH, yg - 8.5 * scH, 2 * polCokolu * scH, 8.5 * scH, 2.5 * scH)
     ctx.fill()
     ctx.stroke()
@@ -932,7 +1028,7 @@ private fun RamaSceny.napisRoku(g: RatuszSezonowyGeo, cx: Double) = with(g) {
     // W Sylwestra oba lata, „2026/2027” (Karol 24.11: „Tu rok 2026/2027 bym dał i by go było widać”); w Nowy Rok sam nowy.
     val sylwester = sceneType == "leszno-sylwester"
     val nyLabel = if (sylwester) "${nowy - 1}/$nowy" else nowy.toString()
-    val rozmiar = if (sylwester) Math.max(13L, Math.round(17 * scH)) else Math.max(16L, Math.round(23 * scH))
+    val rozmiar = if (sylwester) Math.max(11L, Math.round(12 * scH)) else Math.max(16L, Math.round(23 * scH))
     ctx.font = "800 ${rozmiar}px 'Segoe UI',system-ui,sans-serif"
     ctx.textAlign = "center"
     ctx.textBaseline = "alphabetic"
