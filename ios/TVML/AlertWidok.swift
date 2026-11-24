@@ -23,7 +23,8 @@ struct UstawieniaAlertu {
     var maxFilmMB = 25
     var maxFilmSekund = 60
     var zgoda = ""
-    var wersjaZgody = ""
+    /// Serwer (API 1.9.0) wymaga niepustej wersji; ta sama co TVML_APP_ALERT_CONSENT_VERSION, gdy config jej nie poda.
+    var wersjaZgody = "2026-11-24"
     var polityka = "https://tvml.pl/strona/polityka-prywatnosci"
 
     /// Te same rodzaje co na stronie (portal-chrome.js, openAlertSubmissionModal).
@@ -55,7 +56,7 @@ struct UstawieniaAlertu {
         if s.i("maxVideoMB") > 0 { maxFilmMB = s.i("maxVideoMB") }
         if s.i("maxVideoSeconds") > 0 { maxFilmSekund = s.i("maxVideoSeconds") }
         zgoda = s.s("consentText")
-        wersjaZgody = s.s("consentVersion")
+        if !s.s("consentVersion").isEmpty { wersjaZgody = s.s("consentVersion") }
         if !s.s("privacyUrl").isEmpty { polityka = s.s("privacyUrl") }
     }
 
