@@ -722,7 +722,7 @@ private fun Sekcja(tytul: String, blad: Boolean = false, podpis: String? = null,
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             tytul, Modifier.padding(start = 2.dp).semantics { heading() },
-            color = if (blad) czerwony else b.tekst, fontSize = 17.sp, fontWeight = FontWeight.Black, fontFamily = Szeryf,
+            color = if (blad) czerwony else b.tekst, fontSize = 17.sp, fontWeight = FontWeight.Black, fontFamily = KrojNaglowkow,
         )
         Karta(tresc = tresc)
         if (podpis != null) Text(podpis, Modifier.padding(horizontal = 4.dp), color = b.slaby, fontSize = 12.sp, lineHeight = 16.sp)
@@ -908,7 +908,7 @@ private fun PotwierdzenieWidok(p: PotwierdzenieAlertu, gotowe: () -> Unit) {
             }
             Text(
                 tl("app.alertSentTitle", "Zgłoszenie wysłane"), Modifier.semantics { heading() },
-                color = b.tekst, fontSize = 26.sp, fontWeight = FontWeight.Black, fontFamily = Szeryf, textAlign = TextAlign.Center,
+                color = b.tekst, fontSize = 26.sp, fontWeight = FontWeight.Black, fontFamily = KrojNaglowkow, textAlign = TextAlign.Center,
             )
             Text(p.komunikat, color = b.tekst, fontSize = 16.sp, lineHeight = 21.sp, textAlign = TextAlign.Center)
             if (p.numer.isNotEmpty()) {

@@ -5,6 +5,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 
 /** Barwy aplikacji na dzień i noc, jak Barwy w Dane.swift na iPhonie. */
 @Immutable
@@ -28,5 +29,16 @@ val LocalBarwy = staticCompositionLocalOf { Barwy.dzien }
 val LocalCiemny = staticCompositionLocalOf { false }
 val LocalMagazyn = compositionLocalOf<Magazyn> { error("brak magazynu") }
 
-/** Tytuły jak na stronie (Playfair Display): szeryfowe. */
-val Szeryf = FontFamily.Serif
+// Nagłówki i tytuły jak na tvml.pl (h1/h2: Open Sans 800) i na iPhonie: Open Sans (zmienna czcionka, SIL OFL,
+// licencja w assets/licencje/OpenSans-OFL.txt), wcześniej szeryfowy (Karol 24.11: „Nagłówki też kiepski krój czcionki”).
+// Open Sans ma najwyżej 800, więc Black rysuje się jak ExtraBold.
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+val KrojNaglowkow = FontFamily(
+    listOf(400 to FontWeight.Normal, 600 to FontWeight.SemiBold, 700 to FontWeight.Bold, 800 to FontWeight.ExtraBold, 800 to FontWeight.Black)
+        .map { (os, waga) ->
+            androidx.compose.ui.text.font.Font(
+                R.font.open_sans, waga,
+                variationSettings = androidx.compose.ui.text.font.FontVariation.Settings(androidx.compose.ui.text.font.FontVariation.weight(os)),
+            )
+        },
+)

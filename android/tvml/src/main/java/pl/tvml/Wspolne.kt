@@ -62,7 +62,7 @@ fun Obraz(adres: String?, modifier: Modifier = Modifier) {
 fun Naglowek(tytul: String, modifier: Modifier = Modifier, wielkosc: Int = 21) {
     Text(
         tytul, modifier.padding(top = 4.dp).semantics { heading() },
-        color = LocalBarwy.current.tekst, fontSize = wielkosc.sp, fontWeight = FontWeight.Black, fontFamily = Szeryf,
+        color = LocalBarwy.current.tekst, fontSize = wielkosc.sp, fontWeight = FontWeight.Black, fontFamily = KrojNaglowkow,
     )
 }
 
@@ -92,7 +92,7 @@ fun KartaArtykulu(a: Artykul, wysokosc: Dp, modifier: Modifier = Modifier) {
         )
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (a.kategoria.isNotEmpty()) EtykietaKategorii(a)
-            Text(a.tytul, color = Color.White, fontSize = 24.sp, lineHeight = 28.sp, fontWeight = FontWeight.Black, fontFamily = Szeryf, maxLines = 4, overflow = TextOverflow.Ellipsis)
+            Text(a.tytul, color = Color.White, fontSize = 24.sp, lineHeight = 28.sp, fontWeight = FontWeight.Black, fontFamily = KrojNaglowkow, maxLines = 4, overflow = TextOverflow.Ellipsis)
             Text(listOf(a.autor, a.kiedy).filter { it.isNotEmpty() }.joinToString(" · "), color = kolor(0xd7deea), fontSize = 12.sp)
         }
     }

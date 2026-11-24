@@ -215,7 +215,7 @@ fun Najczytniejsze(lista: List<Artykul>) {
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(b.karta).padding(horizontal = 14.dp)) {
         lista.forEachIndexed { i, a ->
             Row(Modifier.fillMaxWidth().clickable(role = Role.Button) { m.otworz(a) }.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("${i + 1}", Modifier.width(30.dp), color = m.motyw.akcent.w(LocalCiemny.current), fontSize = 22.sp, fontWeight = FontWeight.Black, fontFamily = Szeryf)
+                Text("${i + 1}", Modifier.width(30.dp), color = m.motyw.akcent.w(LocalCiemny.current), fontSize = 22.sp, fontWeight = FontWeight.Black, fontFamily = KrojNaglowkow)
                 Text(a.tytul, Modifier.weight(1f), color = b.tekst, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
             if (i < lista.size - 1) Box(Modifier.fillMaxWidth().height(1.dp).background(b.ramka))

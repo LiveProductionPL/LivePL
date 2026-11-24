@@ -105,7 +105,7 @@ fun WideoEkran(m: Magazyn) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             item(key = "naglowek") {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(tl("app.video", "Wideo"), Modifier.weight(1f), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Black, fontFamily = Szeryf)
+                    Text(tl("app.video", "Wideo"), Modifier.weight(1f), color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Black, fontFamily = KrojNaglowkow)
                     Icon(Ikony.youtube, null, tint = szaryWideo, modifier = Modifier.size(16.dp))
                     Text(" YouTube @TVMLlive", color = szaryWideo, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }

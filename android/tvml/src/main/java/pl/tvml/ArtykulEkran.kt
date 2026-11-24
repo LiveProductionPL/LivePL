@@ -134,7 +134,7 @@ fun ArtykulEkran(m: Magazyn, poczatkowy: Artykul) {
 
         Column(Modifier.fillMaxSize().verticalScroll(przewijanie).padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             if (a.kategoria.isNotEmpty()) EtykietaKategorii(a)
-            Text(pl(a.tytul), color = b.tekst, fontSize = (wielkosc + 10).sp, lineHeight = (wielkosc + 14).sp, fontWeight = FontWeight.Black, fontFamily = Szeryf)
+            Text(pl(a.tytul), color = b.tekst, fontSize = (wielkosc + 10).sp, lineHeight = (wielkosc + 14).sp, fontWeight = FontWeight.Black, fontFamily = KrojNaglowkow)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(Modifier.size(36.dp).clip(CircleShape).background(Barwy.granat), contentAlignment = Alignment.Center) {
                     Text(inicjaly(a.autor), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
@@ -210,7 +210,7 @@ fun ArtykulEkran(m: Magazyn, poczatkowy: Artykul) {
                                     pl(blok.tekst), color = b.tekst, fontSize = wielkosc.sp, lineHeight = (wielkosc * 1.5f).sp,
                                     fontWeight = if (i == 0) FontWeight.SemiBold else FontWeight.Normal,
                                 )
-                                is Html.Blok.Srodtytul -> Text(pl(blok.tekst), color = b.tekst, fontSize = (wielkosc + 4).sp, fontWeight = FontWeight.Black, fontFamily = Szeryf)
+                                is Html.Blok.Srodtytul -> Text(pl(blok.tekst), color = b.tekst, fontSize = (wielkosc + 4).sp, fontWeight = FontWeight.Black, fontFamily = KrojNaglowkow)
                                 is Html.Blok.Obraz -> Obraz(Siec.obraz(blok.adres, 1200), Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(14.dp)))
                                 is Html.Blok.Film -> Box(
                                     Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(14.dp))

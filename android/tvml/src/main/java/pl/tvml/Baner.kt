@@ -143,8 +143,10 @@ fun Baner(m: Magazyn) {
             // linia pod banerem: jednolita albo dwa paski (11 Listopada)
             val paski = motyw.paskiLinii
             Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()) {
+                // kreska nad paskiem „NAJNOWSZE” zawsze, nie tylko w motywach (Karol 24.11: „belka oddzielająca …
+                // nie zawsze ją widać i dziwnie to wygląda”); bez motywu złota jak linia pod nagłówkiem tvml.pl
                 if (paski.size >= 2) paski.forEach { Box(Modifier.fillMaxWidth().height(2.dp).background(it)) }
-                else motyw.linia?.let { Box(Modifier.fillMaxWidth().height(2.dp).background(it.w(ciemny))) }
+                else Box(Modifier.fillMaxWidth().height(2.dp).background(motyw.linia?.w(ciemny) ?: Barwy.zloto))
             }
         }
         if (m.pasekWlaczony) NaZywo(m)

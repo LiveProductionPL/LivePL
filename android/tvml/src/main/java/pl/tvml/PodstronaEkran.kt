@@ -283,7 +283,7 @@ private fun OgloszenieArkusz(o: Ogloszenie, zamknij: () -> Unit) {
             Odstep(8.dp)
         }
         if (o.kategoria.isNotEmpty()) Text(o.kategoria.uppercase(), color = b.slaby, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-        Text(o.tytul, color = b.tekst, fontSize = 22.sp, lineHeight = 27.sp, fontWeight = FontWeight.Black, fontFamily = Szeryf)
+        Text(o.tytul, color = b.tekst, fontSize = 22.sp, lineHeight = 27.sp, fontWeight = FontWeight.Black, fontFamily = KrojNaglowkow)
         if (o.cena.isNotEmpty()) Text(o.cena, color = b.tekst, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         if (o.tekst.isNotEmpty()) Text(o.tekst, Modifier.padding(top = 8.dp), color = b.tekst, fontSize = 16.sp, lineHeight = 24.sp)
         if (o.kontakt.isNotEmpty()) {

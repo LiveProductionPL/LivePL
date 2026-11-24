@@ -75,7 +75,7 @@ fun WidokSondy(m: Magazyn, sonda: Sonda, blok: BlokStartu) {
         Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(b.karta).border(1.dp, b.ramka, RoundedCornerShape(14.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(sonda.pytanie, color = b.tekst, fontSize = 19.sp, lineHeight = 24.sp, fontWeight = FontWeight.Black, fontFamily = Szeryf)
+        Text(sonda.pytanie, color = b.tekst, fontSize = 19.sp, lineHeight = 24.sp, fontWeight = FontWeight.Black, fontFamily = KrojNaglowkow)
         val moj = m.glosy[sonda.id]
         if (moj != null || !sonda.otwarta) {
             WynikiSondy(m, sonda, moj.orEmpty())
@@ -330,7 +330,7 @@ fun WierszWydarzenia(w: Wydarzenie, naDzien: String? = null, akcja: () -> Unit) 
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Text(dzienKafelka, color = m.motyw.napisNaAkcencie.w(ciemny), fontSize = 22.sp, lineHeight = 24.sp, fontWeight = FontWeight.Black, fontFamily = Szeryf)
+                Text(dzienKafelka, color = m.motyw.napisNaAkcencie.w(ciemny), fontSize = 22.sp, lineHeight = 24.sp, fontWeight = FontWeight.Black, fontFamily = KrojNaglowkow)
                 Text(miesiacKafelka, color = m.motyw.napisNaAkcencie.w(ciemny), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
