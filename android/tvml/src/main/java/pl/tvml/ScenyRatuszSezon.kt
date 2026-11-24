@@ -8,8 +8,25 @@ package pl.tvml
  */
 
 /**
+ * Ratusz w scenach Leszna (zima, święta, Sylwester, Nowy Rok, 11 Listopada) na szerokiej karcie aplikacji (ok. 1,85:1):
+ * bliżej i większy niż na prawie kwadratowej karcie strony, żeby wyglądał jak na tvml.pl
+ * (Karol 24.11: „Raz ratusz może być bliżej raz dalej tak by pasowało graficznie”, „popraw wygląd ratusza”).
+ * Rysunek ratusza jest 1:1 ze strony; zmienia się tylko jego skala i linia podstawy. Te same liczby co PlanRatusza na iOS.
+ */
+internal object PlanRatusza {
+    fun szeroka(w: Double, h: Double) = h > 0 && w / h >= 1.5
+
+    /** mnożnik skali ratusza (na stronie 1) */
+    fun skala(w: Double, h: Double) = if (szeroka(w, h)) 1.3 else 1.0
+
+    /** linia podstawy ratusza (na stronie h * 0.667); niżej = bliżej, a iglica dalej mieści się w karcie */
+    fun podstawa(w: Double, h: Double) = if (szeroka(w, h)) h * 0.76 else h * 0.667
+}
+
+/**
  * Wspólne wartości gałęzi (weather-effects.js 3049–3057, 3252–3253, 3347–3348 i 3381–3393):
  * stałe położenia, kolory Ratusza i pomocnicze X, Y, fRect.
+ * [rR] to skala samego ratusza (scR razy [PlanRatusza.skala]); kamienice i postacie zostają przy scR.
  */
 private class RatuszSezonowyGeo(
     private val plotno: Plotno,
@@ -17,6 +34,7 @@ private class RatuszSezonowyGeo(
     val yBase: Double,
     val scH: Double,
     val scR: Double,
+    val rR: Double,
     val cxR: Double,
     val yg: Double,
     val fgX: Double,
@@ -27,20 +45,20 @@ private class RatuszSezonowyGeo(
     val colWin: String,
     val colHelm: String,
 ) {
-    val gapL = cxR - 43 * scR
-    val gapR = cxR + 43 * scR
+    val gapL = cxR - 43 * rR
+    val gapR = cxR + 43 * rR
     val bw = 39.0
 
-    /** const X = (dx) => cxR + dx * scR (3347). */
-    fun X(dx: Double) = cxR + dx * scR
+    /** const X = (dx) => cxR + dx * scR (3347), ze skalą ratusza [rR]. */
+    fun X(dx: Double) = cxR + dx * rR
 
-    /** const Y = (dy) => yBase - dy * scR (3348). */
-    fun Y(dy: Double) = yBase - dy * scR
+    /** const Y = (dy) => yBase - dy * scR (3348), ze skalą ratusza [rR]. */
+    fun Y(dy: Double) = yBase - dy * rR
 
     /** const fRect (3390–3393): prostokąt w jednostkach Ratusza między (x1, yt) a (x2, yb). */
     fun fRect(x1: Double, yt: Double, x2: Double, yb: Double, c: Any) {
         plotno.fillStyle = c
-        plotno.fillRect(X(x1), Y(yt), (x2 - x1) * scR, (yt - yb) * scR)
+        plotno.fillRect(X(x1), Y(yt), (x2 - x1) * rR, (yt - yb) * rR)
     }
 }
 
@@ -68,9 +86,11 @@ internal fun RamaSceny.ratuszSezonowy() {
 
     // ══ 11. ZIMOWO-ŚWIĄTECZNY I NOWOROCZNY RATUSZ W LESZNIE (6 animowanych scen 60 FPS z dużym pierwszym planem) ══
     val yRynek = h * 0.645
-    val yBase = h * 0.667
+    // ratusz bliżej i większy na szerokiej karcie aplikacji (PlanRatusza; na stronie h * 0.667 i skala 1)
+    val yBase = PlanRatusza.podstawa(w, h)
     val scH = h / 276
     val scR = scH * 0.96
+    val rR = scR * PlanRatusza.skala(w, h)
     val cxR = if (w < 560) (w * 0.666) else (w * 0.68)
     // Na stronie (this._sidebarMode && this._cardData): karta główna z wypełnionymi danymi (data, imieniny).
     // Aplikacja zawsze pokazuje kartę z danymi, więc tryb karty zależy tylko od sidebarMode.
@@ -88,7 +108,7 @@ internal fun RamaSceny.ratuszSezonowy() {
     val colWin = if (!isNight && sceneType != "leszno-wigilia") "#3a4656" else "#ffdc80"
     val colHelm = if (isNight) "#181e2c" else "#2a303a"
 
-    val g = RatuszSezonowyGeo(ctx, yRynek, yBase, scH, scR, cxR, yg, fgX, colPlinth, colWall, colWallSh, colPil, colWin, colHelm)
+    val g = RatuszSezonowyGeo(ctx, yRynek, yBase, scH, scR, rR, cxR, yg, fgX, colPlinth, colWall, colWallSh, colPil, colWin, colHelm)
 
     // A. Pierwsza Gwiazdka Betlejemska na niebie (Wigilia 24.12)
     if (sceneType == "leszno-wigilia") gwiazdkaBetlejemska(g)
@@ -307,20 +327,22 @@ private fun RamaSceny.plytaRynku(g: RatuszSezonowyGeo) = with(g) {
         val gCol = if (sceneType == "leszno-zima") "rgba(56,189,248,0.34)"
         else if (sceneType == "leszno-sylwester" || sceneType == "leszno-nowy-rok") "rgba(212,175,55,0.36)"
         else "rgba(215,48,72,0.32)"
-        val rg = ctx.createRadialGradient(cxR, yRynek + 16 * scR, 4.0, cxR, yRynek + 16 * scR, 64 * scR)
+        // poświata pod ratuszem idzie za ratuszem: na stronie yRynek + 16 * scR (yBase = h * 0.667)
+        val gy = yBase + (yRynek - h * 0.667) + 16 * rR
+        val rg = ctx.createRadialGradient(cxR, gy, 4.0, cxR, gy, 64 * rR)
         rg.addColorStop(0.0, gCol)
         rg.addColorStop(1.0, "rgba(0,0,0,0)")
         ctx.fillStyle = rg
-        ctx.beginPath(); ctx.arc(cxR, yRynek + 16 * scR, 64 * scR, 0.0, Math.PI * 2); ctx.fill()
+        ctx.beginPath(); ctx.arc(cxR, gy, 64 * rR, 0.0, Math.PI * 2); ctx.fill()
     }
 
-    // Wachlarzowe łuki bruku spod śniegu
+    // Wachlarzowe łuki bruku spod śniegu (wokół ratusza, więc w skali ratusza)
     ctx.save()
     ctx.strokeStyle = if (isNight) "rgba(200,228,255,0.06)" else "rgba(120,150,185,0.16)"
-    ctx.lineWidth = Math.max(0.7, 0.8 * scR)
+    ctx.lineWidth = Math.max(0.7, 0.8 * rR)
     for (rad in 28 until 260 step 22) {
         ctx.beginPath()
-        ctx.ellipse(cxR, yBase + 4 * scR, rad * 1.45 * scR, rad * 0.42 * scR, 0.0, 0.06 * Math.PI, 0.94 * Math.PI)
+        ctx.ellipse(cxR, yBase + 4 * rR, rad * 1.45 * rR, rad * 0.42 * rR, 0.0, 0.06 * Math.PI, 0.94 * Math.PI)
         ctx.stroke()
     }
     ctx.restore()
@@ -431,6 +453,7 @@ private fun RamaSceny.girlandyNadRynkiem(g: RatuszSezonowyGeo) = with(g) {
 
 /** 3. Nocne smugi reflektorów za Ratuszem, tylko w nocy (weather-effects.js 3346–3378). */
 private fun RamaSceny.reflektoryZaRatuszem(g: RatuszSezonowyGeo) = with(g) {
+    val scR = rR // reflektory stoją przy ratuszu, więc w jego skali
     ctx.save()
     val sway = Math.sin(t * 0.85) * 9 * scR
     val cB1 = if (sceneType == "leszno-zima") "rgba(56,189,248,0.28)"
@@ -463,6 +486,7 @@ private fun RamaSceny.reflektoryZaRatuszem(g: RatuszSezonowyGeo) = with(g) {
  * i sople na Zimę (weather-effects.js 3389–3437; kolory 3381–3388 w [RatuszSezonowyGeo]).
  */
 private fun RamaSceny.ratuszBryla(g: RatuszSezonowyGeo) = with(g) {
+    val scR = rR // grubości linii i kółka w skali ratusza
     fRect(-bw, 34.0, bw, 11.0, colWall)
     fRect(-bw, 34.0, -24.0, 11.0, colWallSh)
     fRect(-bw, 11.0, bw, 0.0, colPlinth)
@@ -513,6 +537,7 @@ private fun RamaSceny.ratuszBryla(g: RatuszSezonowyGeo) = with(g) {
  * Zegar: `new Date()` strony zastępuje [RamaSceny.teraz] (czas warszawski).
  */
 private fun RamaSceny.ratuszWieza(g: RatuszSezonowyGeo) = with(g) {
+    val scR = rR // zegar, wskazówki i latarnia w skali ratusza
     // Wieża Ratusza + Zegar + Ażurowa Latarnia i Barokowy Hełm
     fRect(-12.5, 62.0, 12.5, 40.0, colWall)
     fRect(-12.5, 62.0, -10.3, 40.0, colPil); fRect(10.3, 62.0, 12.5, 40.0, colPil)

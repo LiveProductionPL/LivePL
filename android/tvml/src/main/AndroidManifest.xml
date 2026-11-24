@@ -59,6 +59,11 @@
             android:name="delivery_metrics_exported_to_big_query_enabled"
             android:value="false" />
 
+        <!-- „Odsłuchaj” (Lektor.kt): pauza, wznowienie i stop z powiadomienia lektora, tylko z wnętrza aplikacji -->
+        <receiver
+            android:name=".OdbiornikLektora"
+            android:exported="false" />
+
         <!-- Alert TVML: aparat zapisuje zdjęcie albo film do cache/alert (res/xml/pliki.xml), tylko z prawem do tego pliku -->
         <provider
             android:name="androidx.core.content.FileProvider"

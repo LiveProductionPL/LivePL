@@ -1,9 +1,5 @@
 package pl.tvml
 
-import android.content.Context
-import android.speech.tts.TextToSpeech
-import android.speech.tts.UtteranceProgressListener
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -54,7 +50,6 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-import java.util.Locale
 
 /**
  * Artykuł: baner zostaje u góry, pod nim „Wróć”, rozmiar tekstu i udostępnianie.
@@ -68,8 +63,8 @@ fun ArtykulEkran(m: Magazyn, poczatkowy: Artykul) {
     var pelny by remember(poczatkowy.id) { mutableStateOf(if (poczatkowy.tresc != null) poczatkowy else null) }
     var komentarze by remember { mutableStateOf(false) }
     var film by remember { mutableStateOf<String?>(null) }
-    val lektor = remember { Lektor(kontekst.applicationContext) }
-    DisposableEffect(Unit) { onDispose { lektor.zamknij() } }
+    // wyjście z artykułu kończy czytanie tego artykułu (wygaszony ekran i aplikacja w tle go nie przerywają)
+    DisposableEffect(poczatkowy.id) { onDispose { if (Lektor.artykul == poczatkowy.id) Lektor.zatrzymaj() } }
     LaunchedEffect(poczatkowy.id) { if (pelny == null) pelny = m.artykul(poczatkowy.id) }
     // tłumaczenie na żądanie (API 1.8.0): po powrocie aplikacji z tła artykuł w przygotowaniu pobiera się jeszcze raz,
     // bo w międzyczasie mogło przyjść tłumaczenie
@@ -164,15 +159,27 @@ fun ArtykulEkran(m: Magazyn, poczatkowy: Artykul) {
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // lektor czyta polskim głosem, więc w przetłumaczonym tekście go nie ma (tak robi strona)
-                if (a.jezyk == "pl") Row(
-                    Modifier.height(40.dp).clip(CircleShape).background(Barwy.granat)
-                        .clickable(role = Role.Button) { lektor.przelacz(tekstDoCzytania(a, if (pokazOryginal) oryginal else pelny)) }.padding(horizontal = 14.dp),
+                // lektor czyta w języku pokazanego tekstu: oryginał po polsku, tłumaczenie po ukraińsku albo angielsku
+                // (Karol 24.11: wersja en i uk 1:1 z polską, więc przycisk jest przy każdym artykule)
+                // wygląd jak „Zapisz” i „Komentarze” obok: obwódka i kolory motywu, więc pasuje w dzień i w nocy
+                // (Karol 24.11: „Przycisk jest niepasujący”, „musi być na tryb dzień noc”); w czasie czytania kolor odnośnika
+                val czyta = Lektor.mowi && Lektor.artykul == poczatkowy.id
+                val kolorLektora = if (czyta) b.link else b.tekst
+                Row(
+                    Modifier.height(40.dp).clip(CircleShape)
+                        .background(if (czyta) b.link.copy(alpha = 0.1f) else Color.Transparent)
+                        .border(1.dp, if (czyta) b.link else b.ramka, CircleShape)
+                        .clickable(role = Role.Button) {
+                            Lektor.przelacz(
+                                kontekst, tekstDoCzytania(a, if (pokazOryginal) oryginal else pelny),
+                                jezyk = if (a.przetlumaczony) a.jezyk else "pl", tytul = a.tytul, id = poczatkowy.id,
+                            )
+                        }.padding(horizontal = 14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Icon(if (lektor.mowi) Ikony.stop else Ikony.glosnik, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                    Text(if (lektor.mowi) tl("app.stopListening", "Zatrzymaj") else tl("app.listen", "Odsłuchaj"), color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Icon(if (czyta) Ikony.stop else Ikony.glosnik, null, tint = kolorLektora, modifier = Modifier.size(18.dp))
+                    Text(if (czyta) tl("app.stopListening", "Zatrzymaj") else tl("app.listen", "Odsłuchaj"), color = kolorLektora, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Spacer(Modifier.weight(1f))
                 val zapisany = a.id in m.zapisane
@@ -267,70 +274,6 @@ private fun tekstDoCzytania(a: Artykul, pelny: Artykul?): List<String> =
 private fun inicjaly(s: String): String {
     val litery = s.split(' ').mapNotNull { it.firstOrNull() }.take(2)
     return if (litery.isEmpty()) "TV" else String(litery.toCharArray()).uppercase()
-}
-
-/** „Odsłuchaj”: czyta artykuł polskim głosem telefonu (silnik mowy Androida), także przy wygaszonym ekranie. */
-class Lektor(private val kontekst: Context) {
-    var mowi by mutableStateOf(false)
-        private set
-    private var tts: TextToSpeech? = null
-    private var gotowy = false
-    private var czeka: List<String>? = null
-
-    fun przelacz(akapity: List<String>) {
-        if (mowi) { zatrzymaj(); return }
-        mowi = true
-        val t = tts
-        if (t == null) {
-            czeka = akapity
-            tts = TextToSpeech(kontekst) { stan ->
-                gotowy = stan == TextToSpeech.SUCCESS
-                if (!gotowy) { mowi = false; komunikat(tl("app.ttsMissing", "Telefon nie ma silnika mowy.")); return@TextToSpeech }
-                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                    override fun onStart(id: String?) {}
-                    override fun onDone(id: String?) { if (id == "koniec") naGlownym { mowi = false } }
-                    @Deprecated("Deprecated in Java")
-                    override fun onError(id: String?) { naGlownym { mowi = false } }
-                })
-                czeka?.let { mow(it) }
-                czeka = null
-            }
-        } else if (gotowy) mow(akapity)
-    }
-
-    private fun mow(akapity: List<String>) {
-        val t = tts ?: return
-        val jezyk = t.setLanguage(Locale.forLanguageTag("pl-PL"))
-        if (jezyk == TextToSpeech.LANG_MISSING_DATA || jezyk == TextToSpeech.LANG_NOT_SUPPORTED) {
-            mowi = false
-            komunikat(tl("app.ttsNoPolish", "Brak polskiego głosu. Dodasz go w ustawieniach telefonu: Zamiana tekstu na mowę."))
-            return
-        }
-        // silnik mowy przyjmuje ograniczoną długość tekstu, więc akapit po akapicie
-        val granica = TextToSpeech.getMaxSpeechInputLength() - 1
-        val kawalki = akapity.flatMap { it.chunked(granica) }
-        kawalki.forEachIndexed { i, k ->
-            t.speak(k, if (i == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD, null, if (i == kawalki.size - 1) "koniec" else "a$i")
-        }
-    }
-
-    private fun naGlownym(akcja: () -> Unit) {
-        android.os.Handler(android.os.Looper.getMainLooper()).post(akcja)
-    }
-
-    private fun komunikat(tekst: String) = naGlownym { Toast.makeText(kontekst, tekst, Toast.LENGTH_LONG).show() }
-
-    fun zatrzymaj() {
-        tts?.stop()
-        mowi = false
-    }
-
-    fun zamknij() {
-        tts?.stop()
-        tts?.shutdown()
-        tts = null
-        mowi = false
-    }
 }
 
 /** Komentarze czytelników (zatwierdzone przez redakcję). Dodawanie z aplikacji przyjdzie z nowym API. */

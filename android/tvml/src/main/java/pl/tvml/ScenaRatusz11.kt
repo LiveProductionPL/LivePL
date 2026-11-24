@@ -13,8 +13,9 @@ package pl.tvml
 private class Ratusz11Uklad(r: RamaSceny) {
     private val plotno = r.ctx
     val yRynek = r.h * 0.645
-    val yBase = r.h * 0.667
-    val scR = (r.h / 276) * 0.96
+    // ratusz bliżej i większy na szerokiej karcie aplikacji (PlanRatusza w ScenyRatuszSezon.kt, jak na iOS)
+    val yBase = PlanRatusza.podstawa(r.w, r.h)
+    val scR = (r.h / 276) * 0.96 * PlanRatusza.skala(r.w, r.h)
     val cxR = if (r.w < 560) (r.w * 0.666) else (r.w * 0.68)
 
     // 4. Architektura Ratusza w Lesznie (Merlini / Ferrari — Dzień w słońcu vs Noc Biało-Czerwona Iluminacja)
