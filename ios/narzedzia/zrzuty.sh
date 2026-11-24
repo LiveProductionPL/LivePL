@@ -97,6 +97,8 @@ if [ -n "${5:-}" ] && [ -d "$5" ]; then
   zrzut 23-tvml-film dark -ekran film -tvml-jezyk pl
   # podgląd szkicu aplikacji z panelu (kod QR): pasek pod banerem (bez pobierania szkicu z serwera)
   zrzut 24-tvml-podglad light -ekran podglad -tvml-jezyk pl
+  # okno „Włączyć powiadomienia o nowych wpisach?” z pierwszego uruchomienia (w symulatorze tylko na ten zrzut)
+  zrzut 25-tvml-pytanie-push dark -ekran pytanie-push -tvml-jezyk pl
   # „Większy tekst” na poziomie AX3 (górna granica w aplikacji)
   xcrun simctl ui "$UDID" content_size accessibility-extra-large || true
   zrzut 15-tvml-duzy-tekst light

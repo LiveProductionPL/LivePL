@@ -19,9 +19,10 @@ struct TematPush: Identifiable, Hashable {
 
 /// Powiadomienia o nowych wpisach. Serwer tvml.pl wysyła je przez APNs bezpośrednio (bez Firebase).
 /// - TVML 2.2 (Karol 24.11: „domyślnie powinna być funkcja włączona, bo ludzie nie wiedzą, że muszą włączyć 🙂 na wszystkie
-///   tematy”): przy pierwszym uruchomieniu (także po aktualizacji, gdy nikt jeszcze nie pytał) jedno systemowe pytanie o zgodę.
-///   Po „Pozwól” zaznaczone są wszystkie tematy z panelu, a po „Nie pozwalaj” nic nie wysyłamy i nie pytamy ponownie
-///   (w „Więcej → Powiadomienia” jest wtedy przycisk do Ustawień iOS).
+///   tematy”, „daj przy pierwszym uruchomieniu czy włączyć powiadomienia i opcje tak o nie”): przy pierwszym uruchomieniu
+///   (także po aktualizacji, gdy nikt jeszcze nie pytał) raz nasze okno z „Tak” i „Nie”. „Tak” → systemowe pytanie o zgodę,
+///   po „Pozwól” wszystkie tematy z panelu. „Nie” → nic, bez systemowego pytania (zostaje na później, przełącznik w Więcej).
+///   Po „Nie pozwalaj” nic nie wysyłamy; w „Więcej → Powiadomienia” jest wtedy przycisk do Ustawień iOS.
 /// - Przy pierwszym włączeniu (pytanie przy starcie albo przełącznik) zaznaczone są wszystkie tematy; każdy można odznaczyć.
 /// - Token APNs (hex) z tematami, językiem i środowiskiem idzie do POST /api/v1/devices; wyłączenie
 ///   albo odznaczenie wszystkich tematów → POST /api/v1/devices/delete.
@@ -93,18 +94,32 @@ final class Powiadomienia: NSObject, ObservableObject, UNUserNotificationCenterD
         zglos()
     }
 
-    /// Pierwsze uruchomienie (po wczytaniu tematów z panelu): jedno systemowe pytanie o zgodę, tylko gdy iOS jeszcze
-    /// nie pytał. Kto już odmówił albo sam wyłączył powiadomienia w aplikacji, tego nie pytamy.
+    /// Nasze okno „Włączyć powiadomienia o nowych wpisach?” (PytanieOPowiadomienia) przy pierwszym uruchomieniu.
+    @Published var pytanieStartowe = false
+
+    /// Pierwsze uruchomienie (po wczytaniu tematów z panelu): raz nasze okno z „Tak” i „Nie”, tylko gdy iOS jeszcze
+    /// nie pytał o zgodę. Kto już odmówił albo sam wyłączył powiadomienia w aplikacji, tego nie pytamy.
     func zapytajRaz(dostepne: [TematPush]) async {
         #if targetEnvironment(simulator)
-        // zrzuty ekranu w CI: bez systemowego okna nad aplikacją
+        // zrzuty ekranu w CI: bez okna nad aplikacją (osobny zrzut: -ekran pytanie-push)
         return
         #else
         guard !UserDefaults.standard.bool(forKey: Klucz.zapytano), !wlaczone, !dostepne.isEmpty else { return }
-        UserDefaults.standard.set(true, forKey: Klucz.zapytano)
-        guard await UNUserNotificationCenter.current().notificationSettings().authorizationStatus == .notDetermined else { return }
-        await wlacz(dostepne: dostepne)
+        guard await UNUserNotificationCenter.current().notificationSettings().authorizationStatus == .notDetermined else {
+            UserDefaults.standard.set(true, forKey: Klucz.zapytano)
+            return
+        }
+        pytanieStartowe = true
         #endif
+    }
+
+    /// Odpowiedź w naszym oknie (Karol 24.11: „daj przy pierwszym uruchomieniu czy włączyć powiadomienia i opcje tak o nie”).
+    /// „Tak”: systemowe pytanie iOS, po zgodzie wszystkie tematy. „Nie”: nic, a systemowe pytanie zostaje na później
+    /// (przełącznik w Więcej → Powiadomienia).
+    func odpowiedz(tak: Bool, dostepne: [TematPush]) async {
+        pytanieStartowe = false
+        UserDefaults.standard.set(true, forKey: Klucz.zapytano)
+        if tak { await wlacz(dostepne: dostepne) }
     }
 
     /// Start aplikacji: gdy włączone, sprawdź zgodę i odśwież token (Apple może go zmienić).
@@ -201,6 +216,57 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         Powiadomienia.shared.nieUdaloSie(error)
+    }
+}
+
+/// Okno przy pierwszym uruchomieniu: „Włączyć powiadomienia o nowych wpisach?” z „Tak” i „Nie” (klucze wspólne z Androidem:
+/// app.pushAskTitle, app.pushAskText, app.yes, app.no; polskie teksty wbudowane jako zapas).
+struct PytanieOPowiadomienia: View {
+    @EnvironmentObject private var m: Magazyn
+    @ObservedObject private var p = Powiadomienia.shared
+    @State private var pracuje = false
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.45).ignoresSafeArea()
+            VStack(spacing: 14) {
+                Image(systemName: "bell.badge.fill").font(.system(size: 34, weight: .semibold))
+                    .foregroundStyle(Barwy.zloto).accessibilityHidden(true)
+                Text(Napisy.t("app.pushAskTitle", "Włączyć powiadomienia o nowych wpisach?"))
+                    .font(Czcionka.naglowek(21)).foregroundStyle(Barwy.tekst).multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
+                Text(Napisy.t("app.pushAskText", "Pilne informacje i nowe artykuły z Leszna i powiatu. Tematy zmienisz w Więcej → Powiadomienia."))
+                    .czcionka(15).foregroundStyle(Barwy.slaby).multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 12) {
+                    przycisk(Napisy.t("app.no", "Nie"), glowny: false) { await p.odpowiedz(tak: false, dostepne: m.tematyPush) }
+                    przycisk(Napisy.t("app.yes", "Tak"), glowny: true) { await p.odpowiedz(tak: true, dostepne: m.tematyPush) }
+                }
+                .padding(.top, 4)
+                .disabled(pracuje)
+            }
+            .padding(22)
+            .frame(maxWidth: 380)
+            .background(Barwy.karta, in: RoundedRectangle(cornerRadius: 22))
+            .padding(24)
+            .accessibilityElement(children: .contain)
+            .accessibilityAddTraits(.isModal)
+        }
+    }
+
+    private func przycisk(_ tytul: String, glowny: Bool, akcja: @escaping () async -> Void) -> some View {
+        Button {
+            pracuje = true
+            Task { await akcja(); pracuje = false }
+        } label: {
+            Text(tytul).czcionka(16, .bold)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .foregroundStyle(glowny ? Color(hex: "#1d1400") : Barwy.tekst)
+                .background(glowny ? Barwy.zloto : Barwy.tlo, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(glowny ? Color.clear : Barwy.ramka))
+        }
+        .buttonStyle(.plain)
     }
 }
 

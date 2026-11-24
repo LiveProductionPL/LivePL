@@ -31,6 +31,8 @@ struct Glowny: View {
     private let motywTestowy = Motyw.zArgumentu(UserDefaults.standard.string(forKey: "motyw"))
     /// Do zrzutu odtwarzacza (-ekran film): pierwszy film z kanału na pełnym ekranie.
     @State private var filmTestowy: Film?
+    /// okno „Włączyć powiadomienia?” przy pierwszym uruchomieniu
+    @ObservedObject private var powiadomienia = Powiadomienia.shared
     /// Wybór języka z „Więcej” albo z flagi w nagłówku (ten sam zapis), zmiana obsłużona tutaj raz.
     @AppStorage(Jezyk.kluczWyboru) private var wyborJezyka = "system"
 
@@ -57,6 +59,7 @@ struct Glowny: View {
         // zmiana języka w „Więcej” buduje ekrany od nowa (bez restartu); otwarte ekrany zostają w Magazynie
         .id(m.jezyk)
         .background(Barwy.tlo)
+        .overlay { if powiadomienia.pytanieStartowe && !m.wymaganaAktualizacja { PytanieOPowiadomienia() } }
         .overlay { if m.wymaganaAktualizacja { EkranAktualizacji() } }
         .sheet(isPresented: $m.arkuszPogody) { NavigationStack { PogodaWidok().toolbar(.hidden, for: .navigationBar) } }
         .sheet(isPresented: $m.arkuszWideo) { NavigationStack { WideoWidok().toolbar(.hidden, for: .navigationBar) } }
@@ -69,8 +72,8 @@ struct Glowny: View {
             await Powiadomienia.shared.przyStarcie()
             await m.odswiez(wymus: true)
             if let motywTestowy { m.motyw = motywTestowy }
-            // powiadomienia domyślnie włączone: jedno systemowe pytanie przy pierwszym uruchomieniu (Powiadomienia.swift)
-            await Powiadomienia.shared.zapytajRaz(dostepne: m.tematyPush)
+            // powiadomienia: przy pierwszym uruchomieniu nasze okno „Tak”/„Nie” (Powiadomienia.swift, PytanieOPowiadomienia)
+            if ekranStartowy == nil { await Powiadomienia.shared.zapytajRaz(dostepne: m.tematyPush) }
             switch ekranStartowy {
             case "pogoda": m.pokaz(.pogoda)
             case "wideo": m.pokaz(.wideo)
@@ -79,6 +82,7 @@ struct Glowny: View {
             case "zakladka2": if m.zakladki.count > 1 { m.zakladka = m.zakladki[1].id }
             case "powiadomienia": m.pokaz(.wiecej); m.otworz(EkranWiecej.powiadomienia)
             case "film": filmTestowy = m.filmy.first
+            case "pytanie-push": powiadomienia.pytanieStartowe = true
             case "podglad":
                 var p = Podglad(token: Podglad.tokenZrzutu)
                 p.etykieta = "Podgląd: Karol, 14:05"
