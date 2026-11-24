@@ -4,7 +4,7 @@ import SwiftUI
 /// Sylwester i Nowy Rok. Ta sama reguła pierwszeństwa co na stronie (portal-chrome.js):
 /// żałoba > 11 Listopada > Boże Narodzenie > Sylwester i Nowy Rok > zima.
 struct Motyw: Equatable {
-    enum Rodzaj: String { case zwykly, zaloba, listopad, zima, mikolajki, czapeczka, wigilia, swieta, sylwester, nowyRok }
+    enum Rodzaj: String { case zwykly, zaloba, listopad, andrzejki, zima, mikolajki, czapeczka, wigilia, swieta, sylwester, nowyRok }
     struct Pasek: Equatable {
         var etykieta: String
         var tekst: String
@@ -75,6 +75,8 @@ struct Motyw: Equatable {
     private var naglowekProjektu: [Color] {
         switch rodzaj {
         case .zima: return [Color(hex: "#040d1a"), Color(hex: "#0a1e38"), Color(hex: "#0f3156")]
+        // Andrzejki (Noc wróżb 28–30.11): jak w panelu, gdy API nie poda kolorów
+        case .andrzejki: return [Color(hex: "#07040f"), Color(hex: "#160b2c"), Color(hex: "#2e1046")]
         case .wigilia, .swieta: return [Color(hex: "#14070c"), Color(hex: "#24101a")]
         case .sylwester, .nowyRok: return [Color(hex: "#0d0b24"), Color(hex: "#1b1640")]
         case .zaloba: return [Color(hex: "#16181c"), Color(hex: "#23262c")]
@@ -85,6 +87,7 @@ struct Motyw: Equatable {
         if let k = paleta?.kolor("headerLine") { return k }
         switch rodzaj {
         case .zima: return Color(hex: "#38bdf8")
+        case .andrzejki: return Color(hex: "#f5b942")
         case .listopad: return Color(hex: "#dc143c")
         case .mikolajki, .czapeczka: return Color(hex: "#c8102e")
         case .wigilia, .swieta: return Color(hex: "#e0b45a")
@@ -97,6 +100,7 @@ struct Motyw: Equatable {
         if let k = paleta?.kolor("live") { return k }
         switch rodzaj {
         case .zima: return Color(hex: "#0369a1")
+        case .andrzejki: return Color(hex: "#5b21b6")
         case .mikolajki, .czapeczka: return Color(hex: "#b91c1c")
         case .wigilia, .swieta: return Color(hex: "#9b1c1c")
         case .sylwester, .nowyRok: return Color(hex: "#5b21b6")
@@ -110,6 +114,7 @@ struct Motyw: Equatable {
         switch rodzaj {
         case .zwykly: return Color.tryb(0x0a1f44, 0xf0b03a)
         case .listopad: return Color(hex: "#a50e26")
+        case .andrzejki: return Color.tryb(0x7c3aed, 0xa78bfa)
         case .zaloba: return Color.tryb(0x111827, 0xd1d5db)
         default: return naZywo
         }
@@ -277,6 +282,8 @@ struct Motyw: Equatable {
         switch id {
         case "mourning", "zaloba": rodzaj = .zaloba
         case "indep", "11listopada": rodzaj = .listopad
+        // Andrzejki: wcześniej nieznane, więc cały wygląd zostawał zwykły (Karol, 24.11: „Tak, dodaj”)
+        case "andrzejki": rodzaj = .andrzejki
         case "winter": rodzaj = .zima
         case "xmas":
             switch wariant {
@@ -294,6 +301,7 @@ struct Motyw: Equatable {
             let domyslna: String
             switch rodzaj {
             case .listopad: domyslna = "ŚWIĘTO NIEPODLEGŁOŚCI"
+            case .andrzejki: domyslna = "ANDRZEJKI"
             case .zima: domyslna = "ZIMA"
             case .mikolajki: domyslna = "6 GRUDNIA · MIKOŁAJKI"
             case .czapeczka, .wigilia, .swieta: domyslna = "BOŻE NARODZENIE"
@@ -333,8 +341,11 @@ struct OzdobaLogo: View {
     var body: some View {
         switch motyw.rodzaj {
         case .zima: Balwan().frame(width: 22, height: 28).offset(x: 14, y: -12)
+        case .andrzejki: AndrzejkiLogo().frame(width: 26.7, height: 15.2).offset(x: 0, y: 0.6)
         case .mikolajki, .czapeczka: CzapkaMikolaja().frame(width: 30, height: 24).rotationEffect(.degrees(14)).offset(x: 12, y: -14)
-        case .wigilia, .swieta: Gwiazda().fill(Color(hex: "#e0b45a")).frame(width: 24, height: 24).offset(x: 14, y: -12)
+        // Wigilia: przelatujące sanie jak na stronie (Karol, 24.11: „Tak, teraz”); Boże Narodzenie: gwiazda
+        case .wigilia: SanieLogo().frame(width: 30.5, height: 14).offset(x: 5, y: 1)
+        case .swieta: Gwiazda().fill(Color(hex: "#e0b45a")).frame(width: 24, height: 24).offset(x: 14, y: -12)
         case .listopad: Flaga().frame(width: 26, height: 22).offset(x: 14, y: -12)
         case .sylwester, .nowyRok:
             Text(verbatim: String(Calendar.current.component(.year, from: .now) + (Calendar.current.component(.month, from: .now) == 12 ? 1 : 0)))
@@ -364,6 +375,137 @@ struct Balwan: View {
             var szal = Path(); szal.move(to: CGPoint(x: 6 * s, y: 15 * s)); szal.addLine(to: CGPoint(x: 16 * s, y: 15 * s))
             ctx.stroke(szal, with: .color(Color(hex: "#38bdf8")), style: StrokeStyle(lineWidth: 2 * s, lineCap: .round))
         }
+    }
+}
+
+/// Andrzejki przy logu, jak na stronie (Panel-TVML panel-special-themes.js, klucz „andrzejki”, viewBox logo
+/// 0 0 270 126, tu x 186…270, y 2…50): sierp księżyca, gwiazdki, poświata i świeca z płomieniem.
+struct AndrzejkiLogo: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let k = size.height / 48
+            var g = ctx
+            g.scaleBy(x: k, y: k)
+            g.translateBy(x: -186, y: -2)
+            g.addFilter(.shadow(color: Color(hex: "#07040f").opacity(0.6), radius: 1.4, x: 0, y: 1.4))
+            func kolo(_ x: CGFloat, _ y: CGFloat, _ r: CGFloat) -> Path { Path(ellipseIn: CGRect(x: x - r, y: y - r, width: 2 * r, height: 2 * r)) }
+            // sierp: dłuższy łuk koła r 15 (środek 214,56; 20,29) z (210,6) do (226,30) i z powrotem półkole r 14,42
+            // (środek 218; 18), jak łuki SVG ze strony (r 12 jest za mały na tę cięciwę, więc przeglądarka go powiększa)
+            var sierp = Path()
+            let n = 40
+            for i in 0...n {
+                let a = (-107.7 - 212.0 * Double(i) / Double(n)) * .pi / 180
+                let p = CGPoint(x: 214.56 + 15 * cos(a), y: 20.29 + 15 * sin(a))
+                if i == 0 { sierp.move(to: p) } else { sierp.addLine(to: p) }
+            }
+            for i in 0...n {
+                let a = (56.3 + 180.0 * Double(i) / Double(n)) * .pi / 180
+                sierp.addLine(to: CGPoint(x: 218 + 14.42 * cos(a), y: 18 + 14.42 * sin(a)))
+            }
+            sierp.closeSubpath()
+            g.fill(sierp, with: .color(Color(hex: "#f5d98a")))
+            var gwiazdka = Path()
+            let punkty: [(Double, Double)] = [(236, 4), (237.4, 7.2), (240.6, 8.6), (237.4, 10), (236, 13.2), (234.6, 10), (231.4, 8.6), (234.6, 7.2)]
+            for (i, p) in punkty.enumerated() {
+                if i == 0 { gwiazdka.move(to: CGPoint(x: p.0, y: p.1)) } else { gwiazdka.addLine(to: CGPoint(x: p.0, y: p.1)) }
+            }
+            gwiazdka.closeSubpath()
+            g.fill(gwiazdka, with: .color(.white))
+            g.fill(kolo(191, 10, 1.8), with: .color(.white))
+            g.fill(kolo(266, 12, 1.5), with: .color(.white))
+            // poświata i świeca
+            g.fill(kolo(254, 24, 13), with: .radialGradient(Gradient(colors: [Color(hex: "#f5b942").opacity(0.55), Color(hex: "#f5b942").opacity(0)]),
+                                                         center: CGPoint(x: 254, y: 24), startRadius: 0, endRadius: 13))
+            let swieca = Path(roundedRect: CGRect(x: 249, y: 28, width: 10, height: 22), cornerRadius: 2)
+            g.fill(swieca, with: .linearGradient(Gradient(colors: [Color(hex: "#e7d3a8"), Color(hex: "#f8ecd0"), Color(hex: "#d9c08a")]),
+                                                 startPoint: CGPoint(x: 249, y: 39), endPoint: CGPoint(x: 259, y: 39)))
+            g.stroke(swieca, with: .color(Color(hex: "#b7791f")), lineWidth: 0.6)
+            var knot = Path()
+            knot.move(to: CGPoint(x: 254, y: 28)); knot.addLine(to: CGPoint(x: 254, y: 24.5))
+            g.stroke(knot, with: .color(Color(hex: "#2a1300")), lineWidth: 1)
+            var plomien = Path()
+            plomien.move(to: CGPoint(x: 254, y: 11))
+            plomien.addCurve(to: CGPoint(x: 254, y: 25), control1: CGPoint(x: 258.5, y: 16), control2: CGPoint(x: 258.5, y: 21))
+            plomien.addCurve(to: CGPoint(x: 254, y: 11), control1: CGPoint(x: 249.5, y: 21), control2: CGPoint(x: 249.5, y: 16))
+            g.fill(plomien, with: .color(Color(hex: "#f5b942")))
+            var srodek = Path()
+            srodek.move(to: CGPoint(x: 254, y: 16.5))
+            srodek.addCurve(to: CGPoint(x: 254, y: 23.5), control1: CGPoint(x: 256, y: 19), control2: CGPoint(x: 256, y: 21.5))
+            srodek.addCurve(to: CGPoint(x: 254, y: 16.5), control1: CGPoint(x: 252, y: 21.5), control2: CGPoint(x: 252, y: 19))
+            g.fill(srodek, with: .color(Color(hex: "#fff4cf")))
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// Złote sanie z Mikołajem i reniferem przelatujące przy logu w Wigilię, jak na stronie: Panel-TVML
+/// panel-special-themes.js, wariant „sleigh”, SVG w viewBox logo 0 0 270 126 (tu x 190…286, y 3…47 tej skali).
+struct SanieLogo: View {
+    var body: some View {
+        Canvas { ctx, size in
+            let k = size.height / 44
+            var g = ctx
+            g.scaleBy(x: k, y: k)
+            g.translateBy(x: -190, y: -3)
+            g.addFilter(.shadow(color: .black.opacity(0.55), radius: 1.6, x: 0.6, y: 1.8))
+            let zloto = GraphicsContext.Shading.linearGradient(
+                Gradient(colors: [Color(hex: "#fff6d1"), Color(hex: "#e5c158"), Color(hex: "#9e7618")]),
+                startPoint: CGPoint(x: 192, y: 4), endPoint: CGPoint(x: 284, y: 46))
+            func kolo(_ x: CGFloat, _ y: CGFloat, _ r: CGFloat) -> Path { Path(ellipseIn: CGRect(x: x - r, y: y - r, width: 2 * r, height: 2 * r)) }
+            // ślad sań
+            var slad = Path()
+            slad.move(to: CGPoint(x: 192, y: 42)); slad.addQuadCurve(to: CGPoint(x: 276, y: 8), control: CGPoint(x: 228, y: 24))
+            g.stroke(slad, with: zloto, style: StrokeStyle(lineWidth: 1.8, dash: [2, 3]))
+            var slad2 = Path()
+            slad2.move(to: CGPoint(x: 196, y: 45)); slad2.addQuadCurve(to: CGPoint(x: 274, y: 14), control: CGPoint(x: 232, y: 30))
+            g.stroke(slad2, with: .color(Color(red: 245 / 255, green: 226 / 255, blue: 168 / 255).opacity(0.45)), lineWidth: 1)
+            // sanie, Mikołaj, worek i renifer w grupie obróconej o −16° wokół (235, 22)
+            var r = g
+            r.translateBy(x: 235, y: 22); r.rotate(by: .degrees(-16)); r.translateBy(x: -235, y: -22)
+            var sanie = Path()
+            sanie.move(to: CGPoint(x: 198, y: 28)); sanie.addLine(to: CGPoint(x: 222, y: 28))
+            sanie.addQuadCurve(to: CGPoint(x: 231, y: 21), control: CGPoint(x: 228, y: 28)); sanie.addLine(to: CGPoint(x: 226, y: 21))
+            sanie.addQuadCurve(to: CGPoint(x: 220, y: 25), control: CGPoint(x: 224, y: 25)); sanie.addLine(to: CGPoint(x: 202, y: 25))
+            sanie.addQuadCurve(to: CGPoint(x: 195, y: 22), control: CGPoint(x: 198, y: 20)); sanie.closeSubpath()
+            r.fill(sanie, with: zloto)
+            var ploza = Path()
+            ploza.move(to: CGPoint(x: 196, y: 31)); ploza.addLine(to: CGPoint(x: 225, y: 31))
+            ploza.addQuadCurve(to: CGPoint(x: 234, y: 26), control: CGPoint(x: 231, y: 31))
+            r.stroke(ploza, with: zloto, style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+            r.fill(kolo(214, 17, 4.2), with: zloto)
+            var mikolaj = Path()
+            mikolaj.move(to: CGPoint(x: 208, y: 25)); mikolaj.addQuadCurve(to: CGPoint(x: 221, y: 25), control: CGPoint(x: 214, y: 19)); mikolaj.closeSubpath()
+            r.fill(mikolaj, with: zloto)
+            r.fill(kolo(204, 20, 5.2), with: .color(Color(hex: "#b91c1c")))
+            r.stroke(kolo(204, 20, 5.2), with: zloto, lineWidth: 1.2)
+            var lejce = Path()
+            lejce.move(to: CGPoint(x: 222, y: 21)); lejce.addQuadCurve(to: CGPoint(x: 248, y: 18), control: CGPoint(x: 236, y: 22))
+            r.stroke(lejce, with: zloto, lineWidth: 1)
+            r.fill(Path(ellipseIn: CGRect(x: 245.5, y: 15.4, width: 15, height: 7.2)), with: zloto)
+            var glowa = Path()
+            glowa.move(to: CGPoint(x: 258, y: 17)); glowa.addLine(to: CGPoint(x: 262, y: 11)); glowa.addLine(to: CGPoint(x: 266, y: 12))
+            glowa.addLine(to: CGPoint(x: 261, y: 19)); glowa.closeSubpath()
+            r.fill(glowa, with: zloto)
+            var poroze = Path()
+            poroze.move(to: CGPoint(x: 262, y: 11)); poroze.addLine(to: CGPoint(x: 260, y: 6))
+            poroze.move(to: CGPoint(x: 262, y: 11)); poroze.addLine(to: CGPoint(x: 265, y: 7))
+            r.stroke(poroze, with: zloto, style: StrokeStyle(lineWidth: 1.3, lineCap: .round))
+            var nogi = Path()
+            for (a, b) in [((248.0, 21.0), (243.0, 27.0)), ((251, 21), (248, 27)), ((257, 21), (263, 26)), ((259, 20), (267, 24))] {
+                nogi.move(to: CGPoint(x: a.0, y: a.1)); nogi.addLine(to: CGPoint(x: b.0, y: b.1))
+            }
+            r.stroke(nogi, with: zloto, style: StrokeStyle(lineWidth: 1.4, lineCap: .round))
+            r.fill(kolo(266.5, 12, 1.8), with: .color(Color(hex: "#ef233c")))
+            // iskierki
+            var iskra = Path()
+            for (i, (x, y)) in [(204.0, 12.0), (205.2, 15.2), (208.5, 16.4), (205.2, 17.6), (204, 20.8), (202.8, 17.6), (199.5, 16.4), (202.8, 15.2)].enumerated() {
+                if i == 0 { iskra.move(to: CGPoint(x: x, y: y)) } else { iskra.addLine(to: CGPoint(x: x, y: y)) }
+            }
+            iskra.closeSubpath()
+            g.fill(iskra, with: .color(Color(hex: "#fff6d1")))
+            g.fill(kolo(228, 6, 1.6), with: .color(Color(hex: "#fff6d1")))
+        }
+        .accessibilityHidden(true)
     }
 }
 
