@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import MediaPlayer
 import WebKit
 
 /// Artykuł: baner zostaje u góry, pod nim „Wróć”, rozmiar tekstu i udostępnianie.
@@ -78,16 +79,14 @@ struct ArtykulWidok: View {
                         }
                     }
                     HStack(spacing: 8) {
-                        // lektor czyta po polsku, więc w przetłumaczonym artykule go nie ma (tak jak na stronie)
-                        if !a.przetlumaczony {
-                        Button { lektor.przelacz(tekstDoCzytania) } label: {
+                        // lektor czyta w języku pokazanego tekstu: oryginał po polsku, tłumaczenie po ukraińsku albo angielsku
+                        Button { lektor.przelacz(tekstDoCzytania, jezyk: a.przetlumaczony ? Jezyk.biezacy : "pl", tytul: a.tytul) } label: {
                             Label(lektor.mowi ? Napisy.t("app.stopListening", "Zatrzymaj") : Napisy.t("app.listen", "Odsłuchaj"),
                                   systemImage: lektor.mowi ? "stop.fill" : "speaker.wave.2")
                                 .czcionka(13, .semibold)
                                 .padding(.horizontal, 14).frame(minHeight: 40)
                                 .foregroundStyle(.white)
                                 .background(Barwy.granat, in: Capsule())
-                        }
                         }
                         Spacer()
                         Button { m.przelaczZapis(a) } label: {
@@ -255,34 +254,105 @@ struct FlowUklad: Layout {
     }
 }
 
-/// „Odsłuchaj”: czyta artykuł polskim głosem telefonu, także przy zablokowanym ekranie.
+/// „Odsłuchaj”: czyta artykuł głosem telefonu w języku tekstu (pl, uk, en), także w tle i przy zablokowanym ekranie
+/// (UIBackgroundModes: audio). Na ekranie blokady i w Centrum sterowania jest tytuł z „TVML” oraz pauza, wznowienie i stop.
 @MainActor
 final class Lektor: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     @Published var mowi = false
     private let syntezator = AVSpeechSynthesizer()
+    private var tytul = ""
 
     override init() {
         super.init()
         syntezator.delegate = self
     }
 
-    func przelacz(_ tekst: String) {
+    /// Głos dla języka tekstu (na telefonie są głosy pl-PL, uk-UA i en-GB).
+    static func glos(_ jezyk: String) -> AVSpeechSynthesisVoice? {
+        switch jezyk {
+        case "uk": return AVSpeechSynthesisVoice(language: "uk-UA")
+        case "en": return AVSpeechSynthesisVoice(language: "en-GB") ?? AVSpeechSynthesisVoice(language: "en-US")
+        default: return AVSpeechSynthesisVoice(language: "pl-PL")
+        }
+    }
+
+    func przelacz(_ tekst: String, jezyk: String, tytul: String) {
         if syntezator.isSpeaking { zatrzymaj(); return }
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
         try? AVAudioSession.sharedInstance().setActive(true)
         let wypowiedz = AVSpeechUtterance(string: tekst)
-        wypowiedz.voice = AVSpeechSynthesisVoice(language: "pl-PL")
+        wypowiedz.voice = Lektor.glos(jezyk)
         syntezator.speak(wypowiedz)
         mowi = true
+        self.tytul = tytul
+        pokazNaEkranieBlokady(gra: true)
+        wlaczSterowanie()
     }
 
     func zatrzymaj() {
         syntezator.stopSpeaking(at: .immediate)
         mowi = false
+        zakoncz()
+    }
+
+    private func pauza() {
+        guard syntezator.isSpeaking, !syntezator.isPaused else { return }
+        syntezator.pauseSpeaking(at: .word)
+        pokazNaEkranieBlokady(gra: false)
+    }
+
+    private func wznow() {
+        guard syntezator.isPaused else { return }
+        syntezator.continueSpeaking()
+        pokazNaEkranieBlokady(gra: true)
+    }
+
+    /// Tytuł artykułu na ekranie blokady i w Centrum sterowania.
+    private func pokazNaEkranieBlokady(gra: Bool) {
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = [
+            MPMediaItemPropertyTitle: tytul,
+            MPMediaItemPropertyArtist: "TVML",
+            MPNowPlayingInfoPropertyPlaybackRate: gra ? 1.0 : 0.0
+        ]
+    }
+
+    /// Pauza, wznowienie i stop z ekranu blokady, słuchawek i Centrum sterowania.
+    private var sterowanie = false
+    private func wlaczSterowanie() {
+        guard !sterowanie else { return }
+        sterowanie = true
+        let c = MPRemoteCommandCenter.shared()
+        c.pauseCommand.addTarget { [weak self] _ in
+            MainActor.assumeIsolated { self?.pauza() }
+            return .success
+        }
+        c.playCommand.addTarget { [weak self] _ in
+            MainActor.assumeIsolated { self?.wznow() }
+            return .success
+        }
+        c.togglePlayPauseCommand.addTarget { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                if self.syntezator.isPaused { self.wznow() } else { self.pauza() }
+            }
+            return .success
+        }
+        c.stopCommand.addTarget { [weak self] _ in
+            MainActor.assumeIsolated { self?.zatrzymaj() }
+            return .success
+        }
+    }
+
+    private func zakoncz() {
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
     nonisolated func speechSynthesizer(_ s: AVSpeechSynthesizer, didFinish u: AVSpeechUtterance) {
-        Task { @MainActor in self.mowi = false }
+        Task { @MainActor in
+            self.mowi = false
+            self.zakoncz()
+        }
     }
 }
 

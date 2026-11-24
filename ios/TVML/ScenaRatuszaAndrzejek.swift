@@ -224,8 +224,9 @@ enum ScenaRatusza {
         guard w > 1, h > 1 else { return }
         let noc: Bool = warunki.noc
         let yRynek: CGFloat = h * 0.645
-        let yBase: CGFloat = h * 0.667
-        let scR: CGFloat = (h / 276) * 0.96
+        // ratusz bliżej i większy na szerokiej karcie aplikacji (PlanRatusza w ScenySwiateczne.swift)
+        let yBase: CGFloat = PlanRatusza.podstawa(w, h)
+        let scR: CGFloat = (h / 276) * 0.96 * PlanRatusza.skala(w, h)
         let cxR: CGFloat = (w < 560) ? (w * 0.666) : (w * 0.68)
         let u = UkladRatusza(cx: cxR, yb: yBase, s: scR)
         let kol = PaletaRatusza(noc: noc)

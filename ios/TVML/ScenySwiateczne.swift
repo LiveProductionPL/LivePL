@@ -1,5 +1,17 @@
 import SwiftUI
 
+/// Ratusz w scenach Leszna (zima, święta, Sylwester, Nowy Rok, 11 Listopada) na szerokiej karcie aplikacji (ok. 1,85:1):
+/// bliżej i większy niż na prawie kwadratowej karcie strony, żeby wyglądał jak na tvml.pl
+/// (Karol 24.11: „Raz ratusz może być bliżej raz dalej tak by pasowało graficznie”, „popraw wygląd ratusza”).
+/// Rysunek ratusza jest 1:1 ze strony; zmienia się tylko jego skala i linia podstawy. Kamienice i postacie bez zmian.
+enum PlanRatusza {
+    static func szeroka(_ w: CGFloat, _ h: CGFloat) -> Bool { h > 0 && w / h >= 1.5 }
+    /// mnożnik skali ratusza (na stronie 1)
+    static func skala(_ w: CGFloat, _ h: CGFloat) -> CGFloat { szeroka(w, h) ? 1.3 : 1 }
+    /// linia podstawy ratusza (na stronie h * 0.667); niżej = bliżej, a iglica dalej mieści się w karcie
+    static func podstawa(_ w: CGFloat, _ h: CGFloat) -> CGFloat { szeroka(w, h) ? h * 0.76 : h * 0.667 }
+}
+
 /// Sezonowe sceny Leszna (weather-effects.js 3047-3811): zima, Mikołajki, Wigilia, Święta, Sylwester, Nowy Rok.
 enum ScenySwiateczne {
     /// scena: .zima, .mikolajki, .wigilia, .swieta, .sylwester albo .nowyRok (dla innych nic nie rysuje)
@@ -44,6 +56,8 @@ fileprivate extension ScenySwiateczne {
         let karta: Bool
         let scH: CGFloat
         let scR: CGFloat
+        /// skala ratusza (scR razy PlanRatusza.skala)
+        let rR: CGFloat
         let yRynek: CGFloat
         let yBase: CGFloat
         let cxR: CGFloat
@@ -56,11 +70,11 @@ fileprivate extension ScenySwiateczne {
         let sekunda: Int
 
         var nye: Bool { scena == .sylwester || scena == .nowyRok }
-        var gapL: CGFloat { cxR - 43 * scR }
-        var gapR: CGFloat { cxR + 43 * scR }
+        var gapL: CGFloat { cxR - 43 * rR }
+        var gapR: CGFloat { cxR + 43 * rR }
         /// Lokalny układ ratusza: X(dx), Y(dy) z osią y w górę
-        func X(_ dx: CGFloat) -> CGFloat { cxR + dx * scR }
-        func Y(_ dy: CGFloat) -> CGFloat { yBase - dy * scR }
+        func X(_ dx: CGFloat) -> CGFloat { cxR + dx * rR }
+        func Y(_ dy: CGFloat) -> CGFloat { yBase - dy * rR }
         func L(_ dx: CGFloat, _ dy: CGFloat) -> CGPoint { CGPoint(x: X(dx), y: Y(dy)) }
     }
 
@@ -98,7 +112,8 @@ fileprivate extension ScenySwiateczne {
         let dc = Calendar.current.dateComponents([.year, .month, .hour, .minute, .second], from: Date())
         return Uklad(
             scena: scena, w: w, h: h, t: CGFloat(t), noc: warunki.noc, karta: karta,
-            scH: scH, scR: scH * 0.96, yRynek: h * 0.645, yBase: h * 0.667,
+            scH: scH, scR: scH * 0.96, rR: scH * 0.96 * PlanRatusza.skala(w, h), yRynek: h * 0.645,
+            yBase: PlanRatusza.podstawa(w, h),
             cxR: cxR, yg: yg, fgX: fgX,
             rok: dc.year ?? 2026, miesiac: dc.month ?? 12,
             godzina: dc.hour ?? 0, minuta: dc.minute ?? 0, sekunda: dc.second ?? 0
@@ -396,21 +411,21 @@ fileprivate extension ScenySwiateczne {
             } else {
                 kol = (215, 48, 72, 0.32)
             }
-            let c = CGPoint(x: u.cxR, y: u.yRynek + 16 * u.scR)
+            let c = CGPoint(x: u.cxR, y: u.yBase + (u.yRynek - u.h * 0.667) + 16 * u.rR)
             let stopy: [Gradient.Stop] = [stC(rgba(kol.0, kol.1, kol.2, kol.3), 0), stC(rgba(kol.0, kol.1, kol.2, 0), 1)]
-            poswiata(g, c, 4, 64 * u.scR, stopy)
+            poswiata(g, c, 4, 64 * u.rR, stopy)
         }
 
         // Wachlarzowe łuki bruku spod śniegu
         let kolLuku: Color = u.noc ? rgba(200, 228, 255, 0.06) : rgba(120, 150, 185, 0.16)
-        let lw: CGFloat = max(0.7, 0.8 * u.scR)
-        let cy: CGFloat = u.yBase + 4 * u.scR
+        let lw: CGFloat = max(0.7, 0.8 * u.rR)
+        let cy: CGFloat = u.yBase + 4 * u.rR
         let a0: CGFloat = 0.06 * CGFloat.pi
         let a1: CGFloat = 0.94 * CGFloat.pi
         var promien: CGFloat = 28
         while promien < 260 {
-            let rx: CGFloat = promien * 1.45 * u.scR
-            let ry: CGFloat = promien * 0.42 * u.scR
+            let rx: CGFloat = promien * 1.45 * u.rR
+            let ry: CGFloat = promien * 0.42 * u.rR
             obrys(g, lukElipsy(u.cxR, cy, rx, ry, a0, a1, 28), kolLuku, lw)
             promien += 22
         }
@@ -539,7 +554,7 @@ fileprivate extension ScenySwiateczne {
 
     /// Nocne smugi reflektorów za ratuszem
     static func reflektory(_ g: GraphicsContext, _ u: Uklad) {
-        let scR = u.scR
+        let scR = u.rR
         let sway: CGFloat = sin(u.t * 0.85) * 9 * scR
         let cB1: Color
         if u.scena == .zima {
@@ -618,13 +633,13 @@ fileprivate extension ScenySwiateczne {
 
     /// fRect: prostokąt w lokalnych jednostkach ratusza (x1, góra, x2, dół)
     static func lokProst(_ g: GraphicsContext, _ u: Uklad, _ x1: CGFloat, _ yt: CGFloat, _ x2: CGFloat, _ yb: CGFloat, _ c: Color) {
-        let w: CGFloat = (x2 - x1) * u.scR
-        let h: CGFloat = (yt - yb) * u.scR
+        let w: CGFloat = (x2 - x1) * u.rR
+        let h: CGFloat = (yt - yb) * u.rR
         wypelnij(g, prost(u.X(x1), u.Y(yt), w, h), c)
     }
 
     static func ratuszKorpus(_ g: GraphicsContext, _ u: Uklad, _ kr: KoloryRatusza) {
-        let scR = u.scR
+        let scR = u.rR
         lokProst(g, u, -39, 34, 39, 11, kr.sciana)
         lokProst(g, u, -39, 34, -24, 11, kr.cien)
         lokProst(g, u, -39, 11, 39, 0, kr.cokol)
@@ -674,7 +689,7 @@ fileprivate extension ScenySwiateczne {
     }
 
     static func ratuszWieza(_ g: GraphicsContext, _ u: Uklad, _ kr: KoloryRatusza) {
-        let scR = u.scR
+        let scR = u.rR
         lokProst(g, u, -12.5, 62, 12.5, 40, kr.sciana)
         lokProst(g, u, -12.5, 62, -10.3, 40, kr.pilaster)
         lokProst(g, u, 10.3, 62, 12.5, 40, kr.pilaster)
@@ -717,7 +732,7 @@ fileprivate extension ScenySwiateczne {
 
     /// Zegar: Sylwester tuż przed północą, Nowy Rok 12:00, inaczej czas rzeczywisty
     static func zegar(_ g: GraphicsContext, _ u: Uklad, _ kr: KoloryRatusza) {
-        let scR = u.scR
+        let scR = u.rR
         let c = u.L(0, 77.5)
         wypelnij(g, kolo(c.x, c.y, 5.8 * scR), kr.pilaster)
         wypelnij(g, kolo(c.x, c.y, 5.0 * scR), u.noc ? hx(0xffeeb4) : hx(0x242830))
