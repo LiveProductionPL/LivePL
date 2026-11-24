@@ -346,8 +346,8 @@ struct PolozenieAlertu: Equatable {
 
 // MARK: - Wysyłka
 
-/// Postęp wysyłania pliku (URLSession task delegate).
-final class PostepWysylki: NSObject, URLSessionTaskDelegate {
+/// Postęp wysyłania pliku (URLSession task delegate). Zamknięcie tylko przekazuje liczbę na główny wątek.
+final class PostepWysylki: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     let zmiana: (Double) -> Void
     init(_ zmiana: @escaping (Double) -> Void) { self.zmiana = zmiana }
 
