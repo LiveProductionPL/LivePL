@@ -1,0 +1,15 @@
+{
+  "images": [
+    {
+      "filename": "pogoda-mostly-clear-noc.svg",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  },
+  "properties": {
+    "preserves-vector-representation": true
+  }
+}
