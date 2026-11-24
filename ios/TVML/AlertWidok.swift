@@ -864,6 +864,7 @@ struct AlertWidok: View {
                     VStack(spacing: 6) {
                         Image(systemName: UstawieniaAlertu.ikony[t.id] ?? "mappin.circle.fill")
                             .font(.system(size: 22)).foregroundStyle(kolor)
+                            .frame(height: 28) // ikony mają różną wysokość, podpisy w jednej linii
                         Text(t.nazwa).czcionka(12, wybrany ? .bold : .semibold)
                             .foregroundStyle(Barwy.tekst).lineLimit(1).minimumScaleFactor(0.7)
                     }
@@ -1013,12 +1014,12 @@ struct AlertWidok: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 64)).foregroundStyle(Color(hex: "#1f9d55"))
                     .padding(.top, 40)
-                Text(Napisy.t("app.alertThanks", "Dziękujemy!")).font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst)
+                Text(Napisy.t("app.alertSentTitle", "Zgłoszenie wysłane")).font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst)
                 Text(p.komunikat).czcionka(16).foregroundStyle(Barwy.tekst).multilineTextAlignment(.center)
                 if !p.numer.isEmpty {
                     VStack(spacing: 4) {
                         Text(Napisy.t("app.alertNumber", "Numer zgłoszenia")).czcionka(12, .semibold).foregroundStyle(Barwy.slaby)
-                        Text(p.numer).font(.system(size: 22, weight: .bold, design: .monospaced)).foregroundStyle(Barwy.tekst)
+                        Text(p.numer).font(.system(size: 24, weight: .bold, design: .rounded)).monospacedDigit().foregroundStyle(Barwy.tekst)
                             .textSelection(.enabled)
                     }
                     .padding(.horizontal, 24).padding(.vertical, 12)
