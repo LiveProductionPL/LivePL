@@ -747,7 +747,7 @@ struct KartaPogody: View {
             // jak na stronie: duża ikona, temperatura i opis
             HStack(alignment: .center, spacing: 12) {
                 if !ikonaTeraz.isEmpty {
-                    IkonaRysowana(stan: ikonaTeraz, noc: noc).frame(width: 58, height: 58).accessibilityHidden(true)
+                    IkonaRysowana(stan: ikonaTeraz, noc: noc).frame(width: 56, height: 56).accessibilityHidden(true)
                 }
                 VStack(alignment: .leading, spacing: 0) {
                     Text(temperatura).czcionka(38, .heavy)
