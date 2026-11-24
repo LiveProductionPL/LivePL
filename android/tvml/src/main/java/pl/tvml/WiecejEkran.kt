@@ -151,9 +151,9 @@ fun WiecejEkran(m: Magazyn) {
             }
         }
 
-        // tylko w wersji testowej (debug albo paczka [tvml-test] do testów wewnętrznych, nie w sklepie):
-        // karta pogody na wybrany dzień i godzinę, jak na iPhonie w TestFlight
-        if (BuildConfig.DEBUG || BuildConfig.TESTY) PodgladDnia(m)
+        // „Podgląd dnia” był tylko w testach (Karol 24.11: „usun podglad dnia bo bylo tylko w testach”):
+        // w wersji do sklepu go nie ma, zostaje w wersji debug do sprawdzania motywów
+        if (BuildConfig.DEBUG) PodgladDnia(m)
 
         Naglowek(tl("app.followUs", "Obserwuj nas"), wielkosc = 18)
         Spolecznosc()
