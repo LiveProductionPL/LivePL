@@ -117,7 +117,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.blok(m: Magazyn, blok
             val kontekst = LocalContext.current
             Row(
                 Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(14.dp)).background(kolor(0xc8102e))
-                    .clickable(role = Role.Button) { otworzStrone(kontekst, Siec.BAZA) },
+                    .clickable(role = Role.Button) { otworzStrone(kontekst, Siec.ALERT) },
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {

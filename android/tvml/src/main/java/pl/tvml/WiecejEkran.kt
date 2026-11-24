@@ -69,14 +69,14 @@ fun WiecejEkran(m: Magazyn) {
         Naglowek(m.zakladki.firstOrNull { it.cel == ZakladkaApp.Cel.Wiecej }?.tytul?.ifEmpty { null } ?: tl("app.tab.more", "Więcej"), wielkosc = 24)
         Row(
             Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(14.dp)).background(kolor(0xc8102e))
-                .clickable(role = Role.Button) { otworzStrone(kontekst, Siec.BAZA) },
+                .clickable(role = Role.Button) { otworzStrone(kontekst, Siec.ALERT) },
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(Ikony.alarm, null, tint = Color.White, modifier = Modifier.size(20.dp))
             Text("  " + tl("app.reportIncident", "Zgłoś zdarzenie (Alert TVML)"), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black)
         }
-        Text(tl("app.reportIncidentHint", "Formularz jest na stronie głównej tvml.pl, przycisk „Zgłoś zdarzenie”."), color = b.slaby, fontSize = 12.sp)
+        // bez podpisu „Formularz jest na stronie głównej…”: tvml.pl/#alert otwiera formularz od razu (PR #124)
 
         // kafle jak w projekcie: trzy w rzędzie; ogłoszenia i fotorelacje tylko wtedy, gdy coś w nich jest,
         // a artykułów sponsorowanych w aplikacji nie ma (Karol, 22.11.2026)

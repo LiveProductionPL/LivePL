@@ -20,6 +20,9 @@ import java.security.MessageDigest
 object Siec {
     const val BAZA = "https://tvml.pl/"
 
+    /** Formularz Alertu TVML: strona po #alert od razu go otwiera (PR #124), bez szukania na stronie głównej. */
+    const val ALERT = "${BAZA}#alert"
+
     /** Własny agent: tvml.pl liczy odsłony aplikacji osobno i nie odrzuca jej jako robota (wyjątek „TVMLApp”). */
     val agent: String = "TVMLApp/${BuildConfig.VERSION_NAME.substringBefore('-')} (Android ${Build.VERSION.RELEASE})"
 
