@@ -69,6 +69,8 @@ struct Glowny: View {
             await Powiadomienia.shared.przyStarcie()
             await m.odswiez(wymus: true)
             if let motywTestowy { m.motyw = motywTestowy }
+            // powiadomienia domyślnie włączone: jedno systemowe pytanie przy pierwszym uruchomieniu (Powiadomienia.swift)
+            await Powiadomienia.shared.zapytajRaz(dostepne: m.tematyPush)
             switch ekranStartowy {
             case "pogoda": m.pokaz(.pogoda)
             case "wideo": m.pokaz(.wideo)

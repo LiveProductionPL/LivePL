@@ -18,8 +18,11 @@ struct TematPush: Identifiable, Hashable {
 }
 
 /// Powiadomienia o nowych wpisach. Serwer tvml.pl wysyła je przez APNs bezpośrednio (bez Firebase).
-/// - O zgodę iOS aplikacja prosi dopiero po włączeniu w „Więcej → Powiadomienia”, nigdy przy starcie.
-/// - Przy pierwszym włączeniu zaznaczone są tylko tematy z default:true (Pilne).
+/// - TVML 2.2 (Karol 24.11: „domyślnie powinna być funkcja włączona, bo ludzie nie wiedzą, że muszą włączyć 🙂 na wszystkie
+///   tematy”): przy pierwszym uruchomieniu (także po aktualizacji, gdy nikt jeszcze nie pytał) jedno systemowe pytanie o zgodę.
+///   Po „Pozwól” zaznaczone są wszystkie tematy z panelu, a po „Nie pozwalaj” nic nie wysyłamy i nie pytamy ponownie
+///   (w „Więcej → Powiadomienia” jest wtedy przycisk do Ustawień iOS).
+/// - Przy pierwszym włączeniu (pytanie przy starcie albo przełącznik) zaznaczone są wszystkie tematy; każdy można odznaczyć.
 /// - Token APNs (hex) z tematami, językiem i środowiskiem idzie do POST /api/v1/devices; wyłączenie
 ///   albo odznaczenie wszystkich tematów → POST /api/v1/devices/delete.
 /// - Dotknięcie powiadomienia otwiera artykuł z userInfo["articleId"].
@@ -32,6 +35,7 @@ final class Powiadomienia: NSObject, ObservableObject, UNUserNotificationCenterD
         static let wlaczone = "tvml-push-wlaczone"
         static let tematy = "tvml-push-tematy"
         static let token = "tvml-push-token"
+        static let zapytano = "tvml-push-zapytano"
     }
 
     @Published private(set) var wlaczone = UserDefaults.standard.bool(forKey: Klucz.wlaczone)
@@ -67,7 +71,7 @@ final class Powiadomienia: NSObject, ObservableObject, UNUserNotificationCenterD
         }
         brakZgody = false
         if UserDefaults.standard.stringArray(forKey: Klucz.tematy) == nil {
-            tematy = Set(dostepne.filter(\.domyslny).map(\.id))
+            tematy = Set(dostepne.map(\.id))
             zapiszTematy()
         }
         ustaw(wlaczone: true)
@@ -87,6 +91,20 @@ final class Powiadomienia: NSObject, ObservableObject, UNUserNotificationCenterD
         if zaznaczony { tematy.insert(temat.id) } else { tematy.remove(temat.id) }
         zapiszTematy()
         zglos()
+    }
+
+    /// Pierwsze uruchomienie (po wczytaniu tematów z panelu): jedno systemowe pytanie o zgodę, tylko gdy iOS jeszcze
+    /// nie pytał. Kto już odmówił albo sam wyłączył powiadomienia w aplikacji, tego nie pytamy.
+    func zapytajRaz(dostepne: [TematPush]) async {
+        #if targetEnvironment(simulator)
+        // zrzuty ekranu w CI: bez systemowego okna nad aplikacją
+        return
+        #else
+        guard !UserDefaults.standard.bool(forKey: Klucz.zapytano), !wlaczone, !dostepne.isEmpty else { return }
+        UserDefaults.standard.set(true, forKey: Klucz.zapytano)
+        guard await UNUserNotificationCenter.current().notificationSettings().authorizationStatus == .notDetermined else { return }
+        await wlacz(dostepne: dostepne)
+        #endif
     }
 
     /// Start aplikacji: gdy włączone, sprawdź zgodę i odśwież token (Apple może go zmienić).
