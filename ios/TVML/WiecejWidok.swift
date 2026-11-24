@@ -513,11 +513,13 @@ struct PodgladDnia: View {
         Skrot(nazwa: "31.12", miesiac: 12, dzien: 31, godzina: 23)
     ]
 
+    /// Tylko w budowie z Xcode (DEBUG). W TestFlight i App Store go nie ma
+    /// (Karol 24.11: „usun podglad dnia bo bylo tylko w testach ios tez i publikujemy”).
     static var dostepny: Bool {
         #if DEBUG
         return true
         #else
-        return Bundle.main.appStoreReceiptURL?.lastPathComponent == "sandboxReceipt"
+        return false
         #endif
     }
 
