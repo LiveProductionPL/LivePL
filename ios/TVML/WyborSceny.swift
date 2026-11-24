@@ -334,7 +334,9 @@ struct PaletaBelki {
             } else if d.bezImienin {
                 imiona = nil
             }
-            return (swieto ?? (d.przedrostek.isEmpty ? nil : d.przedrostek), imiona)
+            // jak strona (weather-effects.js, pasek motywu): w dniach motywu tekst z panelu, święto z kalendarza tylko,
+            // gdy motyw nie ma przedrostka (wcześniej odwrotnie: 1.12 „Światowy Dzień AIDS” zamiast „Zima w Lesznie”)
+            return (d.przedrostek.isEmpty ? swieto : d.przedrostek, imiona)
         }
         // zapas dla serwera sprzed API 1.8.3: przedrostki wpisane w aplikacji
         var kal = Calendar(identifier: .gregorian)

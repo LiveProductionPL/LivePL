@@ -110,6 +110,27 @@ enum GaleriaPogody {
         try? "gotowe".write(to: folder.appendingPathComponent("gotowe.txt"), atomically: true, encoding: .utf8)
     }
 
+    /// today.holiday, jakie serwer poda w te dni (Panel-TVML backend/lib/calendar.php, tvml_calendar_holiday_label:
+    /// najwyżej 2 pozycje rozdzielone „ · ”), żeby arkusz miał te same dane co prawdziwa aplikacja w dany dzień.
+    static let swietaKalendarza: [String: String] = [
+        "2026-11-11": "Narodowe Święto Niepodległości 🇵🇱",
+        "2026-11-29": "Andrzejki 🕯️ · Dzień Podchorążego",
+        "2026-12-01": "Światowy Dzień AIDS 🎗️",
+        "2026-12-03": "Międzynarodowy Dzień Osób z Niepełnosprawnościami",
+        "2026-12-04": "Barbórka ⚒️",
+        "2026-12-05": "Międzynarodowy Dzień Wolontariusza 🤝",
+        "2026-12-06": "Mikołajki 🎅",
+        "2026-12-10": "Dzień Praw Człowieka",
+        "2026-12-13": "Dzień Pamięci Ofiar Stanu Wojennego 🕯️",
+        "2026-12-21": "Początek astronomicznej zimy ❄️",
+        "2026-12-24": "Wigilia Bożego Narodzenia 🎄",
+        "2026-12-25": "Boże Narodzenie 🎄",
+        "2026-12-26": "Drugi dzień świąt Bożego Narodzenia 🎄",
+        "2026-12-27": "Narodowy Dzień Zwycięskiego Powstania Wielkopolskiego 🇵🇱",
+        "2026-12-31": "Sylwester 🥂",
+        "2027-01-01": "Nowy Rok 🎆"
+    ]
+
     /// Karta na każdy dzień z harmonogramu motywów z panelu (config.theme i upcomingThemes, etapy z dateBar.days),
     /// liczona tak jak na Starcie: scena z WyborSceny.scena(na:), belka z PaletaBelki.linie(dzisiaj:).
     /// Karol, 24.11: „nie ma screenów wszystkich dat co dodałem”. Imiona bierzemy z linii dnia z serwera
@@ -169,7 +190,7 @@ enum GaleriaPogody {
                 let jasno = faza == "dzien"
                 let scena = wybor.scena(na: chwila)
                 let wMotywie = wybor.okna.contains { $0.od <= chwila && chwila <= $0.doKonca }
-                let linie = PaletaBelki.linie(scena, swieto: nil, imieniny: imiona, dzisiaj: chwila)
+                let linie = PaletaBelki.linie(scena, swieto: swietaKalendarza[k], imieniny: imiona, dzisiaj: chwila)
                 var data = etykieta.string(from: chwila)
                 data = data.prefix(1).uppercased(with: Locale(identifier: "pl_PL")) + data.dropFirst()
                 let warunki = WarunkiSceny.z(stan: jasno ? "sunny" : "clear-night", efekt: nil, dzien: jasno,

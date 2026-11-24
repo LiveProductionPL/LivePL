@@ -44,12 +44,11 @@ struct WiecejWidok: View {
     var body: some View {
         List {
             Section {
-                Button { strona = StronaWWW(sciezka: "") } label: {
+                // formularz Alertu TVML otwiera się od razu (tvml.pl/#alert), więc bez podpowiedzi, gdzie go szukać
+                Button { strona = StronaWWW(sciezka: "#alert") } label: {
                     Label(Napisy.t("app.reportIncident", "Zgłoś zdarzenie (Alert TVML)"), systemImage: "exclamationmark.triangle")
                         .czcionka(16, .bold).foregroundStyle(Color(hex: "#c8102e"))
                 }
-            } footer: {
-                Text(Napisy.t("app.reportIncidentHint", "Formularz jest na stronie głównej tvml.pl, przycisk „Zgłoś zdarzenie”."))
             }
             Section(Napisy.t("app.mine", "Moje")) {
                 NavigationLink(value: EkranWiecej.zapisane) {

@@ -80,7 +80,8 @@ struct BlokWidok: View {
         case "weather":
             KafelPogody()
         case "alert":
-            Button { strona = StronaWWW(sciezka: "") } label: {
+            // formularz Alertu TVML od razu (tvml.pl/#alert, PR #124 w Panel-TVML), a nie sama strona główna
+            Button { strona = StronaWWW(sciezka: "#alert") } label: {
                 Label(Napisy.t("app.reportIncident", "Zgłoś zdarzenie (Alert TVML)"), systemImage: "exclamationmark.triangle.fill")
                     .czcionka(15, .bold).foregroundStyle(.white)
                     .frame(maxWidth: .infinity).frame(minHeight: 50)
