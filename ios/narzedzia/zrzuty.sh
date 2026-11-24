@@ -89,6 +89,8 @@ if [ -n "${5:-}" ] && [ -d "$5" ]; then
   # wygląd z motywem: Wigilia (sanie przy logo) i Andrzejki (świeca przy logo, kolory Nocy wróżb)
   zrzut 18-tvml-wigilia dark -motyw wigilia -tvml-jezyk pl
   zrzut 19-tvml-andrzejki dark -motyw andrzejki -tvml-jezyk pl
+  # odtwarzacz filmu na pełnym ekranie w poziomie (nasz pasek zamiast przycisków YouTube)
+  zrzut 20-tvml-film dark -ekran film -tvml-jezyk pl
   # „Większy tekst” na poziomie AX3 (górna granica w aplikacji)
   xcrun simctl ui "$UDID" content_size accessibility-extra-large || true
   zrzut 15-tvml-duzy-tekst light

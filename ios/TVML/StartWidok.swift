@@ -57,7 +57,7 @@ struct StartWidok: View {
         .refreshable { await m.odswiez(wymus: true) }
         .background(Barwy.tlo)
         .sheet(item: $strona) { s in Safari(url: URL(string: "https://tvml.pl/" + s.sciezka)!).ignoresSafeArea() }
-        .sheet(item: $film) { f in
+        .fullScreenCover(item: $film) { f in
             if let adres = f.osadzenie { Odtwarzacz(adres: adres) }
         }
     }

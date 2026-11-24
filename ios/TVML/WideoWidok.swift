@@ -52,7 +52,7 @@ struct WideoWidok: View {
         }
         .refreshable { await m.odswiez(wymus: true) }
         .background(Color(hex: "#070d1a"))
-        .sheet(item: $odtwarzany) { f in
+        .fullScreenCover(item: $odtwarzany) { f in
             if let adres = f.osadzenie { Odtwarzacz(adres: adres) }
         }
     }

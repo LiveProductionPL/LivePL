@@ -29,6 +29,8 @@ struct Glowny: View {
     /// Do zrzutów ekranu: -ekran pogoda|artykul|wideo|wiecej|zakladka2 (druga zakładka z panelu)|powiadomienia, -motyw zima|wigilia|…
     private let ekranStartowy = UserDefaults.standard.string(forKey: "ekran")
     private let motywTestowy = Motyw.zArgumentu(UserDefaults.standard.string(forKey: "motyw"))
+    /// Do zrzutu odtwarzacza (-ekran film): pierwszy film z kanału na pełnym ekranie.
+    @State private var filmTestowy: Film?
     /// Wybór języka z „Więcej” albo z flagi w nagłówku (ten sam zapis), zmiana obsłużona tutaj raz.
     @AppStorage(Jezyk.kluczWyboru) private var wyborJezyka = "system"
 
@@ -57,6 +59,9 @@ struct Glowny: View {
         .overlay { if m.wymaganaAktualizacja { EkranAktualizacji() } }
         .sheet(isPresented: $m.arkuszPogody) { NavigationStack { PogodaWidok().toolbar(.hidden, for: .navigationBar) } }
         .sheet(isPresented: $m.arkuszWideo) { NavigationStack { WideoWidok().toolbar(.hidden, for: .navigationBar) } }
+        .fullScreenCover(item: $filmTestowy) { f in
+            if let adres = f.osadzenie { Odtwarzacz(adres: adres) }
+        }
         .task {
             // CI: karta pogody we wszystkich scenach do Documents/galeria (sprawdzanie czytelności)
             if GaleriaPogody.wlaczona { await GaleriaPogody.zapisz() }
@@ -70,6 +75,7 @@ struct Glowny: View {
             case "artykul": if let pierwszy = m.najnowsze.first { m.otworz(pierwszy) }
             case "zakladka2": if m.zakladki.count > 1 { m.zakladka = m.zakladki[1].id }
             case "powiadomienia": m.pokaz(.wiecej); m.otworz(EkranWiecej.powiadomienia)
+            case "film": filmTestowy = m.filmy.first
             default: break
             }
         }

@@ -172,6 +172,11 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         return true
     }
 
+    /// iPhone: aplikacja w pionie, film na pełnym ekranie w poziomie (OdtwarzaczFilmu.swift, Orientacja).
+    func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
+        Orientacja.maska
+    }
+
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Powiadomienia.shared.otrzymano(token: deviceToken)
     }
