@@ -160,9 +160,13 @@ enum Siec {
         zadanie.setValue("https://tvml.pl/", forHTTPHeaderField: "Referer")
         zadanie.setValue("pl-PL,pl;q=0.9", forHTTPHeaderField: "Accept-Language")
         let (dane, odp) = try await URLSession.shared.data(for: zadanie)
-        guard let http = odp as? HTTPURLResponse, http.statusCode == 200 else { throw URLError(.badServerResponse) }
+        guard let http = odp as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+        guard http.statusCode == 200 else { throw BladHttp(kod: http.statusCode) }
         return try JSONSerialization.jsonObject(with: dane)
     }
+
+    /// Odpowiedź serwera inna niż 200 (np. 410 dla wygasłego podglądu z kodu QR).
+    struct BladHttp: Error { let kod: Int }
 
     /// API dla aplikacji (TVML Connect). Ładny adres /api/v1/ działa po restarcie serwera WWW, do tego czasu
     /// tvml-app.php?route=. Aplikacja próbuje po kolei i zapamiętuje działający.
@@ -592,6 +596,13 @@ final class Magazyn: ObservableObject {
     @Published var zamknieteKomunikaty: [String] = UserDefaults.standard.stringArray(forKey: "tvml-zamkniete-komunikaty") ?? [] {
         didSet { UserDefaults.standard.set(Array(zamknieteKomunikaty.suffix(50)), forKey: "tvml-zamkniete-komunikaty") }
     }
+    /// Podgląd szkicu aplikacji z panelu (kod QR, Linki.swift): tylko w pamięci, najwyżej 30 minut.
+    @Published var podglad: Podglad? {
+        didSet { if podglad != oldValue { zaplanujKoniecPodgladu() } }
+    }
+    /// Okno „Podgląd zakończony” po wygaśnięciu albo zakończeniu podglądu w panelu.
+    @Published var podgladWygasl = false
+    var zegarPodgladu: Task<Void, Never>?
     @Published var arkuszPogody = false
     @Published var arkuszWideo = false
     @Published var zapisane: [Int] = UserDefaults.standard.array(forKey: "tvml-zapisane") as? [Int] ?? [] {
@@ -611,7 +622,8 @@ final class Magazyn: ObservableObject {
     }
 
     func odswiez(wymus: Bool = false) async {
-        if !wymus, let ostatnio, Date().timeIntervalSince(ostatnio) < 120 { return }
+        // przy podglądzie z panelu bez przerwy 2 minut: redakcja zmienia szkic i od razu patrzy na telefon
+        if !wymus, podglad == nil, let ostatnio, Date().timeIntervalSince(ostatnio) < 120 { return }
         laduje = true
         defer { laduje = false }
         if await odswiezV1() {
@@ -639,12 +651,18 @@ final class Magazyn: ObservableObject {
     /// Nowe API (/api/v1): config, artykuły, najczęściej czytane, wideo, pogoda.
     private func odswiezV1() async -> Bool {
         // features=ai-themes: także motywy z panelu ze sceną SVG (weatherSceneType "svg" i adres obrazu)
-        async let k = Siec.v1("config", ["features": "ai-themes"])
+        // przy podglądzie z kodu QR: szkic ustawień aplikacji z panelu (Linki.swift)
+        async let k = konfiguracja()
         async let a = Siec.v1("articles", ["limit": "20"])
         async let b = Siec.v1("articles/most-read", ["limit": "10"])
         async let d = Siec.v1("videos", ["limit": "12"])
         async let e = Siec.v1("weather")
-        guard let lista = (try? await a) as? Slownik, let konf = (try? await k) as? Slownik else { return false }
+        let (konfOdp, tokenPodgladu) = await k
+        // podgląd bez odpowiedzi serwera: zostaje to, co już widać
+        if konfOdp == nil, tokenPodgladu != nil { return true }
+        guard let lista = (try? await a) as? Slownik, let konf = konfOdp else { return false }
+        // w trakcie pobierania zaczął się albo skończył podgląd: wynik wpisze tamto odświeżenie
+        guard podglad?.token == tokenPodgladu else { return true }
         // API 1.8.0: języki włączone w panelu i napisy aplikacji (config.i18n), zapisane też na czas bez sieci
         if let l = konf["languages"] as? [String] { Jezyk.ustawDostepne(l) }
         Napisy.ustaw(konf.slownik("i18n"))

@@ -95,6 +95,8 @@ if [ -n "${5:-}" ] && [ -d "$5" ]; then
   zrzut 22-tvml-alert-wyslany light -ekran alert -alert-natywny YES -alert-przyklad wyslane -tvml-jezyk pl
   # odtwarzacz filmu na pełnym ekranie w poziomie (nasz pasek zamiast przycisków YouTube)
   zrzut 23-tvml-film dark -ekran film -tvml-jezyk pl
+  # podgląd szkicu aplikacji z panelu (kod QR): pasek pod banerem (bez pobierania szkicu z serwera)
+  zrzut 24-tvml-podglad light -ekran podglad -tvml-jezyk pl
   # „Większy tekst” na poziomie AX3 (górna granica w aplikacji)
   xcrun simctl ui "$UDID" content_size accessibility-extra-large || true
   zrzut 15-tvml-duzy-tekst light

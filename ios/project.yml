@@ -201,6 +201,10 @@ targets:
       path: Wsparcie/TVML-Info.plist
       properties:
         CFBundleDisplayName: TVML
+        # tvml://preview?t=… otwiera podgląd szkicu aplikacji z panelu (przycisk na stronie tvml.pl/app/podglad)
+        CFBundleURLTypes:
+          - CFBundleURLName: com.LiveProduction.TVML
+            CFBundleURLSchemes: [tvml]
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDevelopmentRegion: pl
@@ -231,11 +235,14 @@ targets:
         NSLocationWhenInUseUsageDescription: "TVML dołączy Twoje położenie do zgłoszenia zdarzenia tylko wtedy, gdy wybierzesz „Dodaj moje położenie”."
         # nagłówki jak na tvml.pl: Open Sans (zmienna, SIL OFL, licencja w TVML/Czcionki/OFL.txt)
         UIAppFonts: [OpenSans.ttf]
-    # powiadomienia o nowych wpisach (APNs, serwer tvml.pl); profil „TVML App Store” ma aps-environment production
+    # powiadomienia o nowych wpisach (APNs, serwer tvml.pl); profil „TVML App Store” ma aps-environment production.
+    # Universal Links: tvml.pl/artykul/… i tvml.pl/app/podglad (plik apple-app-site-association z panelu, app-links.php);
+    # profil „TVML App Store” ma Associated Domains od 24.11.2026.
     entitlements:
       path: Wsparcie/TVML.entitlements
       properties:
         aps-environment: production
+        com.apple.developer.associated-domains: ["applinks:tvml.pl"]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.LiveProduction.TVML

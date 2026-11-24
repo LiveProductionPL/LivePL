@@ -26,7 +26,7 @@ struct TVMLApp: App {
 struct Glowny: View {
     @EnvironmentObject private var m: Magazyn
     @Environment(\.scenePhase) private var faza
-    /// Do zrzutów ekranu: -ekran pogoda|artykul|wideo|wiecej|zakladka2 (druga zakładka z panelu)|powiadomienia, -motyw zima|wigilia|…
+    /// Do zrzutów ekranu: -ekran pogoda|artykul|wideo|wiecej|zakladka2 (druga zakładka z panelu)|powiadomienia|film|podglad, -motyw zima|wigilia|…
     private let ekranStartowy = UserDefaults.standard.string(forKey: "ekran")
     private let motywTestowy = Motyw.zArgumentu(UserDefaults.standard.string(forKey: "motyw"))
     /// Do zrzutu odtwarzacza (-ekran film): pierwszy film z kanału na pełnym ekranie.
@@ -37,6 +37,7 @@ struct Glowny: View {
     var body: some View {
         VStack(spacing: 0) {
             Baner()
+            if let p = m.podglad { PasekPodgladu(p: p) }
             TabView(selection: $m.zakladka) {
                 ForEach(m.zakladki) { z in
                     NavigationStack(path: m.sciezka(z.id)) {
@@ -76,8 +77,19 @@ struct Glowny: View {
             case "zakladka2": if m.zakladki.count > 1 { m.zakladka = m.zakladki[1].id }
             case "powiadomienia": m.pokaz(.wiecej); m.otworz(EkranWiecej.powiadomienia)
             case "film": filmTestowy = m.filmy.first
+            case "podglad":
+                var p = Podglad(token: Podglad.tokenZrzutu)
+                p.etykieta = "Podgląd: Karol, 14:05"
+                m.podglad = p
             default: break
             }
+        }
+        // Universal Links (tvml.pl/artykul/…, tvml.pl/app/podglad) i tvml://preview: Linki.swift
+        .onOpenURL { m.otworzLink($0) }
+        .alert(Napisy.t("app.previewEnded", "Podgląd zakończony"), isPresented: $m.podgladWygasl) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(Napisy.t("app.previewEndedText", "Podgląd wygasł albo został zakończony w panelu. Aplikacja wraca do opublikowanych ustawień."))
         }
         // dotknięte powiadomienie push: artykuł z articleId (także gdy aplikacja dopiero się uruchamia)
         .onReceive(Powiadomienia.shared.$doOtwarcia) { id in
