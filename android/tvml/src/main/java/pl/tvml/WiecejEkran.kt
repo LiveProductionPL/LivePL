@@ -151,6 +151,10 @@ fun WiecejEkran(m: Magazyn) {
             }
         }
 
+        // tylko w wersji testowej (debug albo paczka [tvml-test] do testów wewnętrznych, nie w sklepie):
+        // karta pogody na wybrany dzień i godzinę, jak na iPhonie w TestFlight
+        if (BuildConfig.DEBUG || BuildConfig.TESTY) PodgladDnia(m)
+
         Naglowek(tl("app.followUs", "Obserwuj nas"), wielkosc = 18)
         Spolecznosc()
 
@@ -158,6 +162,41 @@ fun WiecejEkran(m: Magazyn) {
             "TVML ${BuildConfig.VERSION_NAME} · ${m.stopka}",
             Modifier.fillMaxWidth().padding(vertical = 12.dp), color = b.slaby, fontSize = 12.sp, textAlign = TextAlign.Center,
         )
+    }
+}
+
+/**
+ * „Podgląd dnia” (tylko wersja testowa): data i godzina, na które Start pokazuje scenę, motyw i belkę z harmonogramu
+ * (np. 1.12 zima, 24.12 Wigilia), żeby Karol zobaczył zmiany przed czasem. Noc według przybliżonego wschodu i zachodu
+ * słońca w Lesznie (SUN_LESZNO z weather-icons.js). „Teraz” wraca do prawdziwej chwili.
+ */
+@Composable
+private fun PodgladDnia(m: Magazyn) {
+    val kontekst = LocalContext.current
+    @Suppress("UNUSED_VARIABLE") val odswiez = m.zegarScen
+    val chwila = m.chwilaTestowa
+    val opis = chwila?.let { String.format(Jezyk.locale, "%s, %02d:%02d", Daty.dzienTygodniaIData(it.toLocalDate()), it.hour, it.minute) } ?: "teraz"
+    Karta {
+        Wiersz("Podgląd dnia (test)", opis, pierwszy = true) {
+            val od = chwila ?: java.time.ZonedDateTime.now(Daty.strefa)
+            android.app.DatePickerDialog(kontekst, { _, r, mies, d ->
+                android.app.TimePickerDialog(kontekst, { _, g, min ->
+                    val nowa = java.time.ZonedDateTime.of(r, mies + 1, d, g, min, 0, 0, Daty.strefa)
+                    // przybliżony wschód i zachód słońca w Lesznie (minuty, połowa miesiąca) jak na stronie
+                    val slonce = listOf(475 to 980, 435 to 1035, 370 to 1075, 360 to 1185, 305 to 1235, 275 to 1270,
+                        295 to 1260, 340 to 1215, 390 to 1150, 440 to 1085, 435 to 970, 475 to 950)[mies]
+                    val minuty = g * 60 + min
+                    m.chwilaTestowa = nowa
+                    m.nocTestowa = minuty < slonce.first || minuty >= slonce.second
+                    m.zegarScen++
+                }, od.hour, od.minute, true).show()
+            }, od.year, od.monthValue - 1, od.dayOfMonth).show()
+        }
+        if (chwila != null) Wiersz("Wróć do teraz", "") {
+            m.chwilaTestowa = null
+            m.nocTestowa = null
+            m.zegarScen++
+        }
     }
 }
 

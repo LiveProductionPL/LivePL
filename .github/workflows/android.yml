@@ -24,6 +24,8 @@ concurrency:
 
 env:
   LIVEPL_BUDOWA: ${{ github.run_number }}
+  # [tvml-test] w opisie zmiany: TVML z „Podglądem dnia” w Więcej, do testów wewnętrznych (tvml/build.gradle.kts)
+  TVML_TESTY: ${{ contains(github.event.head_commit.message, '[tvml-test]') && '1' || '' }}
 
 jobs:
   budowa:

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -309,11 +310,12 @@ fun Karuzela(artykuly: List<Artykul>) {
 }
 
 /**
- * Kafel pogody na Start, 1:1 z iPhone'em (KartaPogody w StartWidok.swift, budowa 58 zatwierdzona przez Karola):
- * grafika sceny w proporcjach 1,85 : 1 z „POGODA W LESZNIE”, temperaturą, opisem i pigułkami prognozy, a pod nią
- * belka w kolorze podłoża sceny (śnieg, ziemia, piasek, woda, bruk Rynku) z medalem, datą, świętem albo
- * przedrostkiem motywu i imieninami ([PaletaBelki]). Zasada Karola: pod tytułem od razu temperatura, data
- * i imieniny razem na belce, w każdej scenie i motywie, w dzień i w nocy.
+ * Kafel pogody na Start jak karta pogody tvml.pl w telefonie (.weather-card przy 375 px; Karol 24.11: „Popracuj nad tym
+ * jeszcze … tu jest strasznie pusto”, „zrób taką do nowej wersji testową”): prawie kwadratowa karta ze sceną na całym
+ * tle, u góry „POGODA W LESZNIE” i złote „więcej →”, duża ikona stanu obok temperatury i opisu, trzy kolumny na
+ * środkach w/6, w/2, 5w/6 (wiatr, wilgotność, ciśnienie, a pod nimi dzień, ikona i temperatura) na ciemnych
+ * poduszkach jak na stronie, na dole plakietka z medalem, datą, świętem albo przedrostkiem motywu i imieninami
+ * w kolorach podłoża sceny ([PaletaBelki]). Ikony 1:1 ze strony ([IkonyPogodyStrony]). Tak samo na iOS.
  */
 @Composable
 fun KafelPogody(m: Magazyn) {
@@ -336,7 +338,17 @@ fun KafelPogody(m: Magazyn) {
     val swieto = m.dzisiaj?.swieto?.takeIf { dzisiajAktualne }
     val (wyroznienie, imionaLinia) = PaletaBelki.linie(scena, svg != null, swieto, imieniny, teraz, pasek, m.dzisiaj?.data)
     val tytul = tl("app.weatherLeszno", "Pogoda w Lesznie")
-    Column(
+    val styl = TextStyle(color = Color.White, shadow = cienKarty)
+    val slaby = Color(0xFFCAD6EC)
+    // poduszki czytelności jak na stronie: rgba(6,12,26,0.30) w nocy, 0.36 w dzień
+    val poduszka = Color(0xFF060C1A).copy(alpha = if (noc) 0.30f else 0.36f)
+    val dni = p?.dni.orEmpty().drop(1).take(3)
+    val kolumny = listOf(
+        Triple(tl("app.wind", "Wiatr"), p?.wiatr?.let { String.format(Jezyk.locale, "%.1f km/h", it) } ?: "–", dni.getOrNull(0)),
+        Triple(tl("app.humidity", "Wilgotność"), p?.wilgotnosc?.let { String.format(Jezyk.locale, "%.1f%%", it) } ?: "–", dni.getOrNull(1)),
+        Triple(tl("app.pressure", "Ciśnienie"), p?.cisnienie?.let { String.format(Jezyk.locale, "%.1f hPa", it) } ?: "–", dni.getOrNull(2)),
+    )
+    BoxWithConstraints(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
             .clickable(role = Role.Button) { m.pokaz(ZakladkaApp.Cel.Pogoda) }
             .semantics(mergeDescendants = true) {
@@ -345,59 +357,62 @@ fun KafelPogody(m: Magazyn) {
                 ).joinToString(". ")
             },
     ) {
-        // grafika: co najmniej 1,85 : 1, przy dużym tekście rośnie razem z nim
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            Box(Modifier.fillMaxWidth().heightIn(min = maxWidth / 1.85f)) {
-                ScenaStrony(scena, stan, noc, opcje, p?.efekt, Modifier.matchParentSize(), svg)
-                // przyciemnienie pod tekstem: mocniej u góry, słabnie ku scenie, i lekko z lewej pod temperaturą
-                Box(
-                    Modifier.matchParentSize().background(
-                        Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.34f), 0.5f to Color.Black.copy(alpha = 0.2f), 0.78f to Color.Transparent),
-                    ),
-                )
-                Box(
-                    Modifier.matchParentSize().background(
-                        Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.24f), 0.38f to Color.Black.copy(alpha = 0.1f), 0.6f to Color.Transparent),
-                    ),
-                )
-                Column(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 12.dp, bottom = 12.dp).clearAndSetSemantics { }) {
-                    val styl = TextStyle(color = Color.White, shadow = cienKarty)
-                    Text(tytul.uppercase(Jezyk.locale), style = styl.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp))
-                    Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(p?.let { Pogoda.stopnie(it.temperatura) + "C" } ?: "–", style = styl.copy(fontSize = 30.sp, fontWeight = FontWeight.Black))
-                            Text(p?.opis.orEmpty(), style = styl.copy(fontSize = 13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        Row(Modifier.padding(start = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            p?.dni.orEmpty().drop(1).take(3).forEach { d ->
-                                // pigułka jak na karcie ze strony: prognoza czytelna także na wieży Ratusza i śniegu
-                                Column(
-                                    Modifier.clip(RoundedCornerShape(9.dp)).background(Color.Black.copy(alpha = 0.26f)).padding(horizontal = 6.dp, vertical = 5.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp),
-                                ) {
-                                    Text(d.nazwa, style = styl.copy(fontSize = 12.sp, color = Color.White.copy(alpha = 0.9f)))
-                                    Text(Pogoda.stopnie(d.max), style = styl.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold))
+        // proporcje karty strony w telefonie: ok. 1,05 : 1 razem z plakietką; przy dużym tekście rośnie razem z nim
+        val wysokosc = maxWidth / 1.05f
+        Box(Modifier.fillMaxWidth().heightIn(min = wysokosc)) {
+            ScenaStrony(scena, stan, noc, opcje, p?.efekt, Modifier.matchParentSize(), svg)
+            // lekkie przyciemnienie pod nagłówkiem i temperaturą (scena zostaje widoczna jak na stronie)
+            Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.22f), 0.32f to Color.Transparent)))
+            Column(Modifier.fillMaxWidth().heightIn(min = wysokosc).padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 10.dp).clearAndSetSemantics { }) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        tytul.uppercase(Jezyk.locale), Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        style = styl.copy(fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.6.sp),
+                    )
+                    Text(tl("app.weatherMore", "więcej") + " →", style = styl.copy(color = Barwy.zloto, fontSize = 11.sp, fontWeight = FontWeight.Bold))
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    IkonaPogodyStrony(stan, noc, 56.dp, opis = p?.opis, temp = p?.temperatura)
+                    Column {
+                        Text(p?.let { Pogoda.stopnie(it.temperatura) + "C" } ?: "–", style = styl.copy(fontSize = 38.sp, fontWeight = FontWeight.Black, lineHeight = 40.sp))
+                        Text(p?.opis.orEmpty(), style = styl.copy(color = slaby, fontSize = 13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                Spacer(Modifier.weight(1f))
+                // trzy kolumny na środkach w/6, w/2, 5w/6 (justify-content: space-around na stronie)
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)) {
+                    kolumny.forEach { (etykieta, wartosc, dzien) ->
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                            Column(
+                                Modifier.clip(RoundedCornerShape(11.dp)).background(poduszka).padding(horizontal = 8.dp, vertical = 6.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(etykieta, style = styl.copy(color = slaby, fontSize = 10.sp), maxLines = 1)
+                                Text(wartosc, style = styl.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold), maxLines = 1)
+                                if (dzien != null) {
+                                    Text(dzien.nazwa, Modifier.padding(top = 8.dp), style = styl.copy(color = slaby, fontSize = 11.5.sp), maxLines = 1)
+                                    // prognoza na stronie: wariant dzienny ikony (bez nocy)
+                                    IkonaPogodyStrony(dzien.ikona, false, 34.dp, Modifier.padding(vertical = 2.dp), opis = dzien.opis, temp = dzien.max)
+                                    Text(Pogoda.stopnie(dzien.max) + "C", style = styl.copy(fontSize = 12.8.sp, fontWeight = FontWeight.Bold), maxLines = 1)
                                 }
                             }
                         }
                     }
                 }
-            }
-        }
-        // belka pod grafiką w kolorze podłoża sceny: medal, data, święto albo przedrostek motywu, imieniny
-        Box(Modifier.fillMaxWidth().background(paleta.tlo).clearAndSetSemantics { }) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                MedalBelki(paleta)
-                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                    Text(data, color = paleta.data, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    wyroznienie?.let { Text(it, color = paleta.data, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 2, lineHeight = 15.sp) }
-                    imionaLinia?.let { Text(it, color = paleta.drugaLinia, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, lineHeight = 15.sp) }
+                // plakietka z datą w karcie (na stronie w motywie): rogi 14, ramka w kolorze akcentu motywu
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(paleta.tlo.copy(alpha = 0.94f))
+                        .border(1.dp, paleta.akcent ?: Barwy.zloto, RoundedCornerShape(14.dp)).padding(horizontal = 10.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    MedalBelki(paleta)
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Text(data, color = paleta.data, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        wyroznienie?.let { Text(it, color = paleta.data, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 2, lineHeight = 15.sp) }
+                        imionaLinia?.let { Text(it, color = paleta.drugaLinia, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, lineHeight = 15.sp) }
+                    }
                 }
             }
-            paleta.akcent?.let { Box(Modifier.fillMaxWidth().height(3.dp).background(it)) }
         }
     }
 }

@@ -10,6 +10,9 @@ val numerBudowy = providers.environmentVariable("LIVEPL_BUDOWA").orNull?.toIntOr
 val plikKlucza = providers.environmentVariable("TVML_KLUCZ_PLIK").orNull?.takeIf { it.isNotBlank() }
 val hasloKlucza = providers.environmentVariable("TVML_KLUCZ_HASLO").orNull
 val aliasKlucza = providers.environmentVariable("TVML_KLUCZ_ALIAS").orNull ?: "tvml"
+// paczka do testów wewnętrznych w Google Play ([tvml-test] w opisie zmiany na GitHubie): „Podgląd dnia” w Więcej,
+// jak wersja TestFlight na iPhonie. W wersji do sklepu (bez znacznika) go nie ma.
+val testy = providers.environmentVariable("TVML_TESTY").orNull == "1"
 
 // Powiadomienia push przez Firebase Cloud Messaging (projekt tvml-3f2b5, bez Analytics).
 // google-services.json jest poza gitem (repo jest publiczne): lokalnie leży obok tego pliku, na GitHubie przychodzi
@@ -50,6 +53,7 @@ android {
         // zasoby, z których FirebaseInitProvider sam uruchamia Firebase (jak z wtyczki google-services)
         firebase.forEach { (nazwa, wartosc) -> resValue("string", nazwa, wartosc) }
         buildConfigField("boolean", "PUSH", firebase.isNotEmpty().toString())
+        buildConfigField("boolean", "TESTY", testy.toString())
     }
 
     signingConfigs {
