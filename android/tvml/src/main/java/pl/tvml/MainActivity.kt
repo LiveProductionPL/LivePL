@@ -147,7 +147,8 @@ class MainActivity : ComponentActivity() {
             // karta pokazuje dane dnia tylko z bieżącego dnia, więc chwila też 11 listopada (o ile nie podano innej)
             if (i.getStringExtra("chwila") == null) m.chwilaTestowa = java.time.ZonedDateTime.of(2026, 11, 11, 12, 0, 0, 0, Daty.strefa)
         }
-        i.getStringExtra("chwila")?.let { m.chwilaTestowa = Daty.iso(it); m.zegarScen++ }
+        // test: chwila jak „Podgląd dnia” w Więcej (scena i szata graficzna na tę chwilę)
+        i.getStringExtra("chwila")?.let { m.ustawPodgladDnia(Daty.iso(it), m.nocTestowa) }
         i.getStringExtra("pora")?.let { m.nocTestowa = when (it) { "noc" -> true; "dzien" -> false; else -> null } }
         i.getStringExtra("ikona")?.let { n -> ikonaTestowa = IkonaAplikacji.Rodzaj.entries.firstOrNull { it.name.equals(n, ignoreCase = true) } }
         // link do artykułu: https://tvml.pl/artykul/123[-tytul]

@@ -76,6 +76,51 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
 
     fun chwila(): java.time.ZonedDateTime = chwilaTestowa ?: java.time.ZonedDateTime.now(Daty.strefa)
 
+    /** Motyw z config.theme (na dziś), do powrotu z „Podglądu dnia”. */
+    private var motywZKonfiguracji: Motyw? = null
+    /** config.theme i config.upcomingThemes (z etapami) do „Podglądu dnia”: szata graficzna aplikacji na wybraną chwilę. */
+    private var oknaMotywow: List<JSONObject> = emptyList()
+    private var wersjaApi = "1.0.0"
+    /** Trwa „Podgląd dnia”: po odświeżeniu konfiguracji szata graficzna dalej na wybraną chwilę. */
+    private var podgladDnia = false
+
+    /**
+     * „Podgląd dnia” (wersja testowa): karta pogody i cała szata graficzna aplikacji (pasek u góry, kolory, logo,
+     * ozdoby) na wybraną chwilę z harmonogramu motywów; null wraca do teraz (Karol 24.11: „szata graficzna aplikacji
+     * nie zmieniła się”). Motyw podglądu blokuje zmiany z panelu i ikonę aplikacji jak motyw testowy z argumentu.
+     */
+    fun ustawPodgladDnia(chwila: java.time.ZonedDateTime?, noc: Boolean?) {
+        podgladDnia = chwila != null
+        chwilaTestowa = chwila
+        nocTestowa = noc
+        if (chwila == null) {
+            motywTestowy = null
+            motyw = motywZKonfiguracji ?: Motyw.zwykly
+        } else {
+            val p = motywNa(chwila)
+            motywTestowy = p
+            motyw = p
+        }
+        zegarScen++
+    }
+
+    /** Motyw okna (i jego etapu: id, wariant, ozdoba), które trwa w [chwila]; poza oknami zwykły albo dzisiejszy. */
+    private fun motywNa(chwila: java.time.ZonedDateTime): Motyw {
+        fun trwa(j: JSONObject): Boolean {
+            val od = Daty.iso(j.s("from")) ?: return false
+            val dO = Daty.iso(j.s("until")) ?: return false
+            return !chwila.isBefore(od) && !chwila.isAfter(dO)
+        }
+        val okno = oknaMotywow.firstOrNull(::trwa)
+            ?: return if (chwila.toLocalDate() == java.time.LocalDate.now(Daty.strefa)) motywZKonfiguracji ?: Motyw.zwykly else Motyw.zwykly
+        val j = JSONObject(okno.toString())
+        // z etapu tylko wariant i ozdoba: id etapu to „main”, „wigilia”…, a motyw rozpoznaje się po id okna („xmas”)
+        okno.lista("stages").firstOrNull(::trwa)?.let { etap ->
+            listOf("variant", "ornament").forEach { k -> if (etap.has(k) && !etap.isNull(k)) j.put(k, etap.get(k)) }
+        }
+        return Motyw.zV1(j, wersjaApi, chwila.toLocalDate()) ?: Motyw.zwykly
+    }
+
     /** Dzień z argumentu (--ez dzienTestowy true): 11 listopada ze świętem i trzema imionami, jak na arkuszach iPhone'a. */
     var dzienTestowy = false
 
@@ -432,6 +477,10 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
         ustawienia.edit { putString("alerts", al.toString()) }
         val m = Motyw.zV1(konf.o("theme"), konf.s("apiVersion").ifEmpty { "1.0.0" })
         if (m != null && motywTestowy == null) motyw = m
+        motywZKonfiguracji = m
+        wersjaApi = konf.s("apiVersion").ifEmpty { "1.0.0" }
+        oknaMotywow = listOf(konf.o("theme")) + konf.lista("upcomingThemes")
+        if (podgladDnia) chwilaTestowa?.let { val p = motywNa(it); motywTestowy = p; motyw = p }
         // scena pogody z harmonogramu (API 1.8.3: theme.weatherScene/backgroundScene/weatherSceneType/dateBar/stages,
         // upcomingThemes[].stages[], weatherAnimation[state]); starszy serwer bez etapów: całe okna upcomingThemes
         val th = konf.o("theme")

@@ -186,17 +186,11 @@ private fun PodgladDnia(m: Magazyn) {
                     val slonce = listOf(475 to 980, 435 to 1035, 370 to 1075, 360 to 1185, 305 to 1235, 275 to 1270,
                         295 to 1260, 340 to 1215, 390 to 1150, 440 to 1085, 435 to 970, 475 to 950)[mies]
                     val minuty = g * 60 + min
-                    m.chwilaTestowa = nowa
-                    m.nocTestowa = minuty < slonce.first || minuty >= slonce.second
-                    m.zegarScen++
+                    m.ustawPodgladDnia(nowa, minuty < slonce.first || minuty >= slonce.second)
                 }, od.hour, od.minute, true).show()
             }, od.year, od.monthValue - 1, od.dayOfMonth).show()
         }
-        if (chwila != null) Wiersz("Wróć do teraz", "") {
-            m.chwilaTestowa = null
-            m.nocTestowa = null
-            m.zegarScen++
-        }
+        if (chwila != null) Wiersz("Wróć do teraz", "") { m.ustawPodgladDnia(null, null) }
     }
 }
 
