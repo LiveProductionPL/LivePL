@@ -42,6 +42,28 @@ object Ikony {
     val wstecz = ikona("M15 5l-7 7 7 7", grubosc = 2.2f)
     val dalej = ikona("M9 6l6 6-6 6")
     val wDol = ikona("M6 9l6 6 6-6", grubosc = 3f)
+
+    // medale belki z datą na karcie pogody (BelkaPogody.kt), odpowiedniki symboli z iPhone'a
+    val kalendarzMedal = ikona(
+        "M5.5 5h13A1.5 1.5 0 0 1 20 6.5v12a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5v-12A1.5 1.5 0 0 1 5.5 5z", "M4 9.5h16", "M8 3v3.5", "M16 3v3.5",
+        "!" + kolo(8f, 13f, 1.1f), "!" + kolo(12f, 13f, 1.1f), "!" + kolo(16f, 13f, 1.1f),
+        "!" + kolo(8f, 16.8f, 1.1f), "!" + kolo(12f, 16.8f, 1.1f), "!" + kolo(16f, 16.8f, 1.1f),
+    )
+    val sniezynka = ikona(
+        "M12 2.5v19", "M3.8 7.25l16.4 9.5", "M3.8 16.75l16.4-9.5",
+        "M9.5 4l2.5 2 2.5-2", "M9.5 20l2.5-2 2.5 2",
+        "M4.2 10.1l3 -0.6-1-3", "M19.8 13.9l-3 .6 1 3", "M4.2 13.9l3 .6-1 3", "M19.8 10.1l-3-.6 1-3",
+        grubosc = 2.2f,
+    )
+    /** Prezent jak gift.fill na iPhonie: pudełko z pokrywką i kokardą, wstążka to przerwa w kształcie. */
+    val prezent = ikona(
+        "!M4 11h7v10H5a1 1 0 0 1-1-1zM13 11h7v9a1 1 0 0 1-1 1h-6z", "!M3 7.5h8V10H3zM13 7.5h8V10h-8z",
+        "M12 7.5C10.8 4.6 7.4 4.3 7.6 6.4 7.8 7.7 10.6 7.6 12 7.5zM12 7.5c1.2-2.9 4.6-3.2 4.4-1.1-.2 1.3-3 1.2-4.4 1.1z",
+        grubosc = 1.6f,
+    )
+    val gwiazdaPelna = ikona("!M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z")
+    val choinka = ikona("!M12 2l5 7h-2.6l4.1 6h-3l3.5 5H5l3.5-5h-3l4.1-6H7z", "!M11 20h2v3h-2z")
+    val plomien = ikona("!M12 2c1 3.6 5.2 5.6 5.2 11.2a5.2 5.2 0 0 1-10.4 0c0-2.5 1.2-4.2 2.6-5.4.2 1.8 1 2.8 2.1 3.3C11 8.6 11.3 5.1 12 2z")
     val zamknij = ikona("M6 6l12 12M18 6L6 18")
     val udostepnij = ikona(kolo(18f, 5f, 2.6f), kolo(6f, 12f, 2.6f), kolo(18f, 19f, 2.6f), "M8.3 13.3l7.4 4.4M15.7 6.3l-7.4 4.4")
     val glosnik = ikona("M11 5L6 9H3v6h3l5 4z", "M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13")

@@ -11,6 +11,29 @@ val plikKlucza = providers.environmentVariable("TVML_KLUCZ_PLIK").orNull?.takeIf
 val hasloKlucza = providers.environmentVariable("TVML_KLUCZ_HASLO").orNull
 val aliasKlucza = providers.environmentVariable("TVML_KLUCZ_ALIAS").orNull ?: "tvml"
 
+// Powiadomienia push przez Firebase Cloud Messaging (projekt tvml-3f2b5, bez Analytics).
+// google-services.json jest poza gitem (repo jest publiczne): lokalnie leży obok tego pliku, na GitHubie przychodzi
+// z sekretu TVML_FIREBASE (wpisuje go Karol: narzedzia/ustaw-sekrety.mjs --firebase <plik>). Zamiast wtyczki
+// com.google.gms.google-services te same zasoby tworzy resValue niżej, więc działa też wersja testowa pl.tvml.debug,
+// a bez pliku aplikacja buduje się normalnie, tylko bez powiadomień (Powiadomienia.kt to sprawdza).
+val firebase: Map<String, String> = run {
+    val tekst = file("google-services.json").takeIf { it.isFile }?.readText()
+        ?: providers.environmentVariable("TVML_FIREBASE").orNull?.takeIf { it.isNotBlank() }
+        ?: return@run emptyMap()
+    @Suppress("UNCHECKED_CAST")
+    val j = groovy.json.JsonSlurper().parseText(tekst) as Map<String, Any?>
+    val projekt = j["project_info"] as Map<String, Any?>
+    val klient = (j["client"] as List<Map<String, Any?>>).first {
+        ((it["client_info"] as Map<String, Any?>)["android_client_info"] as Map<String, Any?>)["package_name"] == "pl.tvml"
+    }
+    mapOf(
+        "google_app_id" to (klient["client_info"] as Map<String, Any?>)["mobilesdk_app_id"].toString(),
+        "google_api_key" to ((klient["api_key"] as List<Map<String, Any?>>).first()["current_key"]).toString(),
+        "gcm_defaultSenderId" to projekt["project_number"].toString(),
+        "project_id" to projekt["project_id"].toString(),
+    )
+}
+
 android {
     namespace = "pl.tvml"
     compileSdk = 37
@@ -24,6 +47,9 @@ android {
         versionCode = numerBudowy
         // jak na iPhonie i w API (minAppVersion.android); pod ikoną i w Sklepie samo „TVML”
         versionName = "2.1"
+        // zasoby, z których FirebaseInitProvider sam uruchamia Firebase (jak z wtyczki google-services)
+        firebase.forEach { (nazwa, wartosc) -> resValue("string", nazwa, wartosc) }
+        buildConfigField("boolean", "PUSH", firebase.isNotEmpty().toString())
     }
 
     signingConfigs {
@@ -58,6 +84,8 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        // zasoby Firebase z google-services.json (resValue w defaultConfig)
+        resValues = true
     }
 
     packaging {
@@ -78,4 +106,9 @@ dependencies {
     // zdjęcia z pamięcią podręczną (WebP z img-webp-v2.php)
     implementation("io.coil-kt.coil3:coil-compose:3.3.0")
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
+    // sceny pogody SVG motywów ze Studia motywów (config.theme.weatherSceneSvgUrl)
+    implementation("io.coil-kt.coil3:coil-svg:3.3.0")
+    // powiadomienia push: samo Firebase Cloud Messaging, bez firebase-analytics
+    implementation(platform("com.google.firebase:firebase-bom:35.2.0"))
+    implementation("com.google.firebase:firebase-messaging")
 }

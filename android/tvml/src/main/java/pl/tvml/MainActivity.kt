@@ -27,23 +27,40 @@ import okhttp3.OkHttpClient
  * tvml.pl/app/panel (zakładki, bloki Startu, wersja wyglądu z kolorami i ikoną, pasek „NA ŻYWO”, imieniny).
  *
  * Do zrzutów ekranu: --es ekran pogoda|artykul|wideo|wiecej|szukaj, --es motyw zima|czapeczka|wigilia|…,
- * --es wyglad dzien|noc, --es ikona zwykla|zima|swieta, --es jezyk pl|uk|en|system.
+ * --es wyglad dzien|noc, --es ikona zwykla|zima|swieta, --es jezyk pl|uk|en|system, --ez bezPowiadomien true,
+ * --es scena autumn-forest|leszno-andrzejki|leszno-zima|… (scena pogody ze strony, ScenyStrony.znane), --es pora dzien|noc,
+ * --ez dzienTestowy true (belka karty pogody z 11 listopada: święto i trzy imiona).
  */
 class MainActivity : ComponentActivity() {
     private lateinit var m: Magazyn
     /** Do testów ikony: --es ikona zwykla|zima|swieta (zmiana przy zejściu aplikacji z ekranu). */
     private var ikonaTestowa: IkonaAplikacji.Rodzaj? = null
 
+    /**
+     * Po config z serwera: kanały powiadomień i rejestracja (albo wyrejestrowanie) z aktualnymi tematami i językiem.
+     * O zgodę aplikacja sama nie pyta: dopiero po włączeniu w Więcej → Powiadomienia (PowiadomieniaEkran).
+     */
+    private fun powiadomienia() {
+        if (!Powiadomienia.dostepne(this)) return
+        Powiadomienia.przygotujKanaly(this)
+        Powiadomienia.zarejestruj(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Siec.przygotuj(this)
         Jezyk.przygotuj(this)
+        Powiadomienia.przygotuj(this)
         SingletonImageLoader.setSafe { kontekst ->
             val klient = OkHttpClient.Builder()
                 .addInterceptor { lancuch -> lancuch.proceed(lancuch.request().newBuilder().header("User-Agent", Siec.agent).build()) }
                 .build()
             ImageLoader.Builder(kontekst)
-                .components { add(OkHttpNetworkFetcherFactory(callFactory = { klient })) }
+                .components {
+                    add(OkHttpNetworkFetcherFactory(callFactory = { klient }))
+                    // sceny pogody SVG ze Studia motywów (ScenaStrony)
+                    add(coil3.svg.SvgDecoder.Factory())
+                }
                 .crossfade(true)
                 .build()
         }
@@ -62,6 +79,17 @@ class MainActivity : ComponentActivity() {
                     statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
                     navigationBarStyle = if (ciemny) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT),
                 )
+            }
+            LaunchedEffect(m.konfiguracjaPush) { if (m.konfiguracjaPush > 0) powiadomienia() }
+            // granice okien motywów (np. Andrzejki 28.11 od 16:00): scena zmienia się od razu, a config dociąga etap motywu
+            LaunchedEffect(m.nadchodzaceSceny, m.koniecMotywu) {
+                while (true) {
+                    val nast = m.nastepnaZmianaSceny() ?: break
+                    val ile = java.time.Duration.between(java.time.ZonedDateTime.now(Daty.strefa), nast).toMillis()
+                    kotlinx.coroutines.delay(ile.coerceIn(1_000, 6 * 3_600_000L) + 1_000)
+                    m.zegarScen++
+                    if (!java.time.ZonedDateTime.now(Daty.strefa).isBefore(nast)) m.odswiez(wymus = true)
+                }
             }
             val barwy = if (ciemny) Barwy.noc else Barwy.dzien
             MaterialTheme(colorScheme = if (ciemny) darkColorScheme(surface = barwy.karta, background = barwy.tlo) else lightColorScheme(surface = barwy.karta, background = barwy.tlo)) {
@@ -84,6 +112,10 @@ class MainActivity : ComponentActivity() {
         m.sprawdzJezyk()
         m.wznowienia++
         m.odswiez()
+        // zgoda na powiadomienia mogła się zmienić w ustawieniach telefonu
+        val zgodaPrzed = Powiadomienia.zgoda
+        Powiadomienia.przygotuj(this)
+        if (Powiadomienia.zgoda != zgodaPrzed) Powiadomienia.zarejestruj(this)
     }
 
     override fun onStart() {
@@ -103,10 +135,25 @@ class MainActivity : ComponentActivity() {
         Motyw.zArgumentu(i.getStringExtra("motyw"))?.let { m.motywTestowy = it; m.motyw = it }
         i.getStringExtra("wyglad")?.let { m.ustawWyglad(it) }
         i.getStringExtra("jezyk")?.let { m.ustawJezyk(it) }
+        if (i.getBooleanExtra("bezPowiadomien", false)) Powiadomienia.wylaczDoZrzutow(this)
+        i.getStringExtra("scena")?.let { m.scenaTestowa = it; m.zegarScen++ }
+        if (i.getBooleanExtra("dzienTestowy", false)) {
+            m.dzienTestowy = true
+            m.dzisiaj = Dzisiaj("poniedziałek, 11 listopada 2026", listOf("Bartłomieja", "Marcina", "Prota"), java.time.LocalDate.of(2026, 11, 11), "Narodowe Święto Niepodległości")
+            // karta pokazuje dane dnia tylko z bieżącego dnia, więc chwila też 11 listopada (o ile nie podano innej)
+            if (i.getStringExtra("chwila") == null) m.chwilaTestowa = java.time.ZonedDateTime.of(2026, 11, 11, 12, 0, 0, 0, Daty.strefa)
+        }
+        i.getStringExtra("chwila")?.let { m.chwilaTestowa = Daty.iso(it); m.zegarScen++ }
+        i.getStringExtra("pora")?.let { m.nocTestowa = when (it) { "noc" -> true; "dzien" -> false; else -> null } }
         i.getStringExtra("ikona")?.let { n -> ikonaTestowa = IkonaAplikacji.Rodzaj.entries.firstOrNull { it.name.equals(n, ignoreCase = true) } }
         // link do artykułu: https://tvml.pl/artykul/123[-tytul]
         i.data?.lastPathSegment?.takeIf { i.data?.pathSegments?.firstOrNull() == "artykul" }
             ?.takeWhile { it.isDigit() }?.toIntOrNull()?.let { m.otworzArtykul(it) }
+        // stuknięte powiadomienie: dane wiadomości FCM w extras (articleId albo url do artykułu)
+        Powiadomienia.artykul(i)?.let { id ->
+            listOf("articleId", "url").forEach { i.removeExtra(it) }
+            m.otworzArtykul(id)
+        }
         val ekran = i.getStringExtra("ekran") ?: return
         lifecycleScope.launch {
             m.odswiezTeraz(wymus = start)

@@ -98,10 +98,15 @@ jobs:
       ANDROID_PRZESYLANIE_HASLO: ${{ secrets.ANDROID_PRZESYLANIE_HASLO }}
       ANDROID_KLUCZ_TVML: ${{ secrets.ANDROID_KLUCZ_TVML }}
       ANDROID_KLUCZ_TVML_HASLO: ${{ secrets.ANDROID_KLUCZ_TVML_HASLO }}
+      # google-services.json TVML (Firebase Cloud Messaging); tvml/build.gradle.kts czyta go z tej zmiennej
+      TVML_FIREBASE: ${{ secrets.TVML_FIREBASE }}
     steps:
       - name: Sekrety klucza
         id: klucz
         run: |
+          if [ -z "$TVML_FIREBASE" ]; then
+            echo "::warning::Brak sekretu TVML_FIREBASE, więc TVML zbuduje się bez powiadomień push (narzedzia/ustaw-sekrety.mjs --firebase)."
+          fi
           if [ -z "$ANDROID_KLUCZ" ] || [ -z "$ANDROID_KLUCZ_HASLO" ]; then
             echo "::notice::Brak sekretów ANDROID_KLUCZ i ANDROID_KLUCZ_HASLO, więc bez podpisanego wydania (android/README.md)."
             echo "jest=nie" >> "$GITHUB_OUTPUT"

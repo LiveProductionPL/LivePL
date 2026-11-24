@@ -39,6 +39,11 @@ object Jezyk {
 
     private var slowniki by mutableStateOf<Map<String, Map<String, String>>>(emptyMap())
 
+    /** Dla usługi powiadomień: język z ustawień, gdy aplikacja jeszcze nie była otwarta (bez ponownego wczytania). */
+    fun przygotujRaz(kontekst: Context) {
+        if (ustawienia == null) przygotuj(kontekst)
+    }
+
     fun przygotuj(kontekst: Context) {
         val u = kontekst.getSharedPreferences("tvml", Context.MODE_PRIVATE)
         ustawienia = u

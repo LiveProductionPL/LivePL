@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- TVML: serwis informacyjny tvml.pl. Bez śledzenia, bez identyfikatora reklamowego, na razie bez powiadomień. -->
+<!-- TVML: serwis informacyjny tvml.pl. Bez śledzenia i bez identyfikatora reklamowego; powiadomienia przez
+     Firebase Cloud Messaging bez Firebase Analytics (Powiadomienia.kt). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Android 13+: zgoda na powiadomienia; aplikacja pyta dopiero po włączeniu w Więcej → Powiadomienia -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- karta przeglądarki dla stron tvml.pl (Custom Tabs) -->
     <queries>
@@ -19,6 +22,32 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.TVML">
+
+        <!-- powiadomienia FCM: usługa (token i wiadomości przy otwartej aplikacji) oraz wygląd tych,
+             które system pokazuje sam, gdy aplikacja jest w tle -->
+        <service
+            android:name=".UslugaPowiadomien"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="nowe_wpisy" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ikona_powiadomienia" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/granat" />
+        <!-- bez Analytics i bez zbierania danych o dostarczeniu do BigQuery -->
+        <meta-data
+            android:name="firebase_analytics_collection_deactivated"
+            android:value="true" />
+        <meta-data
+            android:name="delivery_metrics_exported_to_big_query_enabled"
+            android:value="false" />
 
         <activity
             android:name=".MainActivity"

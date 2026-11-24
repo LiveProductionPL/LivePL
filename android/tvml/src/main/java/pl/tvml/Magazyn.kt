@@ -24,12 +24,17 @@ sealed interface Ekran {
     /** Podstrona redakcji z „Więcej” (O nas, Kontakt, Regulamin…) w aplikacji. */
     data class Strona(val slug: String) : Ekran
     data object Ogloszenia : Ekran
+    data object Powiadomienia : Ekran
     data class JednoWydarzenie(val wydarzenie: Wydarzenie) : Ekran
 }
 
 /** Wszystko, co aplikacja pobiera z tvml.pl. Jedno źródło dla wszystkich ekranów (Magazyn na iPhonie). */
 class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
     private val ustawienia = kontekst.getSharedPreferences("tvml", Context.MODE_PRIVATE)
+    private val aplikacja: Context = kontekst.applicationContext
+
+    /** Rośnie po każdym config z serwera; MainActivity wtedy pyta o zgodę na powiadomienia albo odświeża rejestrację. */
+    var konfiguracjaPush by mutableIntStateOf(0)
 
     var najnowsze by mutableStateOf<List<Artykul>>(emptyList())
     var najczytniejsze by mutableStateOf<List<Artykul>>(emptyList())
@@ -43,6 +48,84 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
     var motyw by mutableStateOf(Motyw.zwykly)
     /** Motyw z argumentu (zrzuty ekranu); wtedy panel go nie zmienia. */
     var motywTestowy: Motyw? = null
+
+    // ---------- scena pogody ze strony (ScenyStrony.kt) ----------
+    /** config.theme.weatherScene: scena wyliczona przez serwer z harmonogramu motywów i jego etapu (pusta = bez motywu). */
+    var scenaMotywu by mutableStateOf<String?>(null)
+    /** config.theme.backgroundScene (API 1.8.3): scena na teraz także przy żałobie i pustej scenie w panelu. */
+    var scenaTla by mutableStateOf<String?>(null)
+    /** config.theme.dateBar (API 1.8.3): pasek daty bieżącego motywu (medal, akcent, przedrostek), wyliczony na teraz. */
+    var pasekMotywu by mutableStateOf<PasekDaty?>(null)
+    /** Koniec bieżącego motywu (theme.until); potem scena wraca do ogólnej z weatherAnimation. */
+    var koniecMotywu by mutableStateOf<java.time.ZonedDateTime?>(null)
+    /**
+     * Następne etapy bieżącego motywu i etapy nadchodzących (API 1.8.3 stages[]; starszy serwer: całe upcomingThemes),
+     * żeby scena, SVG i pasek daty przełączyły się na granicy bez czekania na odświeżenie.
+     */
+    var nadchodzaceSceny by mutableStateOf<List<OknoSceny>>(emptyList())
+    /** config.weatherAnimation[state]: opcje sceny dla każdego stanu pogody (skyColor, woda i piasek plaży…). */
+    var animacjePogody by mutableStateOf<Map<String, OpcjeSceny>>(emptyMap())
+    /** Rośnie na każdej granicy okna motywu (MainActivity), żeby karta pogody przerysowała scenę. */
+    var zegarScen by mutableIntStateOf(0)
+    /** Scena z argumentu (--es scena leszno-zima): do zrzutów i sprawdzania scen. */
+    var scenaTestowa: String? = null
+    /** Chwila z argumentu (--es chwila 2026-12-24T12:00:00+01:00): do sprawdzania etapów motywów; null = teraz. */
+    var chwilaTestowa: java.time.ZonedDateTime? = null
+
+    fun chwila(): java.time.ZonedDateTime = chwilaTestowa ?: java.time.ZonedDateTime.now(Daty.strefa)
+
+    /** Dzień z argumentu (--ez dzienTestowy true): 11 listopada ze świętem i trzema imionami, jak na arkuszach iPhone'a. */
+    var dzienTestowy = false
+
+    /** Pora sceny z argumentu (--es pora dzien|noc): do zrzutów scen w dzień i w nocy. null = z /api/v1/weather. */
+    var nocTestowa by mutableStateOf<Boolean?>(null)
+
+    /** Noc dla sceny pogody: isNight z /api/v1/weather albo pora z argumentu. */
+    fun nocSceny(): Boolean = nocTestowa ?: (pogoda?.dzien == false)
+    /** Scena SVG motywu ze Studia motywów (theme.weatherSceneType = svg), gdy taki motyw trwa. */
+    var scenaSvg by mutableStateOf<ScenaSvg?>(null)
+
+    /** Scena SVG na teraz: tylko w oknie jej motywu (nie w oknie następnego, nie po końcu, nie przy scenie testowej). */
+    fun scenaSvgTeraz(teraz: java.time.ZonedDateTime = chwila()): ScenaSvg? {
+        @Suppress("UNUSED_VARIABLE") val odswiez = zegarScen
+        if (scenaTestowa != null) return null
+        nadchodzaceSceny.firstOrNull { it.trwa(teraz) }?.let { return it.svg }
+        val koniec = koniecMotywu
+        return if (koniec != null && teraz.isAfter(koniec)) null else scenaSvg
+    }
+
+    /** Pasek daty na teraz: etap, w którym jesteśmy, albo bieżący motyw (null = zwykła belka z kalendarzem). */
+    fun pasekDatyTeraz(teraz: java.time.ZonedDateTime = chwila()): PasekDaty? {
+        @Suppress("UNUSED_VARIABLE") val odswiez = zegarScen
+        if (scenaTestowa != null) return null
+        nadchodzaceSceny.firstOrNull { it.trwa(teraz) }?.let { return it.pasek }
+        val koniec = koniecMotywu
+        return if (koniec != null && teraz.isAfter(koniec)) null else pasekMotywu
+    }
+
+    fun opcjeSceny(stan: String): OpcjeSceny = animacjePogody[stan] ?: OpcjeSceny()
+
+    /**
+     * Scena na teraz: okno nadchodzącego motywu, w którym jesteśmy (serwer jeszcze go nie podał jako bieżący),
+     * potem scena bieżącego motywu (do jego końca), a na końcu ogólna scena z panelu, jak na stronie.
+     */
+    fun scenaPogody(stan: String, teraz: java.time.ZonedDateTime = chwila()): String {
+        @Suppress("UNUSED_VARIABLE") val odswiez = zegarScen
+        scenaTestowa?.let { if (it in ScenyStrony.znane) return it }
+        val opcje = opcjeSceny(stan)
+        nadchodzaceSceny.firstOrNull { it.trwa(teraz) }?.let { return ScenyStrony.wybierz(it.scena, opcje) }
+        val koniec = koniecMotywu
+        if (koniec != null && teraz.isAfter(koniec)) return ScenyStrony.wybierz(null, opcje)
+        return ScenyStrony.wybierz(scenaMotywu ?: scenaTla, opcje)
+    }
+
+    /**
+     * Najbliższa granica po [teraz]: początek albo koniec etapu motywu albo północ (nowy dzień: imieniny i przedrostek
+     * paska daty z serwera), do przełączenia sceny i odświeżenia config w otwartej aplikacji.
+     */
+    fun nastepnaZmianaSceny(teraz: java.time.ZonedDateTime = chwila()): java.time.ZonedDateTime? =
+        (nadchodzaceSceny.flatMap { listOfNotNull(it.od, it.do_) } + listOfNotNull(koniecMotywu, teraz.toLocalDate().plusDays(1).atStartOfDay(Daty.strefa)))
+            .filter { it.isAfter(teraz) }.minOrNull()
     val wKategorii = mutableStateMapOf<String, List<Artykul>>()
     var blad by mutableStateOf<String?>(null)
     var laduje by mutableStateOf(false)
@@ -167,6 +250,7 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
     /** Nowe API (/api/v1): config, artykuły, najczęściej czytane, wideo, pogoda. */
     private suspend fun odswiezV1(): Boolean {
         val jezykZapytan = Jezyk.biezacy
+        // API 1.8.3 podaje scenę SVG motywów ze Studia motywów zawsze (weatherSceneType/weatherSceneSvgUrl), bez features
         val k = zakres.async { Siec.v1Obiekt("config") }
         val a = zakres.async { Siec.v1Obiekt("articles", mapOf("limit" to "20")) }
         val b = zakres.async { Siec.v1Obiekt("articles/most-read", mapOf("limit" to "10")) }
@@ -203,8 +287,26 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
 
     private fun zastosuj(konf: JSONObject) {
         Jezyk.zKonfiguracji(konf)
+        Powiadomienia.zKonfiguracji(aplikacja, konf.o("push"))
+        konfiguracjaPush++
         val m = Motyw.zV1(konf.o("theme"), konf.s("apiVersion").ifEmpty { "1.0.0" })
         if (m != null && motywTestowy == null) motyw = m
+        // scena pogody z harmonogramu (API 1.8.3: theme.weatherScene/backgroundScene/weatherSceneType/dateBar/stages,
+        // upcomingThemes[].stages[], weatherAnimation[state]); starszy serwer bez etapów: całe okna upcomingThemes
+        val th = konf.o("theme")
+        scenaMotywu = th.s("weatherScene").ifEmpty { null }
+        scenaTla = th.s("backgroundScene").ifEmpty { null }
+        scenaSvg = OknoSceny.svgZ(th)
+        pasekMotywu = PasekDaty.z(th.optJSONObject("dateBar"))
+        koniecMotywu = Daty.iso(th.s("until"))
+        val teraz = java.time.ZonedDateTime.now(Daty.strefa)
+        // bieżący etap opisuje sam theme (wyliczony na teraz), więc z etapów bieżącego motywu tylko przyszłe
+        val dalszeEtapy = th.lista("stages").mapNotNull(OknoSceny::z).filter { it.od != null && it.od.isAfter(teraz) }
+        nadchodzaceSceny = dalszeEtapy + konf.lista("upcomingThemes").flatMap { u ->
+            u.lista("stages").mapNotNull(OknoSceny::z).ifEmpty { listOfNotNull(OknoSceny.z(u)) }
+        }
+        val wa = konf.o("weatherAnimation")
+        animacjePogody = wa.keys().asSequence().associateWith { OpcjeSceny.z(wa.optJSONObject(it)) }
         val z = konf.lista("tabs").mapNotNull(ZakladkaApp::z)
         if (z.isNotEmpty()) {
             val gotowe = z.take(5).toMutableList()
@@ -233,10 +335,16 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
                 sub.map { KategoriaMenu(it.s("name").replace(Regex("""^\s*TVML\.pl\s*[-–—]\s*"""), ""), it.s("slug")) }
         }
         val d0 = konf.o("today")
-        // today.label jest zawsze po polsku, więc w innym języku data z today.date (imieniny zostają polskie)
+        // today.label serwer tłumaczy na uk i en (od API 1.8.0); bez niego data z today.date (imieniny zostają polskie)
         val dataDnia = runCatching { java.time.LocalDate.parse(d0.s("date")) }.getOrNull()
-        val etykietaDnia = if (Jezyk.biezacy != "pl" && dataDnia != null) Daty.dzisiaj(dataDnia) else d0.s("label")
-        if (etykietaDnia.isNotEmpty()) dzisiaj = Dzisiaj(etykietaDnia, d0.teksty("nameDays"))
+        val etykietaDnia = d0.s("label").ifEmpty { dataDnia?.let { Daty.dzisiaj(it) }.orEmpty() }
+        // holiday: null albo nazwa święta (tekst, a na wszelki wypadek także obiekt z name/label)
+        val swieto = when (val h = d0.opt("holiday")) {
+            is String -> h
+            is JSONObject -> h.s("name").ifEmpty { h.s("label") }
+            else -> ""
+        }.trim().ifEmpty { null }
+        if (etykietaDnia.isNotEmpty() && !dzienTestowy) dzisiaj = Dzisiaj(etykietaDnia, d0.teksty("nameDays"), dataDnia, swieto)
         val s = konf.lista("pages").map(StronaRedakcji::z).filter { it.slug.isNotEmpty() && it.gotowa != false }
         if (s.isNotEmpty()) strony = s
         konf.o("about").s("footer").takeIf { it.isNotBlank() }?.let { stopka = Html.tekst(it) }

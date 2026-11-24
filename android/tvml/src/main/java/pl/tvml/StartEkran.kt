@@ -5,12 +5,14 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -37,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
@@ -267,34 +270,113 @@ fun Karuzela(artykuly: List<Artykul>) {
     }
 }
 
-/** Kafel pogody na Start: ta sama scena co na ekranie Pogoda, w mniejszym wydaniu. */
+/**
+ * Kafel pogody na Start, 1:1 z iPhone'em (KartaPogody w StartWidok.swift, budowa 58 zatwierdzona przez Karola):
+ * grafika sceny w proporcjach 1,85 : 1 z „POGODA W LESZNIE”, temperaturą, opisem i pigułkami prognozy, a pod nią
+ * belka w kolorze podłoża sceny (śnieg, ziemia, piasek, woda, bruk Rynku) z medalem, datą, świętem albo
+ * przedrostkiem motywu i imieninami ([PaletaBelki]). Zasada Karola: pod tytułem od razu temperatura, data
+ * i imieniny razem na belce, w każdej scenie i motywie, w dzień i w nocy.
+ */
 @Composable
 fun KafelPogody(m: Magazyn) {
     val p = m.pogoda
-    Box(
-        Modifier.fillMaxWidth().height(110.dp).clip(RoundedCornerShape(18.dp))
+    // scena ze strony: z harmonogramu motywów (theme.weatherScene) albo ogólna z panelu; stan i noc z /api/v1/weather
+    val stan = p?.ikona?.ifEmpty { null } ?: "cloudy"
+    val noc = m.nocSceny()
+    val opcje = m.opcjeSceny(stan)
+    val scena = m.scenaPogody(stan, m.chwila())
+    val svg = m.scenaSvgTeraz(m.chwila())
+    val teraz = m.chwila()
+    // pasek daty motywu z panelu (API 1.8.3 theme.dateBar albo etap z harmonogramu); bez niego reguły jak na iPhonie
+    val pasek = m.pasekDatyTeraz(teraz)
+    val paleta = PaletaBelki.dla(scena, noc, svg != null, teraz, pasek, m.motyw.scena())
+    val data = dataKarty(m.dzisiaj, teraz.toLocalDate())
+    // config.today z innego dnia (bez sieci po północy): bez wczorajszych imion i święta; w motywie imiona z dateBar.days[]
+    val dzisiajAktualne = m.dzisiaj?.data.let { it == null || it == teraz.toLocalDate() }
+    val imieniny = m.dzisiaj?.imieniny.orEmpty().takeIf { it.isNotEmpty() && dzisiajAktualne }
+        ?.let { tl("app.nameDays", "Imieniny") + ": " + it.joinToString(", ") }
+    val swieto = m.dzisiaj?.swieto?.takeIf { dzisiajAktualne }
+    val (wyroznienie, imionaLinia) = PaletaBelki.linie(scena, svg != null, swieto, imieniny, teraz, pasek, m.dzisiaj?.data)
+    val tytul = tl("app.weatherLeszno", "Pogoda w Lesznie")
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
             .clickable(role = Role.Button) { m.pokaz(ZakladkaApp.Cel.Pogoda) }
-            .semantics(mergeDescendants = true) { contentDescription = tl("app.weatherLeszno", "Pogoda w Lesznie") + ": ${p?.let { Pogoda.stopnie(it.temperatura) } ?: ""}, ${p?.opis.orEmpty()}" },
-        contentAlignment = Alignment.CenterStart,
+            .semantics(mergeDescendants = true) {
+                contentDescription = listOfNotNull(
+                    tytul + ": " + (p?.let { Pogoda.stopnie(it.temperatura) } ?: "") + ", " + p?.opis.orEmpty(), data, wyroznienie, imionaLinia,
+                ).joinToString(". ")
+            },
     ) {
-        ScenaPogody(StanPogody.z(p?.ikona ?: "cloud"), PoraDnia.teraz(p?.dzien ?: true), m.motyw.scena(), Modifier.matchParentSize(), EfektPogody.doSceny(p, m.motyw))
-        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp).clearAndSetSemantics { }, verticalAlignment = Alignment.CenterVertically) {
-            val styl = TextStyle(color = Color.White, shadow = cienNapisu)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(tl("app.weatherLeszno", "Pogoda w Lesznie").uppercase(Jezyk.locale), style = styl.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp))
-                Text(p?.let { Pogoda.stopnie(it.temperatura) + "C" } ?: "–", style = styl.copy(fontSize = 30.sp, fontWeight = FontWeight.Black))
-                Text(p?.opis.orEmpty(), style = styl.copy(fontSize = 13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                p?.dni.orEmpty().drop(1).take(3).forEach { d ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(d.nazwa, style = styl.copy(fontSize = 12.sp, color = Color.White.copy(alpha = 0.85f)))
-                        Text(Pogoda.stopnie(d.max), style = styl.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold))
+        // grafika: co najmniej 1,85 : 1, przy dużym tekście rośnie razem z nim
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            Box(Modifier.fillMaxWidth().heightIn(min = maxWidth / 1.85f)) {
+                ScenaStrony(scena, stan, noc, opcje, p?.efekt, Modifier.matchParentSize(), svg, poraRoku = m.motyw.scena(), kafel = true)
+                // przyciemnienie pod tekstem: mocniej u góry, słabnie ku scenie, i lekko z lewej pod temperaturą
+                Box(
+                    Modifier.matchParentSize().background(
+                        Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.34f), 0.5f to Color.Black.copy(alpha = 0.2f), 0.78f to Color.Transparent),
+                    ),
+                )
+                Box(
+                    Modifier.matchParentSize().background(
+                        Brush.horizontalGradient(0f to Color.Black.copy(alpha = 0.24f), 0.38f to Color.Black.copy(alpha = 0.1f), 0.6f to Color.Transparent),
+                    ),
+                )
+                Column(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 12.dp, bottom = 12.dp).clearAndSetSemantics { }) {
+                    val styl = TextStyle(color = Color.White, shadow = cienKarty)
+                    Text(tytul.uppercase(Jezyk.locale), style = styl.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp))
+                    Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(p?.let { Pogoda.stopnie(it.temperatura) + "C" } ?: "–", style = styl.copy(fontSize = 30.sp, fontWeight = FontWeight.Black))
+                            Text(p?.opis.orEmpty(), style = styl.copy(fontSize = 13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        Row(Modifier.padding(start = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            p?.dni.orEmpty().drop(1).take(3).forEach { d ->
+                                // pigułka jak na karcie ze strony: prognoza czytelna także na wieży Ratusza i śniegu
+                                Column(
+                                    Modifier.clip(RoundedCornerShape(9.dp)).background(Color.Black.copy(alpha = 0.26f)).padding(horizontal = 6.dp, vertical = 5.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    Text(d.nazwa, style = styl.copy(fontSize = 12.sp, color = Color.White.copy(alpha = 0.9f)))
+                                    Text(Pogoda.stopnie(d.max), style = styl.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold))
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
+        // belka pod grafiką w kolorze podłoża sceny: medal, data, święto albo przedrostek motywu, imieniny
+        Box(Modifier.fillMaxWidth().background(paleta.tlo).clearAndSetSemantics { }) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                MedalBelki(paleta)
+                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Text(data, color = paleta.data, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    wyroznienie?.let { Text(it, color = paleta.data, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 2, lineHeight = 15.sp) }
+                    imionaLinia?.let { Text(it, color = paleta.drugaLinia, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, lineHeight = 15.sp) }
+                }
+            }
+            paleta.akcent?.let { Box(Modifier.fillMaxWidth().height(3.dp).background(it)) }
+        }
     }
+}
+
+/** Cień napisów na grafice karty pogody (na iPhonie czarny 60 %, promień 4 pt). */
+private val cienKarty = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.6f), androidx.compose.ui.geometry.Offset.Zero, 10f)
+
+/**
+ * „Poniedziałek, 23 listopada”: data z config.today.label (po uk/en przetłumaczona przez serwer) bez roku,
+ * z wielkiej litery; bez niej albo gdy config.today jest z innego dnia (bez sieci po północy) z kalendarza
+ * telefonu w bieżącym języku.
+ */
+fun dataKarty(d: Dzisiaj?, dzien: java.time.LocalDate = java.time.LocalDate.now(Daty.strefa)): String {
+    val aktualna = d?.data == null || d.data == dzien
+    val z = if (aktualna) d?.etykieta.orEmpty().replace(Regex("""\s*\d{4}(\s*р\.)?\s*$"""), "") else ""
+    val data = z.ifEmpty { Daty.dzienTygodniaIData(dzien) }
+    return data.replaceFirstChar { it.titlecase(Jezyk.locale) }
 }
 
 /** Lista jednego działu (zakładka Sport, subportale z panelu). */

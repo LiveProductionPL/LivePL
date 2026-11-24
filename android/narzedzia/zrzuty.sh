@@ -83,8 +83,9 @@ if [ -n "$APK_TVML" ]; then
     adb shell cmd uimode night "$noc" > /dev/null
     adb shell am force-stop "$ID_TVML"
     adb shell pm clear "$ID_TVML" > /dev/null
-    # zrzuty po polsku niezależnie od języka emulatora (TVML ma wybór PL/UK/EN, domyślnie jak w systemie)
-    adb shell am start -W -n "$ID_TVML/pl.tvml.MainActivity" --es jezyk pl "$@" > /dev/null
+    # zrzuty po polsku niezależnie od języka emulatora (TVML ma wybór PL/UK/EN, domyślnie jak w systemie),
+    # bez okna zgody na powiadomienia i bez rejestracji urządzenia na serwerze
+    adb shell am start -W -n "$ID_TVML/pl.tvml.MainActivity" --es jezyk pl --ez bezPowiadomien true "$@" > /dev/null
     sleep "$CZEKAJ"
     adb exec-out screencap -p > "$WYJSCIE/$nazwa.png"
     echo "zrzut: $nazwa"

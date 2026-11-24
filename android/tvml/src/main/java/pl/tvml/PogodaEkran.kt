@@ -64,7 +64,9 @@ fun PogodaEkran(m: Magazyn) {
                 Modifier.fillMaxWidth().height(300.dp).clip(RoundedCornerShape(18.dp))
                     .semantics(mergeDescendants = true) { contentDescription = tl("app.weatherLeszno", "Pogoda w Lesznie") + ": ${p?.let { Pogoda.stopnie(it.temperatura) + "C" } ?: ""}, ${p?.opis.orEmpty()}" },
             ) {
-                ScenaPogody(StanPogody.z(p?.ikona ?: "cloud"), PoraDnia.teraz(p?.dzien ?: true), m.motyw.scena(), Modifier.fillMaxSize(), EfektPogody.doSceny(p, m.motyw))
+                // ta sama scena ze strony co na karcie Startu (harmonogram motywów, stan i noc z /api/v1/weather)
+                val stan = p?.ikona?.ifEmpty { null } ?: "cloudy"
+                ScenaStrony(m.scenaPogody(stan), stan, m.nocSceny(), m.opcjeSceny(stan), p?.efekt, Modifier.fillMaxSize(), m.scenaSvgTeraz(), poraRoku = m.motyw.scena())
                 Column(Modifier.padding(18.dp).clearAndSetSemantics { }, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     val styl = TextStyle(color = Color.White, shadow = cienNapisu)
                     Text(p?.let { Pogoda.stopnie(it.temperatura) + "C" } ?: "–", style = styl.copy(fontSize = 52.sp, fontWeight = FontWeight.Black, lineHeight = 56.sp))

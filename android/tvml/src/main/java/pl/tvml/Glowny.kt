@@ -96,6 +96,7 @@ private fun klucz(e: Ekran): String = when (e) {
     is Ekran.Lista -> "l${e.trasa}${e.parametry}"
     is Ekran.Strona -> "s${e.slug}"
     Ekran.Ogloszenia -> "ogloszenia"
+    Ekran.Powiadomienia -> "powiadomienia"
     is Ekran.JednoWydarzenie -> "w${e.wydarzenie.id}"
 }
 
@@ -122,6 +123,7 @@ private fun EkranZakladki(m: Magazyn, e: Ekran) {
         is Ekran.Lista -> ListaArtykulow(e.tytul) { m.lista(e.trasa, e.parametry) }
         is Ekran.Strona -> PodstronaEkran(m, e.slug)
         Ekran.Ogloszenia -> OgloszeniaEkran(m)
+        Ekran.Powiadomienia -> PowiadomieniaEkran(m)
         is Ekran.JednoWydarzenie -> WydarzenieEkran(m, e.wydarzenie)
     }
 }

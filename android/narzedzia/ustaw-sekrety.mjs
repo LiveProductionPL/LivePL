@@ -3,6 +3,7 @@
 //
 //   node android/narzedzia/ustaw-sekrety.mjs                    klucze podpisu z %USERPROFILE%\LivePL-klucze\android
 //   node android/narzedzia/ustaw-sekrety.mjs --play <plik.json>  dodatkowo klucz konta usługi Google Play
+//   node android/narzedzia/ustaw-sekrety.mjs --firebase <google-services.json>  dodatkowo Firebase TVML (push)
 //
 // Klucze tworzy zrob-klucz.mjs (bez argumentu: klucz aplikacji, z „przesylanie”: klucz przesyłania do Play,
 // z „tvml”: osobny klucz aplikacji TVML).
@@ -34,6 +35,14 @@ if (i > 0) {
   const json = fs.readFileSync(process.argv[i + 1], 'utf8');
   if (!JSON.parse(json).client_email) throw new Error('To nie wygląda na klucz konta usługi Google (brak client_email).');
   sekrety.PLAY_KONTO_USLUGI = json;
+}
+const f = process.argv.indexOf('--firebase');
+if (f > 0) {
+  const json = fs.readFileSync(process.argv[f + 1], 'utf8');
+  const d = JSON.parse(json);
+  const pakiety = (d.client || []).map((k) => k.client_info?.android_client_info?.package_name);
+  if (!pakiety.includes('pl.tvml')) throw new Error('To nie jest google-services.json aplikacji pl.tvml (projekt tvml-3f2b5).');
+  sekrety.TVML_FIREBASE = json;
 }
 
 for (const [nazwa, wartosc] of Object.entries(sekrety)) {

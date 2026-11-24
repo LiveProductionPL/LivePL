@@ -210,11 +210,8 @@ fun KalendarzWydarzen(m: Magazyn, k: KalendarzSpot) {
                 }
             }
         }
-        val dzien = runCatching { LocalDate.parse(wybrany) }.getOrNull()
-        Text(
-            (dzien?.let { Daty.dzienTygodniaIData(it) } ?: wybrany) + if (wybrany == k.dzisiaj) " · " + tl("app.today", "dziś").lowercase(Jezyk.locale) else "",
-            Modifier.semantics { heading() }, color = b.tekst, fontSize = 14.sp, fontWeight = FontWeight.Bold,
-        )
+        // bez nagłówka wybranego dnia („Poniedziałek, 23 listopada · dziś”): Karol, 23.11: „tego nie powinno być”;
+        // wybrany dzień widać w siatce kalendarza (jak na iPhonie)
         val l = listaDnia
         when {
             l == null -> Box(Modifier.fillMaxWidth().height(60.dp), contentAlignment = Alignment.Center) {
@@ -222,7 +219,7 @@ fun KalendarzWydarzen(m: Magazyn, k: KalendarzSpot) {
             }
             l.isNotEmpty() -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(b.tlo.copy(alpha = 0.5f))) {
                 l.forEachIndexed { i, w ->
-                    WierszWydarzenia(w) { m.otworz(w) }
+                    WierszWydarzenia(w, naDzien = wybrany) { m.otworz(w) }
                     if (i < l.size - 1) Box(Modifier.fillMaxWidth().height(1.dp).background(b.ramka))
                 }
             }
@@ -302,12 +299,23 @@ fun ListaWydarzen(m: Magazyn, lista: List<Wydarzenie>) {
     }
 }
 
-/** Wiersz kalendarza: miniatura albo kafelek z dniem i miesiącem, tytuł, dzień, godzina i miejsce. */
+/**
+ * Wiersz kalendarza: miniatura albo kafelek z dniem i miesiącem, tytuł, dzień, godzina i miejsce.
+ * [naDzien]: dzień wybrany w kalendarzu („2026-11-23”), null = dziś. Wystawa, która trwa od 20 listopada, w dniu
+ * 23 listopada ma na kafelku 23 LIS, a pod tytułem zakres „20 lis – 5 gru” (Karol, 23.11; jak na iPhonie).
+ */
 @Composable
-fun WierszWydarzenia(w: Wydarzenie, akcja: () -> Unit) {
+fun WierszWydarzenia(w: Wydarzenie, naDzien: String? = null, akcja: () -> Unit) {
     val m = LocalMagazyn.current
     val b = LocalBarwy.current
     val ciemny = LocalCiemny.current
+    val dzienOdniesienia = naDzien?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now(Daty.strefa)
+    // kafelek: wybrany dzień, gdy wielodniowe już wtedy trwa, inaczej dzień rozpoczęcia
+    val (dzienKafelka, miesiacKafelka) = if (w.trwaW(dzienOdniesienia)) {
+        dzienOdniesienia.dayOfMonth.toString() to Daty.skrotMiesiaca(dzienOdniesienia).uppercase()
+    } else {
+        w.dzien to w.miesiac
+    }
     Row(
         Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = akcja).padding(horizontal = 14.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -322,14 +330,19 @@ fun WierszWydarzenia(w: Wydarzenie, akcja: () -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                Text(w.dzien, color = m.motyw.napisNaAkcencie.w(ciemny), fontSize = 22.sp, lineHeight = 24.sp, fontWeight = FontWeight.Black, fontFamily = Szeryf)
-                Text(w.miesiac, color = m.motyw.napisNaAkcencie.w(ciemny), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(dzienKafelka, color = m.motyw.napisNaAkcencie.w(ciemny), fontSize = 22.sp, lineHeight = 24.sp, fontWeight = FontWeight.Black, fontFamily = Szeryf)
+                Text(miesiacKafelka, color = m.motyw.napisNaAkcencie.w(ciemny), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(w.tytul, color = b.tekst, fontSize = 15.sp, lineHeight = 19.sp, fontWeight = FontWeight.SemiBold, maxLines = 3)
-            val kiedy = if (miniatura == null) w.dzienTygodnia else "${w.dzienTygodnia} ${w.dzien} ${w.miesiac.lowercase()}"
-            Text(listOf(kiedy, w.godzina, w.miejsce).filter { it.isNotBlank() }.joinToString(" · "), color = b.slaby, fontSize = 12.sp, maxLines = 2)
+            // przy wielodniowym zakres „20 lis – 5 gru”, inaczej dzień tygodnia i godzina; potem miejsce
+            val czesci = if (w.wielodniowe) {
+                listOf(w.zakres)
+            } else {
+                listOf(if (miniatura == null) w.dzienTygodnia else "${w.dzienTygodnia} ${w.dzien} ${w.miesiac.lowercase()}", w.godzina)
+            }
+            Text((czesci + w.miejsce).filter { it.isNotBlank() }.joinToString(" · "), color = b.slaby, fontSize = 12.sp, maxLines = 2)
         }
         Icon(Ikony.dalej, null, tint = b.slaby, modifier = Modifier.size(16.dp))
     }

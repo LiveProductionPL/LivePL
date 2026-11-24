@@ -57,7 +57,7 @@ private val stronyPomijane = setOf("mapa-strony")
 /**
  * Więcej: zgłoszenie zdarzenia, kafle działów, zapisane artykuły, wygląd, rozmiar tekstu, podstrony redakcji
  * w sekcjach „TVML” i „Dokumenty” (otwierają się w aplikacji) i media społecznościowe. Strony w budowie się nie pokazują.
- * Newsletter i powiadomienia wejdą z kolejnym krokiem API (zapis, Play Integrity, FCM).
+ * Powiadomienia (FCM) w osobnym ekranie Więcej → Powiadomienia; newsletter wejdzie z kolejnym krokiem API.
  */
 @Composable
 fun WiecejEkran(m: Magazyn) {
@@ -108,6 +108,13 @@ fun WiecejEkran(m: Magazyn) {
                 rozwiniete = if (rozwiniete == "rozmiar") null else "rozmiar"
             }
             if (rozwiniete == "rozmiar") Wybor(rozmiary.mapIndexed { i, n -> i.toString() to n }, m.rozmiar.toString()) { m.ustawRozmiar(it.toInt()) }
+            // push (FCM): tylko w wersji z Firebase i gdy redakcja włączyła powiadomienia w panelu (config.push.enabled)
+            if (Powiadomienia.naSerwerze && Powiadomienia.dostepne(kontekst)) {
+                val wl = Powiadomienia.wlaczone && Powiadomienia.zgoda
+                Wiersz(tl("app.notifications", "Powiadomienia"), if (wl) tl("app.on", "Włączone") else tl("app.off", "Wyłączone")) {
+                    m.otworz(Ekran.Powiadomienia)
+                }
+            }
             // API 1.8.0: język treści i napisów; tylko języki włączone w panelu (config.languages)
             if (Jezyk.dostepne.size > 1) {
                 val jezyki = listOf(Jezyk.SYSTEM to tl("app.languageSystem", "Jak w systemie")) +

@@ -109,14 +109,14 @@ data class EfektPogody(val rodzaj: String, val intensywnosc: Float, val wietrzni
  * Animacja stoi sama, gdy scena nie jest na ekranie albo aplikacja jest w tle (zegar klatek wtedy nie chodzi).
  */
 @Composable
-fun ScenaPogody(stan: StanPogody, pora: PoraDnia, scena: Motyw.Scena, modifier: Modifier = Modifier, efekt: EfektPogody? = null) {
+fun ScenaPogody(stan: StanPogody, pora: PoraDnia, scena: Motyw.Scena, modifier: Modifier = Modifier, efekt: EfektPogody? = null, kafel: Boolean = false) {
     if (!ValueAnimator.areAnimatorsEnabled()) {
-        Canvas(modifier.clearAndSetSemantics { }) { RysunekSceny(stan, pora, scena, efekt, this).rysuj(KLATKA_BEZ_RUCHU, ruch = false) }
+        Canvas(modifier.clearAndSetSemantics { }) { RysunekSceny(stan, pora, scena, efekt, this, kafel).rysuj(KLATKA_BEZ_RUCHU, ruch = false) }
         return
     }
     val czas by czasAnimacji()
     val start = remember { System.nanoTime() / 1e9 }
-    Canvas(modifier.clearAndSetSemantics { }) { RysunekSceny(stan, pora, scena, efekt, this).rysuj(czas - start, ruch = true) }
+    Canvas(modifier.clearAndSetSemantics { }) { RysunekSceny(stan, pora, scena, efekt, this, kafel).rysuj(czas - start, ruch = true) }
 }
 
 /** Chwila, z której jest nieruchoma klatka: cząstki rozrzucone po scenie, bez błyskawicy. */
@@ -124,7 +124,12 @@ private const val KLATKA_BEZ_RUCHU = 37.0
 
 private fun rgb(r: Int, g: Int, b: Int) = Color(r, g, b)
 
-private class RysunekSceny(stanStacji: StanPogody, poraStacji: PoraDnia, val scena: Motyw.Scena, val efekt: EfektPogody?, val d: DrawScope) {
+private class RysunekSceny(
+    stanStacji: StanPogody, poraStacji: PoraDnia, val scena: Motyw.Scena, val efekt: EfektPogody?, val d: DrawScope,
+    /** Karta pogody na Starcie (jak kafel na iPhonie): cienki pas ziemi, bo pod grafiką jest belka z datą, i bledsze chmury. */
+    val kafel: Boolean = false,
+) {
+    val krycieChmur = if (kafel) 0.5f else 1f
     val stan = efekt?.stan ?: stanStacji
     val pora = efekt?.pora ?: poraStacji
     val noc = pora == PoraDnia.NOC
@@ -249,7 +254,7 @@ private class RysunekSceny(stanStacji: StanPogody, poraStacji: PoraDnia, val sce
             val szybkosc = ((if (stan == StanPogody.WIATR) 26 else 8) + i * 1.5) * p
             val x = (i * 137 * p + t * szybkosc) % (w + szer * 2) - szer
             val y = (12 + (i * 53) % 70) * p
-            drawPath(chmura(Rect(Offset(x.toFloat(), y), Size(szer, szer * 0.42f))), kolorChmur.copy(alpha = 0.75f))
+            drawPath(chmura(Rect(Offset(x.toFloat(), y), Size(szer, szer * 0.42f))), kolorChmur.copy(alpha = 0.75f * krycieChmur))
         }
         // błyskawica
         if (stan == StanPogody.BURZA && (sin(t * 0.9) > 0.97 || sin(t * 1.7 + 1) > 0.985)) {
@@ -312,14 +317,15 @@ private class RysunekSceny(stanStacji: StanPogody, poraStacji: PoraDnia, val sce
     /** Panorama Leszna z Ratuszem (siatka 358 × 130 jak w projekcie), z drzewami i ozdobami pory roku lub wersji. */
     fun panorama(w: Float, h: Float) = with(d) {
         val s = w / 358
-        val gora = h - 130 * s
+        // kafel: cienki pas ziemi o stałej wysokości (4 dp), pod nim belka z datą w kolorze ziemi (jak na iPhonie)
+        val gora = if (kafel) h - 4 * p - 108 * s else h - 130 * s
         fun r(x: Float, y: Float, sz: Float, wy: Float) = Rect(Offset(x * s, gora + y * s), Size(sz * s, wy * s))
         fun Path.do_(x: Float, y: Float) = lineTo(x * s, gora + y * s)
         fun Path.od(x: Float, y: Float) = moveTo(x * s, gora + y * s)
         val miasto = if (noc) c(0x0a1226) else c(0x1c2b45)
         val ratusz = if (noc) c(0x101a33) else c(0x223456)
         val ziemia = if (zimowo) (if (noc) c(0xc9d6e4) else c(0xeef3f8)) else (if (noc) c(0x0b1020) else c(0x2a2620))
-        drawRect(ziemia, r(0f, 108f, 358f, 22f).topLeft, r(0f, 108f, 358f, 22f).size)
+        drawRect(ziemia, Offset(0f, gora + 108 * s), Size(w, h - (gora + 108 * s)))
         val domy = Path()
         for ((x, y, sz) in listOf(Triple(0f, 82f, 46f), Triple(50f, 76f, 24f), Triple(106f, 80f, 26f), Triple(296f, 84f, 26f))) {
             domy.addRect(r(x, y, sz, 108 - y))
@@ -500,7 +506,7 @@ private class EfektSceny(val s: RysunekSceny, val e: EfektPogody, val t: Double,
             val v = (4 + k % 6) * (if (e.wietrznie) 2.5 else 1.0) * p
             val x = (k * 137 * p + t * v) % (w + szer * 2) - szer
             val y = (10 + (k * 53) % 60) * p
-            drawPath(s.chmura(Rect(Offset(x.toFloat(), y.toFloat()), Size(szer.toFloat(), (szer * 0.42).toFloat()))), kolorChmur.copy(alpha = 0.8f))
+            drawPath(s.chmura(Rect(Offset(x.toFloat(), y.toFloat()), Size(szer.toFloat(), (szer * 0.42).toFloat()))), kolorChmur.copy(alpha = 0.8f * s.krycieChmur))
         }
         // krople: mżawka, deszcz, ulewa, burza, deszcz ze śniegiem
         val (krople, dlugosc, predkosc) = when (e.rodzaj) {

@@ -10,3 +10,6 @@ local.properties
 # klucz podpisu wydań zostaje w %USERPROFILE%\LivePL-klucze\android
 *.jks
 *.keystore
+
+# konfiguracja Firebase TVML (projekt tvml-3f2b5): lokalnie w tvml/, na GitHubie z sekretu TVML_FIREBASE
+google-services.json

@@ -166,8 +166,21 @@ wersja 2.0 jak na iPhonie i w API (`minAppVersion.android`). Kod: [tvml/src/main
   głosem telefonu (silnik mowy Androida), „Zapisz” i „Komentarze” po prawej, tagi na końcu. Filmy z treści
   i z kanału grają w aplikacji (youtube-nocookie na stronie osadzającej z adresem tvml.pl i z parametrem `origin`,
   bo bez strony osadzającej YouTube pokazuje „Błąd 153”), z pełnym ekranem i „Otwórz w YouTube”.
-- **Pogoda:** scena z leszczyńskim Ratuszem rysowana natywnie (stan ze stacji, pora dnia, pora roku, wersja),
-  teraz, 24 godziny i 14 dni.
+- **Pogoda:** sceny ze strony tvml.pl przeniesione 1:1 z `weather-effects.js` (19 scen: jesienny las, jezioro,
+  aleja z latarniami, zimowa osada, szczyty, świąteczna zima, Sylwester, Wielkanoc, Ratusz 11 Listopada, ognisko
+  powstańcze, Andrzejki, sześć scen Ratusza od Zimy do Nowego Roku, plaża, morze) z nakładką pogody z
+  `pogoda-efekty.js`. `Plotno.kt` naśladuje canvas przeglądarki, więc kod scen (`ScenyJesien.kt`, `ScenyZimaWiosna.kt`,
+  `ScenaRatusz11.kt`, `ScenyAndrzejkiMorze.kt`, `ScenyRatuszSezon.kt`, `NakladkaPogody.kt`) idzie linia w linię za
+  stroną. Scenę wybiera serwer (API 1.8.3: `config.theme.weatherScene`, a przy żałobie i pustej scenie
+  `theme.backgroundScene`, na końcu `weatherAnimation[state].sceneType`). Etapy motywów (`theme.stages`,
+  `upcomingThemes[].stages`: Mikołajki, Święta, Wigilia, Sylwester, Nowy Rok) przełączają scenę, SVG i pasek daty
+  od razu na swojej granicy, a o północy i na granicy config odświeża się po dane na dziś. Motywy ze Studia motywów
+  przychodzą jako SVG (`weatherSceneType` = svg, `weatherSceneSvgUrl`, wersja `static=1`). Stan i noc z
+  `/api/v1/weather`. Do sprawdzania: `--es scena <id>`, `--es pora dzien|noc`, `--es chwila <ISO>`.
+  Karta na Starcie 1:1 z iPhone'em (budowa 58): „POGODA W LESZNIE”, od razu temperatura, opis i pigułki prognozy,
+  a pod grafiką belka w kolorze podłoża sceny z medalem motywu, datą, świętem albo przedrostkiem motywu i imieninami
+  (`BelkaPogody.kt`; medal, kreska akcentu i przedrostek z `theme.dateBar`, tło z podłoża sceny). Arkusz wszystkich scen: `--ez dzienTestowy true --es scena <id> --es pora dzien|noc`.
+  Ekran Pogoda: teraz, 24 godziny i 14 dni.
 - **Ikona zimowa i świąteczna** (`config.theme.appIcon`: `winter`, `xmas`, `default`): trzy `activity-alias`
   w manifeście, zawsze dokładnie jeden włączony ([IkonaAplikacji.kt](tvml/src/main/java/pl/tvml/IkonaAplikacji.kt)).
   Zmiana idzie, gdy aplikacja schodzi z ekranu. Na Pixel Launcherze (emulator, Android 16) ikona na ekranie
@@ -190,14 +203,22 @@ wersja 2.0 jak na iPhonie i w API (`minAppVersion.android`). Kod: [tvml/src/main
   a bez sieci ze skrótów zapisanych w telefonie.
 - **Agent** `TVMLApp/2.0 (Android 16)`: tvml.pl ma dla niego wyjątek w liczniku odsłon.
 - **Osobny klucz podpisu** (`tvml.keystore`), nie ten co LivePL (sekcja „Klucze podpisu”).
-- **Bez śledzenia** i bez identyfikatora reklamowego; jedyne uprawnienie to internet. Na razie bez formularzy
-  (zgłoszenia, komentarze, wydarzenia i ogłoszenia dodaje się na tvml.pl w karcie przeglądarki) i bez powiadomień:
-  wejdą z kolejnym krokiem API (Play Integrity, FCM).
+- **Bez śledzenia** i bez identyfikatora reklamowego; uprawnienia to internet i powiadomienia. Na razie bez formularzy
+  (zgłoszenia, komentarze, wydarzenia i ogłoszenia dodaje się na tvml.pl w karcie przeglądarki).
+- **Powiadomienia push** przez Firebase Cloud Messaging (projekt `tvml-3f2b5`), bez Firebase Analytics
+  (`Powiadomienia.kt`). Po pierwszym `config.push` z `enabled: true` aplikacja raz pyta o zgodę (Android 13+),
+  a token wysyła na `POST devices` z tematami (`config.push.topics`, na razie domyślne) i językiem; bez zgody
+  albo po wyłączeniu w panelu wysyła `POST devices/delete`. Stuknięcie powiadomienia z `articleId` albo linkiem
+  `tvml.pl/artykul/<id>` otwiera artykuł. `google-services.json` jest poza gitem (repo jest publiczne): lokalnie
+  leży w `android/tvml/`, na GitHubie przychodzi z sekretu `TVML_FIREBASE`. Bez niego TVML buduje się normalnie,
+  tylko bez powiadomień. `tvml/build.gradle.kts` sam robi z pliku zasoby Firebase (zamiast wtyczki google-services),
+  więc działa też wersja testowa `pl.tvml.debug`.
 - **Linki** `https://tvml.pl/artykul/<id>` otwierają artykuł w aplikacji, gdy tvml.pl poda `assetlinks.json`
   dla pakietu (sesja TVML Connect, za zgodą Karola).
 - Do zrzutów: `adb shell am start -n pl.tvml/pl.tvml.MainActivity --es ekran pogoda|artykul|wideo|wiecej|szukaj`,
   `--es motyw zima|czapeczka|wigilia|sylwester|listopad|zaloba`, `--es wyglad dzien|noc`, `--es ikona zwykla|zima|swieta`,
-  `--es jezyk pl|uk|en|system` (skrypty zrzutów podają `pl`).
+  `--es jezyk pl|uk|en|system`, `--ez bezPowiadomien true` (skrypty zrzutów podają `pl` i bez powiadomień:
+  bez okna zgody i bez rejestracji emulatora na serwerze).
 - Ok. 2 MB (wydanie po R8).
 
 ## Budowanie bez Android Studio
@@ -274,6 +295,8 @@ Wszystkie powstały 19.11.2026.
 - **Sekrety GitHuba** wpisujesz sam: `node android/narzedzia/ustaw-sekrety.mjs`. Ustawia `ANDROID_KLUCZ`,
   `ANDROID_KLUCZ_HASLO`, `ANDROID_KLUCZ_ALIAS`, `ANDROID_PRZESYLANIE`, `ANDROID_PRZESYLANIE_HASLO`
   oraz `ANDROID_KLUCZ_TVML` i `ANDROID_KLUCZ_TVML_HASLO` (bez nich nie powstaje APK TVML).
+  Z `--firebase <google-services.json>` także `TVML_FIREBASE` (powiadomienia TVML; bez niego wydanie TVML
+  nie ma powiadomień, CI pokazuje wtedy ostrzeżenie).
   Wartości idą prosto z plików do `gh secret set` i nigdzie się nie wyświetlają.
 
 Lokalnie podpisany APK zbudujesz tak (w folderze `android`; do AAB podstaw klucz przesyłania z aliasem `przesylanie`):

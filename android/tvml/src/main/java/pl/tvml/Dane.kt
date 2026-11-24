@@ -245,7 +245,11 @@ data class KategoriaMenu(val nazwa: String, val slug: String?) {
     }
 }
 
-data class Dzisiaj(val etykieta: String, val imieniny: List<String>)
+/**
+ * Dzień z config.today: [etykieta] z rokiem (ekran Pogoda), [data] do krótkiej daty na karcie pogody na Start,
+ * imieniny zawsze po polsku i [swieto], gdy serwer je poda (holiday nie jest null).
+ */
+data class Dzisiaj(val etykieta: String, val imieniny: List<String>, val data: java.time.LocalDate? = null, val swieto: String? = null)
 
 /**
  * Podstrona redakcji z config.pages (O nas, Kontakt, Regulamin…), w kolejności z panelu. [adresApp] to wersja strony
@@ -364,10 +368,49 @@ class Wydarzenie(j: JSONObject) {
     val miesiac: String get() = poczatek?.let { Daty.skrotMiesiaca(it.toLocalDate()).uppercase() }.orEmpty()
     val dzienTygodnia: String get() = poczatek?.let { Daty.skrotDnia(it.toLocalDate()) }.orEmpty()
 
-    /** „sobota, 28 listopada 2026 · 18:00–20:00” albo „… · cały dzień”. */
+    /** Koniec do pokazania: całodniowe kończą się często o północy następnego dnia, wtedy ostatni dzień to dzień wcześniej. */
+    val koniecDnia: ZonedDateTime?
+        get() = koniec?.let { k -> if (calyDzien && k.hour == 0 && k.minute == 0 && k.second == 0) k.minusSeconds(1) else k }
+
+    /** Wydarzenie na kilka dni (np. wystawa): koniec innego dnia niż początek. */
+    val wielodniowe: Boolean
+        get() {
+            val p = poczatek ?: return false
+            val k = koniecDnia ?: return false
+            return k.toLocalDate() != p.toLocalDate()
+        }
+
+    /** Wielodniowe, które w dniu [dzien] już trwa: zaczęło się wcześniej i jeszcze się nie skończyło. */
+    fun trwaW(dzien: java.time.LocalDate): Boolean {
+        if (!wielodniowe) return false
+        val p = poczatek ?: return false
+        val k = koniecDnia ?: return false
+        val start = dzien.atStartOfDay(Daty.strefa)
+        return p.isBefore(start) && !k.isBefore(start)
+    }
+
+    /** „20 lis – 5 gru” (wielodniowe). */
+    val zakres: String
+        get() {
+            val p = poczatek ?: return ""
+            val k = koniecDnia ?: return ""
+            fun krotka(d: ZonedDateTime) = "${d.dayOfMonth} ${Daty.skrotMiesiaca(d.toLocalDate())}"
+            return krotka(p) + " – " + krotka(k)
+        }
+
+    /**
+     * „sobota, 28 listopada 2026 · 18:00–20:00” albo „… · cały dzień”; wielodniowe (jak na iPhonie):
+     * „piątek, 20 listopada 2026 – sobota, 5 grudnia 2026”, z godzinami, gdy nie są całodniowe.
+     */
     val dataPelna: String
         get() {
             val p = poczatek ?: return ""
+            if (wielodniowe) {
+                val k = koniecDnia ?: return ""
+                val od = Daty.dzisiaj(p.toLocalDate()) + if (calyDzien) "" else " " + Daty.godzina(p)
+                val doKonca = Daty.dzisiaj(k.toLocalDate()) + if (calyDzien) "" else " " + Daty.godzina(k)
+                return "$od – $doKonca"
+            }
             var t = Daty.dzisiaj(p.toLocalDate())
             if (calyDzien) {
                 val k = koniec

@@ -111,8 +111,8 @@ object Siec {
         runCatching { v1(trasa, parametry) as? JSONObject }.getOrNull()
 
     /**
-     * POST z JSON-em do API (głos w sondzie): kod HTTP i odpowiedź, bez pamięci podręcznej.
-     * Bez identyfikatorów instalacji i urządzenia: serwer ich nie potrzebuje i nie przyjmuje.
+     * POST z JSON-em do API (głos w sondzie, rejestracja powiadomień): kod HTTP i odpowiedź, bez pamięci podręcznej.
+     * Bez identyfikatorów instalacji i urządzenia; jedyny wyjątek to token FCM w devices, gdy czytelnik zgodzi się na powiadomienia.
      */
     suspend fun v1Wyslij(trasa: String, cialo: JSONObject): Pair<Int, JSONObject> = withContext(Dispatchers.IO) {
         val kolejnosc = dzialajacaBaza?.let { d -> listOf(d) + bazyApi.filter { it != d } } ?: bazyApi
