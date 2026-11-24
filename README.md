@@ -226,13 +226,25 @@ npm run wtyczki
 
 Polecenie składa i podpisuje `wydanie-wtyczki/lista.json` i `lista.json.sig` i dokłada `wgraj-livepl-wtyczki.sh`. Na serwerze: `sudo bash wgraj-livepl-wtyczki.sh <folder> <sha lista.json> <sha lista.json.sig>`.
 
-## Rozszerzenia Chrome
+## Dodatki
 
-Menu ⋮ → Ustawienia → Rozszerzenia Chrome: „Dodaj z pliku (.crx, .zip)…” albo „Dodaj z folderu…” (rozpakowane rozszerzenie z `manifest.json`). Przed dodaniem LivePL pokazuje nazwę, wersję i to, do czego rozszerzenie chce dostępu (np. „wszystkie strony”, „ciasteczka”). Rozszerzenie trafia do danych LivePL (`%APPDATA%\LivePL\rozszerzenia`), ładuje się przy każdym starcie do sesji stron i działa na stronach wczytanych po dodaniu. Na liście da się je wyłączyć, włączyć i usunąć.
+Nieobowiązkowe części LivePL w osobnych plikach `.livepl-dodatek`. Domyślny LivePL ich nie ma (ma wtyczki); dodatek instaluje tylko ten, kto chce. Plik leży na app.livepl.eu w wierszu „Dodatek” karty LivePL (kotwica `#dodatki`). Po pobraniu w LivePL przeglądarka sama pyta, czy go zainstalować; da się go też wskazać w menu ⋮ → Ustawienia → Dodatki → „Zainstaluj z pliku…”. Tam też dodatek się usuwa.
+
+Plik to JSON `{ format: 1, dodatek, podpis }`: podpis Ed25519 kluczem aktualizacji obejmuje przedrostek `LivePL-dodatek-1\n` i tekst dodatku, więc ani podrobiony plik, ani inny podpisany plik (manifest, lista wtyczek) nie przejdzie. Dodatek to jeden moduł Node z `start(sesja)` i `zatrzymaj()`, ładowany w `src/dodatki.js` z tego samego, sprawdzonego bufora. Zainstalowane leżą w `%APPDATA%\LivePL\dodatki`.
+
+```
+npm run dodatek -- rozszerzenia-chrome
+```
+
+Polecenie bierze `dodatki/<id>/dodatek.json` i moduł, podpisuje je i zapisuje `wydanie-dodatki/<plik>-<wersja>.livepl-dodatek`. Na stronę trafia przez `node przygotuj.mjs … --dodatek <plik>` (app-livepl), które też sprawdza podpis.
+
+## Rozszerzenia Chrome (dodatek)
+
+Osobny dodatek `dodatki/rozszerzenia-chrome` (od LivePL 0.1.20; w 0.1.19 był wbudowany). Po jego zainstalowaniu: menu ⋮ → Ustawienia → Rozszerzenia Chrome: „Dodaj z pliku (.crx, .zip)…” albo „Dodaj z folderu…” (rozpakowane rozszerzenie z `manifest.json`). Przed dodaniem LivePL pokazuje nazwę, wersję i to, do czego rozszerzenie chce dostępu (np. „wszystkie strony”, „ciasteczka”). Rozszerzenie trafia do danych LivePL (`%APPDATA%\LivePL\rozszerzenia`), ładuje się przy każdym starcie do sesji stron i działa na stronach wczytanych po dodaniu. Na liście da się je wyłączyć, włączyć i usunąć.
 
 Archiwum LivePL rozpakowuje sam (bez poleceń systemu), bez ścieżek wychodzących poza folder i do 300 MB. Podpisu pliku CRX nie sprawdza: rozszerzenie z pliku dodajesz świadomie, po okienku z uprawnieniami.
 
-Silnik (Electron) obsługuje część możliwości Chrome: skrypty na stronach, tło rozszerzenia i zapis danych tak. Przycisków rozszerzeń na pasku, ich okienek i instalacji ze sklepu Chrome jeszcze nie ma (kolejna wersja).
+Silnik (Electron) obsługuje część możliwości Chrome: skrypty na stronach, tło rozszerzenia i zapis danych tak. Przycisków rozszerzeń na pasku, ich okienek i instalacji ze sklepu Chrome jeszcze nie ma (kolejna wersja dodatku). Usunięcie dodatku wyładowuje rozszerzenia; ich pliki zostają i wracają po ponownej instalacji.
 
 ## Instalatory
 

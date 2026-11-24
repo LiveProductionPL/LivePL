@@ -1,0 +1,8 @@
+{
+  "nazwa": "Rozszerzenia Chrome",
+  "wersja": "1.0.0",
+  "opis": "Dodawanie rozszerzeń Chrome z pliku .crx / .zip albo z folderu, z listą w menu ⋮ → Ustawienia → Rozszerzenia Chrome.",
+  "minLivePL": "0.1.20",
+  "plik": "LivePL-Rozszerzenia-Chrome",
+  "glowny": "rozszerzenia.js"
+}

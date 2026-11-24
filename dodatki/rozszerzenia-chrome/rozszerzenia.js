@@ -1,7 +1,11 @@
 'use strict';
 
-// Rozszerzenia Chrome w LivePL (część 1, Karol 24.11): dodawanie z pliku .crx / .zip albo z folderu,
-// lista z włączaniem, wyłączaniem i usuwaniem (menu ⋮ → Ustawienia → Rozszerzenia).
+// Dodatek LivePL „Rozszerzenia Chrome” (osobny, nieobowiązkowy plik; budowa: npm run dodatek -- rozszerzenia-chrome).
+// Nie jest częścią domyślnej przeglądarki: ładuje go src/dodatki.js po sprawdzeniu podpisu, jeśli ktoś go zainstalował
+// (Karol 24.11: „osobny plik, jak ktoś chce zainstalować, to może, ale nie musi”). Dodatek nie może mieć require do
+// własnych plików, tylko do modułów wbudowanych (electron, fs, path, crypto, zlib).
+// Dodawanie rozszerzeń z pliku .crx / .zip albo z folderu,
+// lista z włączaniem, wyłączaniem i usuwaniem (menu ⋮ → Ustawienia → Rozszerzenia Chrome).
 // Rozszerzenie trafia do danych LivePL (rozszerzenia/<folder>) i ładuje się do sesji stron, więc jego skrypty
 // działają na stronach w kartach. Silnik (Electron) obsługuje tylko część możliwości Chrome: skrypty na stronach,
 // tło rozszerzenia i zapis danych tak; przyciski na pasku i ich okienka dojdą w części 2.
@@ -228,4 +232,13 @@ async function start(s) {
   }
 }
 
-module.exports = { start, przygotuj, odrzuc, zatwierdz, przelacz, usun, stan, rozpakujZip, zipZCrx, opisz };
+// Usunięcie dodatku: wyładowuje rozszerzenia z sesji. Ich pliki i lista zostają, więc wrócą po ponownej instalacji.
+function zatrzymaj() {
+  for (const r of lista) {
+    try { if (r.id) api().removeExtension(r.id); } catch { /* już wyładowane */ }
+    r.id = null;
+  }
+  lista = [];
+}
+
+module.exports = { start, zatrzymaj, przygotuj, odrzuc, zatwierdz, przelacz, usun, stan, rozpakujZip, zipZCrx, opisz };

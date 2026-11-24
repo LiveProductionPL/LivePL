@@ -23,3 +23,6 @@ dist/
 
 # lista wtyczek do wgrania (npm run wtyczki)
 wydanie-wtyczki/
+
+# dodatki do wgrania (npm run dodatek -- <id>)
+wydanie-dodatki/

@@ -18,7 +18,8 @@
     "klucze": "node narzedzia/klucze-wydan.mjs",
     "wydanie": "node narzedzia/wydanie.mjs",
     "instalator": "node narzedzia/zrob-instalator.mjs",
-    "wtyczki": "node narzedzia/wtyczki.mjs"
+    "wtyczki": "node narzedzia/wtyczki.mjs",
+    "dodatek": "node narzedzia/dodatek.mjs"
   },
   "devDependencies": {
     "electron": "^45.3.2",

@@ -173,7 +173,9 @@ function ekranUstawienia() {
   f.appendChild(poz('ai', 'Dostęp dla AI (Claude i inne)', { dalej: true, klik: () => { ekran = 'ai'; rysuj(); } }));
   f.appendChild(poz('tlumacz', 'Tłumacz stron', { dalej: true, klik: () => { ekran = 'tlumacz-ustawienia'; rysuj(); } }));
   f.appendChild(poz('kod', 'Wtyczki', { dalej: true, klik: () => { ekran = 'wtyczki'; rysuj(); P.akcja('wtyczki-sprawdz'); } }));
-  f.appendChild(poz('plus', 'Rozszerzenia Chrome', { dalej: true, klik: () => { ekran = 'rozszerzenia'; rysuj(); } }));
+  f.appendChild(poz('pobrane', 'Dodatki', { dalej: true, klik: () => { ekran = 'dodatki'; rysuj(); } }));
+  // tylko z zainstalowanym dodatkiem Rozszerzenia Chrome (domyślny LivePL go nie ma)
+  if (D.rozszerzenia) f.appendChild(poz('plus', 'Rozszerzenia Chrome', { dalej: true, klik: () => { ekran = 'rozszerzenia'; rysuj(); } }));
   f.appendChild(poz('przywroc', 'Uruchom LivePL ponownie', { akcja: 'restart' }));
   f.appendChild(kreska());
   f.appendChild(poz('kosz', 'Wyczyść pamięć podręczną', { akcja: 'pamiec' }));
@@ -208,11 +210,38 @@ function ekranWtyczki() {
   return f;
 }
 
-// ustawienia → Rozszerzenia Chrome: z pliku .crx / .zip albo z folderu (src/rozszerzenia.js)
+// ustawienia → Dodatki: nieobowiązkowe pliki .livepl-dodatek od Live Production (src/dodatki.js)
+function ekranDodatki() {
+  const f = document.createDocumentFragment();
+  f.appendChild(naglowek('Dodatki', 'ustawienia'));
+  const lista = D.dodatki || [];
+  f.appendChild(el('div', 'opis', 'Nieobowiązkowe części LivePL w osobnych plikach od Live Production. Instaluje je tylko ten, kto chce, i można je w każdej chwili usunąć.'));
+  if (!lista.length) f.appendChild(el('div', 'opis', 'Nie masz zainstalowanych dodatków.'));
+  for (const d of lista) {
+    f.appendChild(el('div', 'opis', d.nazwa + (d.wersja ? ` (${d.wersja})` : '')));
+    if (d.opis) f.appendChild(el('div', 'opis slaby-maly', d.opis));
+    if (d.blad) f.appendChild(el('div', 'opis zly', 'Nie działa: ' + d.blad));
+    if (d.poRestarcie) f.appendChild(el('div', 'opis slaby-maly', `Wersja ${d.nowaWersja || 'nowa'} zadziała po ponownym uruchomieniu LivePL.`));
+    if (d.id === 'rozszerzenia-chrome' && D.rozszerzenia) {
+      f.appendChild(poz('plus', 'Rozszerzenia Chrome', { dalej: true, klik: () => { ekran = 'rozszerzenia'; rysuj(); } }));
+    }
+    f.appendChild(poz('kosz', 'Usuń dodatek „' + d.nazwa + '”', { akcja: 'dodatek-usun', arg: d.id, czerwona: true }));
+  }
+  f.appendChild(kreska());
+  if (!lista.some(d => d.id === 'rozszerzenia-chrome')) {
+    f.appendChild(el('div', 'opis slaby-maly', 'Do pobrania: Rozszerzenia Chrome, czyli dodawanie rozszerzeń Chrome z pliku albo z folderu. Po pobraniu LivePL sam zapyta, czy zainstalować.'));
+  }
+  f.appendChild(poz('pobrane', 'Dodatki do pobrania (app.livepl.eu)', { akcja: 'dodatki-strona' }));
+  f.appendChild(poz('plus', 'Zainstaluj z pliku…', { akcja: 'dodatek-z-pliku' }));
+  return f;
+}
+
+// ustawienia → Rozszerzenia Chrome: z pliku .crx / .zip albo z folderu (dodatek dodatki/rozszerzenia-chrome)
 function ekranRozszerzenia() {
+  if (!D.rozszerzenia) { ekran = 'dodatki'; return ekranDodatki(); } // dodatek usunięty albo jeszcze niezainstalowany
   const f = document.createDocumentFragment();
   f.appendChild(naglowek('Rozszerzenia Chrome', 'ustawienia'));
-  const R = D.rozszerzenia || [];
+  const R = D.rozszerzenia;
   f.appendChild(el('div', 'opis', 'Rozszerzenia działają na stronach wczytanych po dodaniu. Silnik LivePL obsługuje część możliwości Chrome: skrypty na stronach i zapis danych tak, przyciski rozszerzeń na pasku będą w kolejnej wersji.'));
   if (!R.length) f.appendChild(el('div', 'opis', 'Nie masz jeszcze żadnych rozszerzeń.'));
   for (const r of R) {
@@ -1299,6 +1328,7 @@ function rysuj() {
     ustawienia: ekranUstawienia,
     wtyczki: ekranWtyczki,
     rozszerzenia: ekranRozszerzenia,
+    dodatki: ekranDodatki,
     wyloguj: ekranWyloguj,
     'o-programie': ekranOProgramie,
     pobrane: ekranPobrane,
