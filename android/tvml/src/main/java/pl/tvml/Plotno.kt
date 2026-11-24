@@ -297,6 +297,10 @@ class Plotno(var canvas: Canvas) {
         internal fun shader(): Shader? {
             if (kolory.isEmpty()) return null
             shader?.let { return it }
+            // sceny tworzą te same gradienty w każdej klatce: wspólny obiekt zamiast nowego co 16 ms (mniej pracy
+            // dla grafiki; w emulatorze ciągłe nowe gradienty mgły kończyły się awarią po kilkudziesięciu sekundach)
+            val klucz = Klucz(liniowy, p.copyOf(), pozycje.toFloatArray(), kolory.toIntArray())
+            synchronized(PAMIEC) { PAMIEC[klucz] }?.let { shader = it; return it }
             // gradient z jednym kolorem albo z tą samą pozycją wszędzie: Android wymaga dwóch punktów
             val k = if (kolory.size == 1) intArrayOf(kolory[0], kolory[0]) else kolory.toIntArray()
             val poz = if (kolory.size == 1) floatArrayOf(0f, 1f) else pozycje.toFloatArray()
@@ -314,8 +318,33 @@ class Plotno(var canvas: Canvas) {
                 RadialGradient(p[3].toFloat(), p[4].toFloat(), r1.toFloat(), k, pp, Shader.TileMode.CLAMP)
             }
             shader = sh
+            synchronized(PAMIEC) { PAMIEC[klucz] = sh }
             return sh
         }
+
+        private class Klucz(val liniowy: Boolean, val p: DoubleArray, val poz: FloatArray, val kol: IntArray) {
+            override fun equals(other: Any?) = other is Klucz && other.liniowy == liniowy &&
+                other.p.contentEquals(p) && other.poz.contentEquals(poz) && other.kol.contentEquals(kol)
+            override fun hashCode() = ((p.contentHashCode() * 31 + poz.contentHashCode()) * 31 + kol.contentHashCode()) * 2 + (if (liniowy) 1 else 0)
+        }
+
+        private companion object {
+            /** Ostatnio użyte gradienty (LRU), wspólne dla wszystkich płócien. */
+            val PAMIEC = object : LinkedHashMap<Klucz, Shader>(64, 0.75f, true) {
+                override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Klucz, Shader>?) = size > 160
+            }
+        }
+    }
+
+    /**
+     * Miękka plama mgły (pogoda-efekty.js: gradient promienisty a → a/2 przy 0,6 → 0) wpisana w owal x, y, w, h,
+     * w kolorze [kolor] (z kryciem), z bieżącym przekształceniem i globalAlpha płótna.
+     */
+    fun plamaMgly(x: Double, y: Double, w: Double, h: Double, kolor: Int) {
+        val p = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+        p.color = kolor
+        p.alpha = (p.alpha * s.alpha).roundToInt().coerceIn(0, 255)
+        canvas.drawBitmap(MASKA_MGLY, null, RectF(x.toFloat(), y.toFloat(), (x + w).toFloat(), (y + h).toFloat()), p)
     }
 
     fun createLinearGradient(x0: Double, y0: Double, x1: Double, y1: Double) = Gradient(true, doubleArrayOf(x0, y0, x1, y1))
@@ -416,6 +445,15 @@ class Plotno(var canvas: Canvas) {
     }
 
     companion object {
+        /** Maska plamy mgły 256 × 256 (sam kanał krycia): 1 w środku, 0,5 przy 0,6 promienia, 0 na brzegu. */
+        private val MASKA_MGLY: android.graphics.Bitmap by lazy {
+            val n = 256
+            val b = android.graphics.Bitmap.createBitmap(n, n, android.graphics.Bitmap.Config.ALPHA_8)
+            val p = Paint(Paint.ANTI_ALIAS_FLAG)
+            p.shader = RadialGradient(n / 2f, n / 2f, n / 2f, intArrayOf(0xFFFFFFFF.toInt(), 0x80FFFFFF.toInt(), 0x00FFFFFF), floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP)
+            Canvas(b).drawCircle(n / 2f, n / 2f, n / 2f, p)
+            b
+        }
         private val pamiec = HashMap<String, Int>()
         private val ROZMIAR = Regex("""([\d.]+)px""")
         private val SZERYF = Regex("""(?i)(georgia|playfair|times|serif)""")

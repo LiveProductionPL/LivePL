@@ -53,7 +53,7 @@ data class Motyw(
     val ikonaZPanelu: String? = null,
     val szaroscZPanelu: Boolean = false,
 ) {
-    enum class Rodzaj { ZWYKLY, ZALOBA, LISTOPAD, ZIMA, MIKOLAJKI, CZAPECZKA, WIGILIA, SWIETA, SYLWESTER, NOWY_ROK }
+    enum class Rodzaj { ZWYKLY, ZALOBA, LISTOPAD, ZIMA, MIKOLAJKI, CZAPECZKA, WIGILIA, SWIETA, SYLWESTER, NOWY_ROK, ANDRZEJKI }
     enum class Scena { WIOSNA, LATO, JESIEN, ZIMA, SWIETA, SYLWESTER, LISTOPAD }
     data class Pasek(val etykieta: String, val tekst: String, val stopka: String? = null, val odliczanieDo: ZonedDateTime? = null)
 
@@ -98,6 +98,7 @@ data class Motyw(
             Rodzaj.ZIMA -> listOf(0x040d1aL, 0x0a1e38L, 0x0f3156L)
             Rodzaj.WIGILIA, Rodzaj.SWIETA -> listOf(0x14070cL, 0x24101aL)
             Rodzaj.SYLWESTER, Rodzaj.NOWY_ROK -> listOf(0x0d0b24L, 0x1b1640L)
+            Rodzaj.ANDRZEJKI -> listOf(0x07040fL, 0x160b2cL, 0x2e1046L)
             Rodzaj.ZALOBA -> listOf(0x16181cL, 0x23262cL)
             else -> listOf(0x0a1f44L, 0x0d2856L)
         }.map { Para.stala(kolor(it)) }
@@ -112,6 +113,7 @@ data class Motyw(
             Rodzaj.MIKOLAJKI, Rodzaj.CZAPECZKA -> 0xc8102eL
             Rodzaj.WIGILIA, Rodzaj.SWIETA -> 0xe0b45aL
             Rodzaj.SYLWESTER, Rodzaj.NOWY_ROK -> 0xe8c26aL
+            Rodzaj.ANDRZEJKI -> 0xf5b942L
             Rodzaj.ZALOBA -> 0x4b5563L
             Rodzaj.ZWYKLY -> null
         }?.let { Para.stala(kolor(it)) }
@@ -121,7 +123,7 @@ data class Motyw(
             Rodzaj.ZIMA -> 0x0369a1L
             Rodzaj.MIKOLAJKI, Rodzaj.CZAPECZKA -> 0xb91c1cL
             Rodzaj.WIGILIA, Rodzaj.SWIETA -> 0x9b1c1cL
-            Rodzaj.SYLWESTER, Rodzaj.NOWY_ROK -> 0x5b21b6L
+            Rodzaj.SYLWESTER, Rodzaj.NOWY_ROK, Rodzaj.ANDRZEJKI -> 0x5b21b6L
             Rodzaj.ZALOBA -> 0x374151L
             else -> 0xc8102eL
         }))
@@ -131,6 +133,7 @@ data class Motyw(
         get() = paleta?.barwa("tabActive") ?: paleta?.barwa("accent") ?: when (rodzaj) {
             Rodzaj.ZWYKLY -> Para.z(0x0a1f44, 0xf0b03a)
             Rodzaj.LISTOPAD -> Para.stala(kolor(0xa50e26))
+            Rodzaj.ANDRZEJKI -> Para.z(0x7c3aed, 0xa78bfa)
             Rodzaj.ZALOBA -> Para.z(0x111827, 0xd1d5db)
             else -> naZywo
         }
@@ -216,6 +219,8 @@ data class Motyw(
                     else -> Rodzaj.CZAPECZKA
                 }
                 "nye" -> if (wariant == "new_year" || wariant == "nowy_rok" || teraz.monthValue == 1) Rodzaj.NOWY_ROK else Rodzaj.SYLWESTER
+                // Andrzejki 28–30.11 (jak na stronie i iOS): kolory z panelu, świeca przy logo, bez śniegu
+                "andrzejki" -> Rodzaj.ANDRZEJKI
                 else -> Rodzaj.ZWYKLY
             }
             val p = t.o("topbar")
@@ -259,6 +264,7 @@ data class Motyw(
                 "swieta" -> Rodzaj.SWIETA
                 "sylwester" -> Rodzaj.SYLWESTER
                 "nowyRok" -> Rodzaj.NOWY_ROK
+                "andrzejki" -> Rodzaj.ANDRZEJKI
                 else -> return null
             }
             return when (r) {

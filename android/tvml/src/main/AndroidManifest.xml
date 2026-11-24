@@ -55,14 +55,15 @@
             android:exported="true"
             android:launchMode="singleTask"
             android:theme="@style/Theme.TVML.Start">
-            <!-- linki do artykułów otwierają się w aplikacji, gdy tvml.pl poda assetlinks.json dla tego pakietu -->
+            <!-- linki do artykułów otwierają się w aplikacji, gdy tvml.pl poda assetlinks.json dla tego pakietu.
+                 Bez www.tvml.pl: Cloudflare przekierowuje www (301) także dla /.well-known/assetlinks.json, a weryfikacja
+                 App Links nie przyjmuje przekierowań, więc Play zgłaszał błąd domeny (Karol, 24.11: „bez takich błędów”) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" />
                 <data android:host="tvml.pl" />
-                <data android:host="www.tvml.pl" />
                 <data android:pathPrefix="/artykul/" />
             </intent-filter>
         </activity>

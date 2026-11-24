@@ -101,6 +101,8 @@ data class OpcjeSceny(
     val waveIntensity: Double? = null,
     val beachBiolum: Boolean? = null,
     val sceneType: String? = null,
+    /** Klasa tła karty (color-sky-day-N / -night-N) z panelu; pod panoramą widać ją między niebem a dachami. */
+    val skyClass: String? = null,
 ) {
     companion object {
         fun z(j: JSONObject?): OpcjeSceny {
@@ -109,7 +111,7 @@ data class OpcjeSceny(
             fun liczba(k: String) = if (j.ma(k)) j.optDouble(k).takeIf { it.isFinite() } else null
             return OpcjeSceny(
                 tekst("skyColor"), tekst("waterColor"), tekst("beachColor"), liczba("waveSpeed"), liczba("waveIntensity"),
-                if (j.ma("beachBiolum")) j.b("beachBiolum") else null, tekst("sceneType"),
+                if (j.ma("beachBiolum")) j.b("beachBiolum") else null, tekst("sceneType"), tekst("skyClass"),
             )
         }
     }
@@ -195,8 +197,9 @@ class RamaSceny(
  */
 object ScenyStrony {
     /**
-     * „leszno-panorama” (Karol, 23.11: „Panorama Leszna niech jest wszędzie”): pierwotna panorama aplikacji z Ratuszem
-     * i kamienicami, drzewami i ozdobami według pory roku (ScenaPogody w Scena.kt), domyślna scena serwera od API PR #123.
+     * „leszno-panorama” (Karol, 23.11: „Panorama Leszna niech jest wszędzie”), domyślna scena serwera od API PR #123:
+     * Ratusz i kamienice jak na stronie ([lesznoPanorama]), a pogoda na niej z nakładki pogoda-efekty.js
+     * (Karol, 24.11: animacje jak na szacie graficznej strony — mgła dryfuje, zasłona i mleczny dół).
      */
     const val PANORAMA = "leszno-panorama"
 
@@ -210,7 +213,8 @@ object ScenyStrony {
 
     /** pogoda-efekty.js scenaSpecjalna: scena motywu ma własne efekty, więc bez nakładki pogody, gwiazdy zawsze w nocy. */
     fun specjalna(id: String): Boolean =
-        id.startsWith("leszno-") || id.startsWith("svg:") || id == "new-year" || id == "powstanczy-biwak" || id == "winter-christmas"
+        // panorama to zwykła scena na co dzień (pogoda rysowana normalnie), reszta leszno-* to motywy okolicznościowe
+        id != PANORAMA && (id.startsWith("leszno-") || id.startsWith("svg:") || id == "new-year" || id == "powstanczy-biwak" || id == "winter-christmas")
 
     /**
      * Scena dla aplikacji: theme.weatherScene, a gdy pusta (żałoba, „Brak” w panelu, starszy serwer),
@@ -227,9 +231,12 @@ object ScenyStrony {
             r.plazaIMorze()
             return
         }
+        // panorama nie wypełnia płótna w całości: pod nią tło karty jak w CSS strony
+        if (r.sceneType == PANORAMA) r.tloKarty()
         niebo(r)
         gwiazdy(r)
         when (r.sceneType) {
+            PANORAMA -> r.lesznoPanorama()
             "autumn-forest" -> r.autumnForest()
             "autumn-lake" -> r.autumnLake()
             "park-lanterns" -> r.parkLanterns()
@@ -284,6 +291,8 @@ object ScenyStrony {
             isNight -> s(0.0 to (sky ?: "#050b1a"), 0.55 to "#0f1c38", 1.0 to "#1d2d4e")
             isStormy -> s(0.0 to "#1c2030", 0.6 to "#2e384d", 1.0 to "#4a5568")
             isRainy -> s(0.0 to "#37475a", 0.6 to "#566c7d", 1.0 to "#829eab")
+            // Panorama Leszna: czysty błękit nad Rynkiem
+            sceneType == PANORAMA -> s(0.0 to (sky ?: "#1a5296"), 0.45 to "#2f78c4", 0.8 to "#68ace6", 1.0 to "#cfe6f7")
             sceneType == "autumn-forest" || sceneType == "autumn-lake" || sceneType == "park-lanterns" ->
                 s(0.0 to (sky ?: "#1e3c58"), 0.5 to "#4b6cb7", 0.85 to "#c77952", 1.0 to "#e8a86b")
             sceneType == "easter-spring" -> s(0.0 to (sky ?: "#1e69b8"), 0.5 to "#4fa3e3", 0.85 to "#9ad4f5", 1.0 to "#d8f3dc")
@@ -317,11 +326,8 @@ object ScenyStrony {
 @Composable
 fun ScenaStrony(
     id: String, stan: String, noc: Boolean, opcje: OpcjeSceny, efekt: EfektPogody?, modifier: Modifier = Modifier, svg: ScenaSvg? = null,
-    /** Pora roku panoramy Leszna (Motyw.scena()) i tryb kafelka na Starcie, dla sceny „leszno-panorama”. */
-    poraRoku: Motyw.Scena = Motyw.Scena.JESIEN, kafel: Boolean = false,
 ) {
     if (svg != null) return ScenaZSvg(svg, noc, modifier)
-    if (id == ScenyStrony.PANORAMA) return ScenaPogody(StanPogody.z(stan), PoraDnia.teraz(!noc), poraRoku, modifier, efekt, kafel)
     val ruch = ValueAnimator.areAnimatorsEnabled()
     val plotno = remember { Plotno(android.graphics.Canvas()) }
     val pamiec = remember(id) { HashMap<String, Any?>() }

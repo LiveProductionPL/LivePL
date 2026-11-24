@@ -310,7 +310,7 @@ fun KafelPogody(m: Magazyn) {
         // grafika: co najmniej 1,85 : 1, przy dużym tekście rośnie razem z nim
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             Box(Modifier.fillMaxWidth().heightIn(min = maxWidth / 1.85f)) {
-                ScenaStrony(scena, stan, noc, opcje, p?.efekt, Modifier.matchParentSize(), svg, poraRoku = m.motyw.scena(), kafel = true)
+                ScenaStrony(scena, stan, noc, opcje, p?.efekt, Modifier.matchParentSize(), svg)
                 // przyciemnienie pod tekstem: mocniej u góry, słabnie ku scenie, i lekko z lewej pod temperaturą
                 Box(
                     Modifier.matchParentSize().background(

@@ -194,14 +194,13 @@ class NakladkaPogody {
             f.x += f.vx * dt
             if (f.x > w) f.x -= w
             if (f.x < 0.0) f.x += w
+            // na stronie: koło z gradientem promienistym (a, 0,6 → a/2, 1 → 0) ściśnięte w pionie do wysokości pasma.
+            // Tu ta sama miękka plama jako gotowa maska rozciągnięta do owalu w kolorze mgły: identyczny obraz,
+            // a dla grafiki tylko rysowanie obrazka (ściśnięte gradienty promieniste wywracały grafikę emulatora)
+            val r = w * 0.6
             for (k in -1..1) {
                 val cx = f.x + k * w
-                val g = ctx.createRadialGradient(cx, f.y, 0.0, cx, f.y, w * 0.6)
-                g.addColorStop(0.0, pal.fog.a(f.a)); g.addColorStop(0.6, pal.fog.a(f.a * 0.5)); g.addColorStop(1.0, pal.fog.a(0.0))
-                ctx.fillStyle = g
-                ctx.save(); ctx.translate(cx, f.y); ctx.scale(1.0, f.hh / (w * 0.6)); ctx.translate(-cx, -f.y)
-                ctx.beginPath(); ctx.arc(cx, f.y, w * 0.6, 0.0, PI * 2); ctx.fill()
-                ctx.restore()
+                ctx.plamaMgly(cx - r, f.y - f.hh, 2 * r, 2 * f.hh, pal.fog.a(f.a))
             }
         }
         if (s.plan.fog != 0) {
@@ -346,9 +345,12 @@ class NakladkaPogody {
             val bx = c.x + b[0] * c.s
             val by = c.y + b[1] * c.s
             val br = c.s * b[2]
-            val g = ctx.createRadialGradient(bx, by, br * 0.1, bx, by, br)
+            // jak przy mgle: gradient wokół początku układu, płótno przesunięte do kłębu (stały gradient między klatkami)
+            val g = ctx.createRadialGradient(0.0, 0.0, br * 0.1, 0.0, 0.0, br)
             g.addColorStop(0.0, col.a(c.a)); g.addColorStop(0.55, col.a(c.a * 0.5)); g.addColorStop(1.0, col.a(0.0))
-            ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx, by, br, 0.0, PI * 2); ctx.fill()
+            ctx.save(); ctx.translate(bx, by)
+            ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0.0, 0.0, br, 0.0, PI * 2); ctx.fill()
+            ctx.restore()
         }
     }
 

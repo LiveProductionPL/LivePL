@@ -82,9 +82,10 @@ data class PaletaBelki(
             poraRoku: Motyw.Scena = Motyw.Scena.JESIEN,
         ): PaletaBelki {
             val wbud = wbudowana(id, noc, svg, teraz)
-            // panorama Leszna: belka w kolorze jej ziemi według pory roku (jak kolorZiemi w PogodaWidok.swift)
+            // panorama Leszna: belka w kolorze jej ziemi; zima jak w rysunku strony (grudzień–luty), więc pas ziemi
+            // i belka mają zawsze ten sam kolor
             val baza = if (id == ScenyStrony.PANORAMA && !svg) {
-                val zima = poraRoku == Motyw.Scena.ZIMA || poraRoku == Motyw.Scena.SWIETA
+                val zima = teraz.monthValue.let { it == 12 || it <= 2 }
                 wbud.copy(
                     tlo = kolor(if (zima) (if (noc) 0xc9d6e4 else 0xeef3f8) else (if (noc) 0x0b1020 else 0x2a2620)),
                     data = if (zima) kolor(0x0f172a) else Color.White,
@@ -146,7 +147,9 @@ data class PaletaBelki(
                     dzien != null && dataImienin != null && dataImienin != teraz.toLocalDate() -> imionaZLinii(dzien.linia) ?: imieniny
                     else -> imieniny
                 }
-                return (swieto ?: przedrostek) to imiona
+                // jak strona (weather-effects.js, pasek motywu) i iOS 9e341c2: w dniach motywu przedrostek dnia, a święto
+                // z kalendarza tylko gdy przedrostek pusty (1.12 „Zima w Lesznie”, nie „Światowy Dzień AIDS”)
+                return (przedrostek?.takeIf { it.isNotBlank() } ?: swieto) to imiona
             }
             val m = teraz.monthValue
             val d = teraz.dayOfMonth

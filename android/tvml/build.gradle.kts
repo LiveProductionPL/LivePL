@@ -108,6 +108,8 @@ dependencies {
     implementation("io.coil-kt.coil3:coil-network-okhttp:3.3.0")
     // sceny pogody SVG motywów ze Studia motywów (config.theme.weatherSceneSvgUrl)
     implementation("io.coil-kt.coil3:coil-svg:3.3.0")
+    // sanie przy logo w Wigilię: rysunek SVG ze strony (panel-special-themes.js), ta sama biblioteka co w coil-svg
+    implementation("com.caverock:androidsvg-aar:1.4")
     // powiadomienia push: samo Firebase Cloud Messaging, bez firebase-analytics
     implementation(platform("com.google.firebase:firebase-bom:35.2.0"))
     implementation("com.google.firebase:firebase-messaging")
