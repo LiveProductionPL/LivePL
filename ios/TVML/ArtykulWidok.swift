@@ -85,8 +85,11 @@ struct ArtykulWidok: View {
                                   systemImage: lektor.mowi ? "stop.fill" : "speaker.wave.2")
                                 .czcionka(13, .semibold)
                                 .padding(.horizontal, 14).frame(minHeight: 40)
-                                .foregroundStyle(.white)
-                                .background(Barwy.granat, in: Capsule())
+                                // jak „Zapisz” i „Komentarze” obok, w kolorach dnia i nocy (Karol 24.11: „Przycisk jest
+                                // niepasujący”, „I musi być na tryb dzień noc”); w czasie czytania w kolorze odnośnika
+                                .foregroundStyle(lektor.mowi ? Barwy.link : Barwy.tekst)
+                                .background(lektor.mowi ? Barwy.link.opacity(0.1) : Color.clear, in: Capsule())
+                                .overlay(Capsule().stroke(lektor.mowi ? Barwy.link : Barwy.ramka))
                         }
                         Spacer()
                         Button { m.przelaczZapis(a) } label: {
