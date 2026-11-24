@@ -360,7 +360,7 @@ fun KafelPogody(m: Magazyn) {
         // proporcje karty strony w telefonie: ok. 1,05 : 1 razem z plakietką; przy dużym tekście rośnie razem z nim
         val wysokosc = maxWidth / 1.05f
         Box(Modifier.fillMaxWidth().heightIn(min = wysokosc)) {
-            ScenaStrony(scena, stan, noc, opcje, p?.efekt, Modifier.matchParentSize(), svg)
+            ScenaStrony(scena, stan, noc, opcje, p?.efekt, Modifier.matchParentSize(), svg, kartaStartu = true)
             // lekkie przyciemnienie pod nagłówkiem i temperaturą (scena zostaje widoczna jak na stronie)
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.22f), 0.32f to Color.Transparent)))
             Column(Modifier.fillMaxWidth().heightIn(min = wysokosc).padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 10.dp).clearAndSetSemantics { }) {

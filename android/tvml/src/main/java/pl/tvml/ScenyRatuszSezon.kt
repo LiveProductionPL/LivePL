@@ -95,7 +95,9 @@ internal fun RamaSceny.ratuszSezonowy() {
     // Na stronie (this._sidebarMode && this._cardData): karta główna z wypełnionymi danymi (data, imieniny).
     // Aplikacja zawsze pokazuje kartę z danymi, więc tryb karty zależy tylko od sidebarMode.
     val karta = sidebarMode
-    val yg = if (karta) (h * 0.80 + (h * 0.20) * 0.28 - 2 * scH) else (h * 0.86)
+    // Karta na Starcie: przy dole leży plakietka z datą, więc postacie i instalacja stoją nad nią (Karol 24.11 o roku
+    // w Sylwestra: „by go było widać”); na stronie i w zakładce Pogoda bez zmian.
+    val yg = if (kartaStartu) h * 0.79 else if (karta) (h * 0.80 + (h * 0.20) * 0.28 - 2 * scH) else (h * 0.86)
     val fgX = if (w < 560) (w * 0.332) else (w * 0.24)
     val noworoczna = sceneType == "leszno-sylwester" || sceneType == "leszno-nowy-rok"
 
@@ -858,7 +860,9 @@ private fun RamaSceny.instalacjaNoworoczna(g: RatuszSezonowyGeo) = with(g) {
     ctx.fillStyle = "#0e1628"
     ctx.strokeStyle = "#dabe48"
     ctx.lineWidth = Math.max(1.1, 1.4 * scH)
-    rrPath(cx - 33 * scH, yg - 8.5 * scH, 66 * scH, 8.5 * scH, 2.5 * scH)
+    // w Sylwestra szerszy cokół pod napis „2026/2027”
+    val polCokolu = if (sceneType == "leszno-sylwester") 49.0 else 33.0
+    rrPath(cx - polCokolu * scH, yg - 8.5 * scH, 2 * polCokolu * scH, 8.5 * scH, 2.5 * scH)
     ctx.fill()
     ctx.stroke()
 
@@ -923,11 +927,15 @@ private fun RamaSceny.kieliszkiSzampana(g: RatuszSezonowyGeo, cx: Double) = with
  */
 private fun RamaSceny.napisRoku(g: RatuszSezonowyGeo, cx: Double) = with(g) {
     ctx.save()
-    ctx.font = "800 ${Math.max(16L, Math.round(23 * scH))}px 'Segoe UI',system-ui,sans-serif"
+    // Rok Sylwestra / Nowego Roku: w styczniu bieżący, w pozostałych miesiącach następny (wcześniej na sztywno 2027).
+    val nowy = if (teraz.monthValue - 1 == 0) teraz.year else teraz.year + 1
+    // W Sylwestra oba lata, „2026/2027” (Karol 24.11: „Tu rok 2026/2027 bym dał i by go było widać”); w Nowy Rok sam nowy.
+    val sylwester = sceneType == "leszno-sylwester"
+    val nyLabel = if (sylwester) "${nowy - 1}/$nowy" else nowy.toString()
+    val rozmiar = if (sylwester) Math.max(13L, Math.round(17 * scH)) else Math.max(16L, Math.round(23 * scH))
+    ctx.font = "800 ${rozmiar}px 'Segoe UI',system-ui,sans-serif"
     ctx.textAlign = "center"
     ctx.textBaseline = "alphabetic"
-    // Rok Sylwestra / Nowego Roku: w styczniu bieżący, w pozostałych miesiącach następny (wcześniej na sztywno 2027).
-    val nyLabel = (if (teraz.monthValue - 1 == 0) teraz.year else teraz.year + 1).toString()
     ctx.fillStyle = "#6c440c"
     ctx.fillText(nyLabel, cx + 1.8 * scH, yg - 13.5 * scH + 1.8 * scH)
     ctx.fillStyle = if (isNight) "#fff6c6" else "#f5cc44"

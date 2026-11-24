@@ -143,6 +143,8 @@ class RamaSceny(
     val ukryjGwiazdySceny: Boolean,
     /** Strona rysuje kartę główną w trybie „sidebar” (canvas rysuje też napisy); w aplikacji zawsze true. */
     val sidebarMode: Boolean = true,
+    /** Karta pogody na Starcie (kolumny i plakietka przy dole): Panorama Leszna stoi wyżej ([lesznoPanorama]). */
+    val kartaStartu: Boolean = false,
 ) {
     val horizonY = h * 0.58
     val foreY = h * 0.80
@@ -329,6 +331,7 @@ object ScenyStrony {
 @Composable
 fun ScenaStrony(
     id: String, stan: String, noc: Boolean, opcje: OpcjeSceny, efekt: EfektPogody?, modifier: Modifier = Modifier, svg: ScenaSvg? = null,
+    kartaStartu: Boolean = false,
 ) {
     if (svg != null) return ScenaZSvg(svg, noc, modifier)
     val ruch = ValueAnimator.areAnimatorsEnabled()
@@ -352,6 +355,7 @@ fun ScenaStrony(
                 val rama = RamaSceny(
                     plotno, size.width / g, size.height / g, czas, noc, stan, id, opcje, ZonedDateTime.now(Daty.strefa), ruch, pamiec,
                     ukryjGwiazdySceny = !specjalna && efekt != null && !NakladkaPogody.gwiazdy(efekt, noc),
+                    kartaStartu = kartaStartu,
                 )
                 ScenyStrony.rysuj(rama)
                 nc.restoreToCount(stan0)

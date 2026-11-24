@@ -17,8 +17,13 @@ internal fun RamaSceny.lesznoPanorama() {
     val swiatla = isNight || hr >= 16 || hr < 7
     // Skala: do szerokości, ale miasto zajmuje najwyżej ok. 45 % wysokości
     val s = minOf(w / 358, (h * 0.45) / 130)
-    val left = (w - 358 * s) / 2
-    val top = h - 130 * s
+    // Prawie kwadratowa karta na Starcie (w/h < 1,5, jak karta strony w telefonie): przy dole leżą kolumny prognozy
+    // i plakietka z datą, więc miasto przyklejone do dołu znikało pod nimi (Karol 24.11: „Nic nie widać … kiepsko”,
+    // a o scenie zimy „Tu dużo lepiej”). Tu linia ziemi jak Rynek w scenach świątecznych (h·0,645), Ratusz
+    // przesunięty na 2/3 szerokości między kolumny (jak cxR), a ziemia sięga do dołu karty.
+    val wysokaKarta = kartaStartu && h > 0 && w / h < 1.5
+    val left = if (wysokaKarta) w * 0.666 - 186 * s else (w - 358 * s) / 2
+    val top = if (wysokaKarta) h * 0.645 - 108 * s else h - 130 * s
     fun X(x: Double) = left + x * s
     fun Y(y: Double) = top + y * s
     val miasto = if (isNight) "#0a1226" else "#1c2b45"
