@@ -222,8 +222,10 @@ struct Baner: View {
             .overlay(alignment: .bottom) {
                 if motyw.paskiLinii.count >= 2 {
                     VStack(spacing: 0) { ForEach(Array(motyw.paskiLinii.enumerated()), id: \.offset) { $0.element.frame(height: 2) } }
-                } else if let linia = motyw.linia {
-                    linia.frame(height: 2)
+                } else {
+                    // kreska między banerem a paskiem „NAJNOWSZE” zawsze, w kolorze motywu albo złota
+                    // (Karol 24.11: „nie zawsze ją widać i dziwnie to wygląda”; tak samo na Androidzie)
+                    (motyw.linia ?? Barwy.zloto).frame(height: 2)
                 }
             }
             NaZywo()
