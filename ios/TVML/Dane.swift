@@ -648,6 +648,8 @@ final class Magazyn: ObservableObject {
         // API 1.8.0: języki włączone w panelu i napisy aplikacji (config.i18n), zapisane też na czas bez sieci
         if let l = konf["languages"] as? [String] { Jezyk.ustawDostepne(l) }
         Napisy.ustaw(konf.slownik("i18n"))
+        // formularz „Zgłoś zdarzenie” w aplikacji (config.alerts.native); bez klucza dalej tvml.pl/#alert
+        UstawieniaAlertu.ustaw(konf["alerts"] as? Slownik)
         // push o nowym wpisie: tematy z panelu, gdy serwer ma powiadomienia włączone
         let push = konf.slownik("push")
         tematyPush = push.b("enabled") ? push.lista("topics").compactMap(TematPush.init) : []

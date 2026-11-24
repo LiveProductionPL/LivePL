@@ -225,6 +225,10 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         # „Odsłuchaj” czyta artykuł także przy zablokowanym ekranie
         UIBackgroundModes: [audio]
+        # „Zgłoś zdarzenie (Alert TVML)”: zdjęcie lub film z aparatu i położenie tylko na prośbę (AlertWidok.swift)
+        NSCameraUsageDescription: "TVML prosi o aparat, gdy chcesz zrobić zdjęcie lub film do zgłoszenia zdarzenia."
+        NSMicrophoneUsageDescription: "TVML prosi o mikrofon, gdy nagrywasz film do zgłoszenia zdarzenia."
+        NSLocationWhenInUseUsageDescription: "TVML dołączy Twoje położenie do zgłoszenia zdarzenia tylko wtedy, gdy wybierzesz „Dodaj moje położenie”."
         # nagłówki jak na tvml.pl: Open Sans (zmienna, SIL OFL, licencja w TVML/Czcionki/OFL.txt)
         UIAppFonts: [OpenSans.ttf]
     # powiadomienia o nowych wpisach (APNs, serwer tvml.pl); profil „TVML App Store” ma aps-environment production
