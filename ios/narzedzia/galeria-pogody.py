@@ -214,3 +214,38 @@ for i in range(0, len(wszystkie), 24):
     nr = i // 24 + 1
     arkusz(wszystkie[i:i + 24], f"arkusz-wszystkie-{nr:02d}.png",
            f"Karta pogody: wszystkie warianty ({i + 1}–{min(i + 24, len(wszystkie))} z {len(wszystkie)})")
+
+# każdy dzień z harmonogramu motywów z panelu (GaleriaPogody.zapiszDni): dzień 12:00 i wieczór 20:00 obok siebie,
+# po 8 dni na arkusz (Karol, 24.11: „nie ma screenów wszystkich dat co dodałem”)
+dni_folder = os.path.join(folder, "dni")
+opis_dni = {}
+if os.path.exists(os.path.join(dni_folder, "opis.tsv")):
+    with open(os.path.join(dni_folder, "opis.tsv"), encoding="utf-8") as f:
+        for wiersz in list(csv.reader(f, delimiter="\t"))[1:]:
+            if wiersz:
+                opis_dni[wiersz[0]] = wiersz[1:]
+daty = sorted({os.path.basename(p)[:10] for p in glob.glob(os.path.join(dni_folder, "*.png"))})
+for i in range(0, len(daty), 8):
+    karty = []
+    for dzien in daty[i:i + 8]:
+        for faza in ("dzien", "wieczor"):
+            p = os.path.join(dni_folder, f"{dzien}-{faza}.png")
+            if os.path.exists(p):
+                karty.append((f"{dzien}-{faza}", p))
+    if not karty:
+        continue
+    kw, kh = Image.open(karty[0][1]).size
+    kol, odstep, podpis = 2, 24, 34
+    wiersze = (len(karty) + kol - 1) // kol
+    ark = Image.new("RGB", (kol * kw + (kol + 1) * odstep, 70 + wiersze * (kh + podpis + odstep)), (238, 241, 245))
+    d = ImageDraw.Draw(ark)
+    d.text((odstep, 18), f"Karta pogody dzień po dniu z harmonogramu panelu ({daty[i]} – {daty[min(i + 7, len(daty) - 1)]}), 12:00 i 20:00",
+           fill=(10, 31, 68), font=czcionka(28))
+    for j, (n, p) in enumerate(karty):
+        x = odstep + (j % kol) * (kw + odstep)
+        y = 70 + (j // kol) * (kh + podpis + odstep)
+        scena = (opis_dni.get(n) or [""])[0]
+        d.text((x, y + 4), f"{n}   scena: {scena}", fill=(40, 48, 60), font=czcionka(20))
+        ark.paste(Image.open(p).convert("RGB"), (x, y + podpis))
+    ark.save(os.path.join(folder, f"arkusz-dni-{i // 8 + 1:02d}.png"))
+print(f"dni z harmonogramu: {len(daty)}")

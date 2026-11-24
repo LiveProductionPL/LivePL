@@ -106,6 +106,91 @@ enum GaleriaPogody {
             }
             if i % 6 == 0 { await Task.yield() }
         }
+        await zapiszDni(folder)
         try? "gotowe".write(to: folder.appendingPathComponent("gotowe.txt"), atomically: true, encoding: .utf8)
+    }
+
+    /// Karta na każdy dzień z harmonogramu motywów z panelu (config.theme i upcomingThemes, etapy z dateBar.days),
+    /// liczona tak jak na Starcie: scena z WyborSceny.scena(na:), belka z PaletaBelki.linie(dzisiaj:).
+    /// Karol, 24.11: „nie ma screenów wszystkich dat co dodałem”. Imiona bierzemy z linii dnia z serwera
+    /// („… • Imieniny: Adama, Ewy”), bo config.today zna tylko dzisiejsze; pogoda jest przykładowa.
+    /// Zapis: dni/<rrrr-mm-dd>-<dzien|wieczor>.png i dni/opis.tsv (nazwa, scena, wyróżnienie, imiona).
+    static func zapiszDni(_ folder: URL) async {
+        let fm = FileManager.default
+        let dniFolder = folder.appendingPathComponent("dni", isDirectory: true)
+        try? fm.createDirectory(at: dniFolder, withIntermediateDirectories: true)
+        guard let konf = (try? await Siec.v1("config", ["features": "ai-themes", "lang": "pl"], swiezy: true)) as? Slownik else {
+            try? "nie udało się pobrać /api/v1/config".write(to: dniFolder.appendingPathComponent("blad.txt"), atomically: true, encoding: .utf8)
+            return
+        }
+        let wybor = WyborSceny(konf)
+        let warszawa = TimeZone(identifier: "Europe/Warsaw") ?? .current
+        var kal = Calendar(identifier: .gregorian)
+        kal.timeZone = warszawa
+        let klucz = DateFormatter()
+        klucz.locale = Locale(identifier: "en_US_POSIX")
+        klucz.timeZone = warszawa
+        klucz.dateFormat = "yyyy-MM-dd"
+        let etykieta = DateFormatter()
+        etykieta.locale = Locale(identifier: "pl_PL")
+        etykieta.timeZone = warszawa
+        etykieta.dateFormat = "EEEE, d MMMM"
+
+        // linie dni z serwera (dateBar.days[].line) ze wszystkich motywów i etapów, do imion na dany dzień
+        var linieDni: [String: String] = [:]
+        func zbierz(_ t: Slownik) {
+            for d in t.slownik("dateBar").lista("days") where !d.s("date").isEmpty { linieDni[d.s("date")] = d.s("line") }
+            for e in t.lista("stages") { zbierz(e) }
+        }
+        zbierz(konf.slownik("theme"))
+        for t in konf.lista("upcomingThemes") { zbierz(t) }
+
+        // każdy dzień, który obejmuje któreś okno harmonogramu
+        var dni: [Date] = []
+        for o in wybor.okna {
+            var d = kal.startOfDay(for: o.od)
+            while d <= o.doKonca {
+                if !dni.contains(where: { kal.isDate($0, inSameDayAs: d) }) { dni.append(d) }
+                guard let nast = kal.date(byAdding: .day, value: 1, to: d) else { break }
+                d = nast
+            }
+        }
+        dni.sort()
+
+        var opis = "nazwa\tscena\twyroznienie\timiona\n"
+        for (i, dzien) in dni.enumerated() {
+            let k = klucz.string(from: dzien)
+            var imiona: String?
+            if let linia = linieDni[k], let r = linia.range(of: "Imieniny: ") {
+                imiona = "Imieniny: " + linia[r.upperBound...]
+            }
+            for (faza, godzina) in [("dzien", 12), ("wieczor", 20)] {
+                guard let chwila = kal.date(bySettingHour: godzina, minute: 0, second: 0, of: dzien) else { continue }
+                let jasno = faza == "dzien"
+                let scena = wybor.scena(na: chwila)
+                let wMotywie = wybor.okna.contains { $0.od <= chwila && chwila <= $0.doKonca }
+                let linie = PaletaBelki.linie(scena, swieto: nil, imieniny: imiona, dzisiaj: chwila)
+                var data = etykieta.string(from: chwila)
+                data = data.prefix(1).uppercased(with: Locale(identifier: "pl_PL")) + data.dropFirst()
+                let warunki = WarunkiSceny.z(stan: jasno ? "sunny" : "clear-night", efekt: nil, dzien: jasno,
+                                             ustawienia: nil, karta: false, bezRuchu: false)
+                let karta = KartaPogody(temperatura: "−3,0°C", opis: "Zachmurzenie duże",
+                                        prognoza: [(nazwa: "Pn", max: "−1,0°"), (nazwa: "Wt", max: "0,5°"), (nazwa: "Śr", max: "−2,4°")],
+                                        data: data, wyroznienie: linie.wyroznienie, imieniny: linie.imieniny,
+                                        stan: .chmury, pora: jasno ? .dzien : .noc,
+                                        scena: Motyw.zwykly.scena(miesiac: kal.component(.month, from: chwila)),
+                                        efekt: nil, okolicznosciowy: wMotywie,
+                                        scenaKarty: scena, warunki: warunki,
+                                        czas: chwile[1], warstwa: .calosc)
+                    .frame(width: szerokosc)
+                    .environment(\.colorScheme, .light)
+                let nazwa = "\(k)-\(faza)"
+                zapisz(karta, do: dniFolder.appendingPathComponent("\(nazwa).png"), skala: 2)
+                let id = scena.svg != nil ? "SVG z panelu (w galerii się nie rysuje)" : (scena.id.isEmpty ? "(pusta → autumn-forest)" : scena.id)
+                opis += "\(nazwa)\t\(id)\t\(linie.wyroznienie ?? "")\t\(linie.imieniny ?? "")\n"
+            }
+            if i % 4 == 0 { await Task.yield() }
+        }
+        try? opis.write(to: dniFolder.appendingPathComponent("opis.tsv"), atomically: true, encoding: .utf8)
     }
 }

@@ -96,7 +96,7 @@ if [ -n "${5:-}" ] && [ -d "$5" ]; then
   xcrun simctl terminate "$UDID" "$ID" 2>/dev/null || true
   xcrun simctl launch "$UDID" "$ID" -galeria-pogody YES -tvml-jezyk pl
   DANE=$(xcrun simctl get_app_container "$UDID" "$ID" data 2>/dev/null || true)
-  for i in $(seq 1 72); do
+  for i in $(seq 1 120); do
     if [ -n "$DANE" ] && [ -f "$DANE/Documents/galeria/gotowe.txt" ]; then break; fi
     sleep 5
   done
