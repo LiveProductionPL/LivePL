@@ -344,15 +344,16 @@ object ScenyStrony {
 
 /**
  * Scena ze strony w Compose: płótno w dp, zegar klatek jak reszta animacji (stoi, gdy karta jest poza ekranem),
- * nakładka pogody na scenach niespecjalnych. Przy „Usuń animacje” jedna nieruchoma klatka.
+ * nakładka pogody na scenach niespecjalnych. Przy „Usuń animacje” jedna nieruchoma klatka. [stoi]: jedna nieruchoma
+ * klatka także wtedy, gdy nad nią widać już scenę prosto ze strony ([ScenaZZapasem]), żeby nie było dwóch animacji.
  */
 @Composable
 fun ScenaStrony(
     id: String, stan: String, noc: Boolean, opcje: OpcjeSceny, efekt: EfektPogody?, modifier: Modifier = Modifier, svg: ScenaSvg? = null,
-    kartaStartu: Boolean = false,
+    kartaStartu: Boolean = false, stoi: Boolean = false,
 ) {
     if (svg != null) return ScenaZSvg(svg, noc, modifier)
-    val ruch = ValueAnimator.areAnimatorsEnabled()
+    val ruch = ValueAnimator.areAnimatorsEnabled() && !stoi
     val plotno = remember { Plotno(android.graphics.Canvas()) }
     val plotnoNakladki = remember { Plotno(android.graphics.Canvas()) }
     val pamiec = remember(id) { HashMap<String, Any?>() }

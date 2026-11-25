@@ -109,6 +109,8 @@ fun StartEkran(m: Magazyn) {
                 }
             }
             m.blad?.let { item(key = "blad") { Text(it, color = b.slaby, fontSize = 14.sp) } }
+            // bez internetu: ostatnie wiadomości i pogoda z pamięci telefonu, z godziną (dawniej też z dniem), jak na iOS
+            m.daneZPamieci?.let { kiedy -> item(key = "bez-sieci") { NapisBezSieci(kiedy) } }
             // przy pierwszym wczytaniu w miejscu karuzeli jej szkielet (blok hero), kółko tylko bez karuzeli w układzie Startu
             if (m.najnowsze.isEmpty() && m.laduje && kategoria == null && m.bloki.none { it.typ == "hero" }) item(key = "laduje") { Postep() }
             val slug = kategoria
@@ -219,6 +221,22 @@ private fun androidx.compose.foundation.lazy.LazyListScope.blok(m: Magazyn, blok
             if (!blok.ukryjTytul) item(key = "${blok.id}-tytul") { Naglowek(blok.tytul.ifEmpty { tl("app.events", "Kalendarz wydarzeń") }) }
             item(key = blok.id) { ListaWydarzen(m, m.wydarzenia.take(if (blok.limit > 0) blok.limit else 5)) }
         }
+    }
+}
+
+/** „Bez internetu. Widzisz dane z 17:30.” (app.offlineData z config.i18n), a gdy dane nie są z dziś, z dniem. */
+@Composable
+fun NapisBezSieci(kiedy: Long) {
+    val b = LocalBarwy.current
+    val chwila = java.time.Instant.ofEpochMilli(kiedy).atZone(Daty.strefa)
+    val dzis = chwila.toLocalDate() == java.time.LocalDate.now(Daty.strefa)
+    val czas = java.time.format.DateTimeFormatter.ofPattern(if (dzis) "HH:mm" else "d MMMM, HH:mm", Jezyk.locale).format(chwila)
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Icon(Ikony.bezSieci, null, tint = b.slaby, modifier = Modifier.size(18.dp))
+        Text(
+            tl("app.offlineData", "Bez internetu. Widzisz dane z {time}.").replace("{time}", czas),
+            color = b.slaby, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 
@@ -432,7 +450,11 @@ fun KafelPogody(m: Magazyn) {
         // proporcje karty strony w telefonie: ok. 1,05 : 1 razem z plakietką; przy dużym tekście rośnie razem z nim
         val wysokosc = maxWidth / 1.05f
         Box(Modifier.fillMaxWidth().heightIn(min = wysokosc)) {
-            ScenaStrony(scena, stan, noc, opcje, p?.efekt, Modifier.matchParentSize(), svg, kartaStartu = true)
+            // scena prosto ze strony (tvml.pl/app-scena.php, tryb karty), pod nią wbudowana jako zapas (bez internetu,
+            // przy błędzie i przy wczytywaniu); napisy, pas, belkę i noc dalej rysuje aplikacja. Jak na iOS.
+            ScenaZZapasem(AdresSceny.dla(m, "karta"), Modifier.matchParentSize()) { stoi ->
+                ScenaStrony(scena, stan, noc, opcje, p?.efekt, Modifier.fillMaxSize(), svg, kartaStartu = true, stoi = stoi)
+            }
             // lekkie przyciemnienie pod nagłówkiem i temperaturą (scena zostaje widoczna jak na stronie)
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.22f), 0.32f to Color.Transparent)))
             Column(Modifier.fillMaxWidth().heightIn(min = wysokosc).padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 10.dp).clearAndSetSemantics { }) {

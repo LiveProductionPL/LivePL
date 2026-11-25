@@ -83,6 +83,8 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
     private var wersjaApi = "1.0.0"
     /** Trwa „Podgląd dnia”: po odświeżeniu konfiguracji szata graficzna dalej na wybraną chwilę. */
     private var podgladDnia = false
+    /** Trwa „Podgląd dnia” (tylko wersja debug): scena wbudowana zamiast sceny ze strony (strona pokazuje dziś). */
+    val podgladDniaTrwa: Boolean get() = podgladDnia
 
     /**
      * „Podgląd dnia” (wersja testowa): karta pogody i cała szata graficzna aplikacji (pasek u góry, kolory, logo,
@@ -286,6 +288,10 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
         private set
     private var ostatnio = 0L
 
+    /** Bez internetu: z kiedy są pokazywane dane z pamięci telefonu (ms); null = świeże z sieci. Napis na Starcie. */
+    var daneZPamieci by mutableStateOf<Long?>(null)
+        private set
+
     fun ustawRozmiar(r: Int) {
         rozmiar = r.coerceIn(0, 2)
         ustawienia.edit { putInt("rozmiar", rozmiar) }
@@ -395,12 +401,17 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
         // przy podglądzie bez przerwy 2 min: każde odświeżenie pobiera szkic od nowa
         if (!wymus && podglad == null && System.currentTimeMillis() - ostatnio < 120_000) return
         laduje = true
+        Siec.zPamieciOd = null
         try {
             if (odswiezV1()) {
                 blad = null
-                ostatnio = System.currentTimeMillis()
+                // dane z pamięci telefonu: napis „Bez internetu” na Starcie i bez przerwy 2 minut przed kolejną próbą
+                daneZPamieci = Siec.zPamieciOd
+                if (daneZPamieci == null) ostatnio = System.currentTimeMillis()
             } else {
                 odswiezStare()
+                daneZPamieci = Siec.zPamieciOd?.takeIf { najnowsze.isNotEmpty() }
+                if (daneZPamieci != null) ostatnio = 0L
             }
         } finally {
             laduje = false

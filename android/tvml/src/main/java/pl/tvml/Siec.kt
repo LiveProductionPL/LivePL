@@ -30,8 +30,21 @@ object Siec {
     private val bazyApi = listOf("api/v1/", "tvml-app.php?route=")
     @Volatile private var dzialajacaBaza: String? = null
 
-    /** Ostatnie odpowiedzi z ETag: odświeżenie bez zmian to 304, a bez internetu aplikacja pokazuje ostatnie dane. */
+    /**
+     * Ostatnie odpowiedzi z ETag: odświeżenie bez zmian to 304, a bez internetu albo przy awarii serwera (5xx) aplikacja
+     * pokazuje ostatnie dane (Karol 25.11: „Aplikacja może pokazywać wczytuje pogodę itp jak nie ma Internetu prawda ?”).
+     * Błąd 4xx to prawdziwa odmowa, więc wtedy bez zapisu. System może wyczyścić cacheDir przy braku miejsca.
+     */
     private var schowek: File? = null
+
+    /** Najstarsza odpowiedź wzięta z pamięci telefonu w bieżącym odświeżeniu (ms); null = wszystko prosto z sieci. Jak na iOS. */
+    @Volatile var zPamieciOd: Long? = null
+
+    private fun zPamieci(zapis: File): Any {
+        val kiedy = zapis.lastModified()
+        synchronized(this) { zPamieciOd = zPamieciOd?.let { minOf(it, kiedy) } ?: kiedy }
+        return parsuj(zapis.readText())
+    }
 
     fun przygotuj(kontekst: Context) {
         schowek = File(kontekst.cacheDir, "api").apply { mkdirs() }
@@ -62,13 +75,17 @@ object Siec {
             val kod = try {
                 polaczenie.responseCode
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 // bez internetu: ostatnia zapisana odpowiedź
-                if (zapis?.exists() == true) return@withContext parsuj(zapis.readText())
+                if (zapis?.exists() == true) return@withContext zPamieci(zapis)
                 throw e
             }
             if (BuildConfig.DEBUG) android.util.Log.d("TVML-Siec", "$kod $adres")
             when (kod) {
-                304 -> parsuj(zapis!!.readText())
+                // serwer potwierdził, że zapis jest aktualny: data zapisu = teraz (do napisu „Bez internetu” później)
+                304 -> zapis!!.also { it.setLastModified(System.currentTimeMillis()) }.let { parsuj(it.readText()) }
+                // awaria serwera: ostatnia zapisana odpowiedź, jak bez internetu
+                in 500..599 -> if (zapis?.exists() == true) zPamieci(zapis) else throw java.io.IOException("HTTP $kod: $adres")
                 200 -> {
                     val tekst = polaczenie.inputStream.bufferedReader().use { it.readText() }
                     val wynik = parsuj(tekst)

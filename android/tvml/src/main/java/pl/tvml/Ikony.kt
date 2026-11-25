@@ -115,6 +115,8 @@ object Ikony {
     /** Kula ziemska: formularz na stronie tvml.pl. */
     val przegladarka = ikona(kolo(12f, 12f, 9f), "M3 12h18", "M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z")
     val ptaszek = ikona("M5 12.5l4.5 4.5L19 7.5", grubosc = 2.6f)
+    /** Bez internetu (jak wifi.slash na iPhonie): łuki Wi-Fi przekreślone. */
+    val bezSieci = ikona("M2.5 8.8a14 14 0 0 1 19 0", "M5.5 12.3a9.5 9.5 0 0 1 13 0", "M8.8 15.8a4.8 4.8 0 0 1 6.4 0", "M12 19.5h.01", "M3.5 3.5l17 17")
 
     /** Ikona kafla rodzaju zdarzenia (config.alerts.types[].id); nieznany rodzaj: znacznik miejsca. */
     fun alertu(id: String): ImageVector = when (id) {
