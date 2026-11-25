@@ -3,11 +3,12 @@ import WebKit
 
 /// Scena pogody prosto ze strony tvml.pl (Karol 25.11: „Tak, róbcie”): ten sam kod co karta na stronie,
 /// więc każda zmiana sceny na tvml.pl jest od razu w aplikacji, bez nowej wersji i bez osobnej kopii na iOS.
-/// Strona /app/scena (robi ją TVML Connect) rysuje samo płótno weather-effects, bez napisów, i po pierwszej
+/// Strona app-scena.php (TVML Connect) rysuje samo płótno weather-effects, bez napisów, i po pierwszej
 /// klatce wysyła wiadomość „tvml” z gotowe: true. Do tego czasu, bez internetu albo przy błędzie widać
 /// wbudowaną scenę aplikacji (ScenaPogody) jako zapas.
 enum AdresSceny {
-    static let baza = "https://tvml.pl/app/scena"
+    /// PR #170 w Panel-TVML (25.11). Ładny adres /app/scena zadziała po restarcie serwera WWW; plik działa zawsze.
+    static let baza = "https://tvml.pl/app-scena.php"
 
     /// tryb: „karta” (Start, prawie kwadrat) albo „zakladka” (nagłówek zakładki Pogoda).
     static func url(tryb: String, bezRuchu: Bool, podglad: String?) -> URL? {
@@ -115,8 +116,9 @@ struct ScenaZeStrony: UIViewRepresentable {
         }
 
         func userContentController(_ u: WKUserContentController, didReceive m: WKScriptMessage) {
-            guard let d = m.body as? [String: Any], (d["gotowe"] as? Bool) == true else { return }
-            ustaw(true)
+            // {gotowe: true, scena, noc} po pierwszej klatce; {gotowe: false, blad} przy błędzie strony: zostaje zapas
+            guard let d = m.body as? [String: Any], let g = d["gotowe"] as? Bool else { return }
+            ustaw(g)
         }
 
         func webView(_ w: WKWebView, didFail n: WKNavigation!, withError e: Error) { ustaw(false) }
