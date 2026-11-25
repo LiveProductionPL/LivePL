@@ -635,97 +635,10 @@ struct ScenaPogody: View {
         return p
     }
 
-    /// Panorama Leszna z Ratuszem (siatka 358 × 130 jak w projekcie), z drzewami i ozdobami pory roku lub wersji.
+    /// Panorama Leszna na zwykłe dni: prawdziwy ratusz Ferrariego i kamienice wokół Rynku, jak w scenach 11 Listopada
+    /// i zimowych (ScenaRatusza.panorama), w barwach pory roku. Dawny zarys ratusza z kółkiem zegara zastąpiony 25.11.
     private func panorama(ctx: inout GraphicsContext, w: CGFloat, h: CGFloat) {
-        // kafel: skala najwyżej 1,2 (na iPadzie miasto na środku, a nie powiększone na pół karty)
-        let s = kafel ? min(w / 358, 1.2) : w / 358
-        // kafel (karta Startu, prawie kwadrat): ratusz na 0,666 szerokości jak w scenach świątecznych, linia ziemi
-        // na h·0,645 jak Rynek, ziemia do dołu karty pod kolumnami i plakietką (Karol 24.11: „Nic nie widać … kiepsko”)
-        let lewo = kafel ? w * 0.666 - 186 * s : (w - 358 * s) / 2
-        let gora = kafel ? h * 0.645 - 108 * s : h - 130 * s
-        func r(_ x: CGFloat, _ y: CGFloat, _ sz: CGFloat, _ wy: CGFloat) -> CGRect { CGRect(x: lewo + x * s, y: gora + y * s, width: sz * s, height: wy * s) }
-        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: lewo + x * s, y: gora + y * s) }
-        let miasto = noc ? Color(hex: "#0a1226") : Color(hex: "#1c2b45")
-        let ratusz = noc ? Color(hex: "#101a33") : Color(hex: "#223456")
-        let ziemia = Self.kolorZiemi(scena: scena, noc: noc)
-        ctx.fill(Path(CGRect(x: 0, y: gora + 108 * s, width: w, height: h - gora - 108 * s)), with: .color(ziemia))
-        var domy = Path()
-        for (x, y, sz) in [(0.0, 82.0, 46.0), (50, 76, 24), (106, 80, 26), (296, 84, 26)] as [(CGFloat, CGFloat, CGFloat)] {
-            domy.addRect(r(x, y, sz, 108 - y))
-        }
-        for (x, y, sz) in [(78.0, 86.0, 24.0), (240, 78, 50), (326, 74, 32)] as [(CGFloat, CGFloat, CGFloat)] {
-            domy.addRect(r(x, y, sz, 108 - y))
-            domy.move(to: pt(x, y)); domy.addLine(to: pt(x + sz / 2, y - 12)); domy.addLine(to: pt(x + sz, y)); domy.closeSubpath()
-        }
-        ctx.fill(domy, with: .color(miasto))
-        var rt = Path()
-        rt.addRect(r(138, 70, 84, 38))
-        rt.move(to: pt(142, 70)); rt.addLine(to: pt(146, 62)); rt.addLine(to: pt(214, 62)); rt.addLine(to: pt(218, 70)); rt.closeSubpath()
-        rt.addRect(r(178, 34, 16, 28))
-        rt.move(to: pt(174, 36)); rt.addQuadCurve(to: pt(186, 20), control: pt(176, 26)); rt.addQuadCurve(to: pt(198, 36), control: pt(196, 26)); rt.closeSubpath()
-        rt.addRect(r(185, 6, 2, 14))
-        ctx.fill(rt, with: .color(ratusz))
-        ctx.fill(Path(ellipseIn: r(181.5, 40.5, 9, 9)), with: .color(swiatla ? Color(hex: "#fde68a") : Color(hex: "#e5e7eb")))
-        if swiatla {
-            var okna = Path()
-            for (x, y) in [(146.0, 78.0), (158, 78), (170, 78), (196, 78), (208, 78), (220, 78), (146, 92), (158, 92), (208, 92), (220, 92), (56, 84), (64, 84), (112, 88), (122, 88), (246, 86), (302, 90), (334, 84)] as [(CGFloat, CGFloat)] {
-                okna.addRect(r(x, y, 5, 7))
-            }
-            ctx.fill(okna, with: .color(Color(hex: "#fcd34d").opacity(0.95)))
-        }
-        switch scena {
-        case .jesien, .listopad, .lato, .wiosna:
-            // małe drzewa z pniem i koroną z trzech kół (wcześniej same duże koła na ziemi wyglądały jak pomarańczowe kule);
-            // jesień widać po spadających liściach z efektu pogody
-            let barwy: [String] = scena == .wiosna || scena == .lato ? ["#166534", "#15803d", "#14532d"] : ["#9a3412", "#a16207", "#7c2d12"]
-            var pnie = Path()
-            for (i, x) in ([22.0, 44, 118, 252, 286, 330] as [CGFloat]).enumerated() {
-                let wys: CGFloat = i % 2 == 0 ? 14 : 10
-                let rr: CGFloat = i % 2 == 0 ? 5 : 4
-                pnie.addRect(r(x - 1, 108 - wys, 2, wys))
-                let cy = 108 - wys - rr * 0.4
-                var korona = Path()
-                for (dx, dy) in [(-rr * 0.6, 0), (rr * 0.6, 0), (0, -rr * 0.8)] as [(CGFloat, CGFloat)] {
-                    korona.addEllipse(in: r(x + dx - rr, cy + dy - rr, rr * 2, rr * 2))
-                }
-                ctx.fill(korona, with: .color(Color(hex: barwy[i % barwy.count]).opacity(noc ? 0.75 : 0.95)))
-            }
-            ctx.fill(pnie, with: .color(miasto))
-        case .zima, .swieta, .sylwester:
-            var choinki = Path(), czapy = Path()
-            for (x, y) in [(22.0, 84.0), (118, 86), (254, 84), (332, 84)] as [(CGFloat, CGFloat)] {
-                choinki.move(to: pt(x, y)); choinki.addLine(to: pt(x + 12, y + 24)); choinki.addLine(to: pt(x - 12, y + 24)); choinki.closeSubpath()
-                czapy.move(to: pt(x, y)); czapy.addLine(to: pt(x + 5, y + 10)); czapy.addLine(to: pt(x - 5, y + 10)); czapy.closeSubpath()
-            }
-            ctx.fill(choinki, with: .color(Color(hex: "#1f4f43")))
-            if scena != .sylwester {
-                czapy.addRect(r(138, 68, 84, 4))
-                ctx.fill(czapy, with: .color(Color(hex: "#f1f6fb")))
-            }
-        }
-        // duża choinka sięga do połowy panoramy, w kafelku byłaby pod temperaturą (zostają małe choinki i śnieg)
-        if scena == .swieta && !kafel {
-            var drzewko = Path()
-            drzewko.move(to: pt(96, 40)); drzewko.addLine(to: pt(122, 108)); drzewko.addLine(to: pt(70, 108)); drzewko.closeSubpath()
-            ctx.fill(drzewko, with: .color(Color(hex: "#14532d")))
-            ctx.fill(Gwiazda().path(in: r(88, 26, 16, 16)), with: .color(Color(hex: "#e0b45a")))
-            for (x, y) in [(90.0, 62.0), (102, 70), (86, 84), (106, 90), (96, 98)] as [(CGFloat, CGFloat)] {
-                ctx.fill(Path(ellipseIn: r(x - 2, y - 2, 4, 4)), with: .color(Color(hex: "#fbbf24")))
-            }
-        }
-        if scena == .sylwester {
-            // kafel: mniejszy napis niżej, w pasie pod tekstem
-            ctx.draw(Text("2027").font(.system(size: (kafel ? 20 : 30) * s, weight: .heavy)).foregroundColor(Color(hex: "#e8c26a")),
-                     at: pt(86, kafel ? 100 : 92))
-        }
-        if scena == .listopad {
-            // kafel: tylko lewa flaga na dachu Ratusza; na wieży byłaby pod datą, a prawa wypadała pod prognozą
-            // (galeria, budowa 51: kontrast prognozy 1,8 we wszystkich wariantach 11 Listopada)
-            let flagi: [(CGFloat, CGFloat)] = kafel ? [(150, 48)] : [(186, 6), (150, 48), (218, 48)]
-            for (x, y) in flagi {
-                ctx.fill(Path(r(x, y, 12, 3)), with: .color(.white))
-                ctx.fill(Path(r(x, y + 3, 12, 3)), with: .color(Color(hex: "#dc143c")))
-            }
-        }
+        ScenaRatusza.panorama(&ctx, size: CGSize(width: w, height: h), noc: noc, swiatla: swiatla, pora: scena,
+                              ziemia: Self.kolorZiemi(scena: scena, noc: noc), kafel: kafel)
     }
 }

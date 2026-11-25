@@ -191,15 +191,15 @@ fileprivate struct UkladRatusza {
 
 /// Kolory Ratusza: noc (biało-czerwona iluminacja) albo dzień.
 fileprivate struct PaletaRatusza {
-    let cokol: Color
-    let sciana: Color
-    let scianaCien: Color
-    let pilaster: Color
-    let terakota: Color
-    let dach: Color
-    let helm: Color
-    let helmJasny: Color
-    let okno: Color
+    var cokol: Color
+    var sciana: Color
+    var scianaCien: Color
+    var pilaster: Color
+    var terakota: Color
+    var dach: Color
+    var helm: Color
+    var helmJasny: Color
+    var okno: Color
 
     init(noc: Bool) {
         cokol = Color(hex: noc ? "#ac1834" : "#b8a686")
@@ -211,6 +211,43 @@ fileprivate struct PaletaRatusza {
         helm = Color(hex: noc ? "#181d2a" : "#2a2f38")
         helmJasny = Color(hex: noc ? "#343c4e" : "#444c58")
         okno = noc ? PomRA.rgba(255, 218, 128, 0.94) : Color(hex: "#3a4452")
+    }
+
+    /// Panorama na zwykłe dni: w dzień jak wyżej, w nocy ciepłe światło latarni zamiast biało-czerwonej iluminacji.
+    init(panoramaNoc noc: Bool) {
+        self.init(noc: false)
+        if noc {
+            cokol = Color(hex: "#6b5d48")
+            sciana = Color(hex: "#d9cdb4")
+            scianaCien = Color(hex: "#bfb196")
+            pilaster = Color(hex: "#f3eee2")
+            terakota = Color(hex: "#7a3a2e")
+            dach = Color(hex: "#1a202e")
+            helm = Color(hex: "#181d2a")
+            helmJasny = Color(hex: "#343c4e")
+            okno = PomRA.rgba(255, 218, 128, 0.94)
+        }
+    }
+}
+
+/// Wygląd pierzei kamienic: na 11 Listopada flagi i zielone lipy, w Panoramie drzewa w barwach pory roku.
+fileprivate struct StylKamienic {
+    /// pionowe biało-czerwone flagi na elewacjach
+    var flagi = true
+    /// zapalone okna (noc, zmierzch, Święta)
+    var swiatla: Bool
+    /// korona drzewa i jej jaśniejszy blask
+    var korona: Color
+    var blask: Color
+    /// zimą: śnieg na gzymsach i ośnieżone świerki zamiast lip
+    var snieg = false
+    /// świerki zamiast lip (zima, Święta, Sylwester)
+    var swierki = false
+
+    static func listopad(noc: Bool) -> StylKamienic {
+        StylKamienic(swiatla: noc,
+                     korona: noc ? PomRA.rgba(22, 38, 34, 0.96) : PomRA.rgba(78, 108, 64, 0.96),
+                     blask: noc ? PomRA.rgba(32, 52, 44, 0.96) : PomRA.rgba(106, 136, 76, 0.96))
     }
 }
 
@@ -240,11 +277,11 @@ enum ScenaRatusza {
             oblok(&ctx, w: w, h: h, t: t, yRynek: yRynek)
         }
         bruk(&ctx, w: w, h: h, noc: noc, yRynek: yRynek, u: u)
-        kamienice(&ctx, w: w, noc: noc, yRynek: yRynek, u: u)
+        kamienice(&ctx, w: w, noc: noc, yRynek: yRynek, u: u, styl: .listopad(noc: noc))
         if noc {
             reflektory(&ctx, t: t, u: u)
         }
-        korpus(&ctx, noc: noc, u: u, k: kol)
+        korpus(&ctx, noc: noc, u: u, k: kol, luna: true)
         portalIDach(&ctx, u: u, k: kol)
         wieza(&ctx, u: u, k: kol)
         zegar(&ctx, noc: noc, u: u, k: kol)
@@ -343,7 +380,7 @@ enum ScenaRatusza {
 
     // Pierzeje kamieniczek wokół Rynku z przerwą na Ratusz.
     fileprivate static func kamienice(_ ctx: inout GraphicsContext, w: CGFloat, noc: Bool,
-                                      yRynek: CGFloat, u: UkladRatusza) {
+                                      yRynek: CGFloat, u: UkladRatusza, styl: StylKamienic) {
         let s: CGFloat = u.s
         let hwBase: CGFloat = max(28, 34 * s)
         let gapL: CGFloat = u.cx - 43 * s
@@ -364,7 +401,7 @@ enum ScenaRatusza {
                 hw = w - 2 * s - hx
             }
             if hw < 16 * s { break }
-            kamienica(&ctx, x: hx, hw: hw, idx: idx, noc: noc, yRynek: yRynek, s: s)
+            kamienica(&ctx, x: hx, hw: hw, idx: idx, noc: noc, yRynek: yRynek, s: s, styl: styl)
             hx += hw
             idx += 1
         }
@@ -372,7 +409,7 @@ enum ScenaRatusza {
 
     // Jedna kamienica: ściana, dach/szczyt, gzyms, okna, flaga, lipa.
     fileprivate static func kamienica(_ ctx: inout GraphicsContext, x: CGFloat, hw: CGFloat, idx: Int,
-                                      noc: Bool, yRynek: CGFloat, s: CGFloat) {
+                                      noc: Bool, yRynek: CGFloat, s: CGFloat, styl: StylKamienic) {
         let hh: CGFloat = (23.5 + CGFloat(idx % 3) * 1.4) * s
         let hy: CGFloat = yRynek - hh
         let pal = paletaKamienicy(idx)
@@ -409,9 +446,13 @@ enum ScenaRatusza {
             ctx.fill(PomRA.wielokat([d1, d2, d3, d4]), with: .color(dach))
         }
 
-        // gzyms
+        // gzyms (zimą śnieżna czapa)
         let gzyms = PomRA.linia(CGPoint(x: x, y: hy), CGPoint(x: x + hw, y: hy))
-        ctx.stroke(gzyms, with: .color(obrys), lineWidth: max(0.9, 1.0 * s))
+        if styl.snieg {
+            ctx.stroke(gzyms, with: .color(noc ? Color(hex: "#d8ecff") : .white), lineWidth: max(1.4, 1.9 * s))
+        } else {
+            ctx.stroke(gzyms, with: .color(obrys), lineWidth: max(0.9, 1.0 * s))
+        }
 
         // dwa rzędy okien; wzór zapalonych okien z numeru okna (zamiast round(wx))
         let krok: CGFloat = 8 * s
@@ -423,7 +464,7 @@ enum ScenaRatusza {
             var wx: CGFloat = x + 4.5 * s
             var kolumna: Int = 0
             while wx < koniec && kolumna < 40 {
-                if noc {
+                if styl.swiatla {
                     let wzor: Int = (kolumna * 7 + r * 3 + idx * 5) % 4
                     let kolorOkna: Color = (wzor != 0) ? PomRA.rgba(255, 214, 120, 0.82) : Color(hex: "#161e30")
                     ctx.fill(PomRA.prost(wx, wy, oknoW, oknoH), with: .color(kolorOkna))
@@ -438,21 +479,49 @@ enum ScenaRatusza {
         }
 
         // pionowa biało-czerwona flaga na elewacji
-        let bfx: CGFloat = x + hw * 0.5
-        let bfy: CGFloat = hy + 10.8 * s
-        ctx.fill(PomRA.prost(bfx - 1.3 * s, bfy, 1.25 * s, 7.2 * s), with: .color(PomRA.rgba(255, 255, 255, 0.94)))
-        ctx.fill(PomRA.prost(bfx - 0.05 * s, bfy, 1.25 * s, 7.2 * s), with: .color(PomRA.rgba(220, 20, 60, 0.94)))
+        if styl.flagi {
+            let bfx: CGFloat = x + hw * 0.5
+            let bfy: CGFloat = hy + 10.8 * s
+            ctx.fill(PomRA.prost(bfx - 1.3 * s, bfy, 1.25 * s, 7.2 * s), with: .color(PomRA.rgba(255, 255, 255, 0.94)))
+            ctx.fill(PomRA.prost(bfx - 0.05 * s, bfy, 1.25 * s, 7.2 * s), with: .color(PomRA.rgba(220, 20, 60, 0.94)))
+        }
 
-        // lipa (co druga kamienica)
+        // lipa albo zimą świerk (co druga kamienica)
         if idx % 2 == 0 {
             let tx: CGFloat = x + hw * 0.82
+            if styl.swierki {
+                swierk(&ctx, tx: tx, yDol: yRynek, s: s, styl: styl)
+                return
+            }
             let ty: CGFloat = yRynek - 5 * s
             let pien = PomRA.linia(CGPoint(x: tx, y: yRynek), CGPoint(x: tx, y: ty + 2 * s))
             ctx.stroke(pien, with: .color(Color(hex: "#372a22")), lineWidth: max(1, 1.4 * s))
-            let korona: Color = noc ? PomRA.rgba(22, 38, 34, 0.96) : PomRA.rgba(78, 108, 64, 0.96)
-            ctx.fill(PomRA.elipsa(tx, ty - 1.5 * s, 6.4 * s, 4.5 * s), with: .color(korona))
-            let blask: Color = noc ? PomRA.rgba(32, 52, 44, 0.96) : PomRA.rgba(106, 136, 76, 0.96)
-            ctx.fill(PomRA.elipsa(tx - 1.0 * s, ty - 2.6 * s, 4.2 * s, 3.6 * s), with: .color(blask))
+            ctx.fill(PomRA.elipsa(tx, ty - 1.5 * s, 6.4 * s, 4.5 * s), with: .color(styl.korona))
+            ctx.fill(PomRA.elipsa(tx - 1.0 * s, ty - 2.6 * s, 4.2 * s, 3.6 * s), with: .color(styl.blask))
+        }
+    }
+
+    // Mały świerk przed kamienicą (zima, Święta, Sylwester), ze śniegiem na czubkach gałęzi, gdy jest śnieg.
+    fileprivate static func swierk(_ ctx: inout GraphicsContext, tx: CGFloat, yDol: CGFloat, s: CGFloat, styl: StylKamienic) {
+        let pien = PomRA.linia(CGPoint(x: tx, y: yDol), CGPoint(x: tx, y: yDol - 2.5 * s))
+        ctx.stroke(pien, with: .color(Color(hex: "#372a22")), lineWidth: max(1, 1.4 * s))
+        // trzy piętra gałęzi: połowa szerokości, wierzchołek i dół (jednostki nad ziemią)
+        let pietra: [(CGFloat, CGFloat, CGFloat)] = [(5.6, 9.0, 2.0), (4.4, 12.6, 6.0), (3.0, 15.4, 9.6)]
+        for (i, pietro) in pietra.enumerated() {
+            let polowa: CGFloat = pietro.0 * s
+            let yGora: CGFloat = yDol - pietro.1 * s
+            let yDolPietra: CGFloat = yDol - pietro.2 * s
+            let p = PomRA.wielokat([CGPoint(x: tx - polowa, y: yDolPietra), CGPoint(x: tx, y: yGora),
+                                    CGPoint(x: tx + polowa, y: yDolPietra)])
+            ctx.fill(p, with: .color(i % 2 == 0 ? styl.korona : styl.blask))
+            if styl.snieg {
+                // śnieg na górnych 40% piętra
+                let f: CGFloat = 0.4
+                let yCzapy: CGFloat = yGora + (yDolPietra - yGora) * f
+                let czapa = PomRA.wielokat([CGPoint(x: tx - polowa * f, y: yCzapy), CGPoint(x: tx, y: yGora),
+                                            CGPoint(x: tx + polowa * f, y: yCzapy)])
+                ctx.fill(czapa, with: .color(PomRA.rgba(241, 246, 251, 0.95)))
+            }
         }
     }
 
@@ -501,7 +570,7 @@ enum ScenaRatusza {
     }
 
     // Korpus Ratusza: cień, ściany, cokół, gzymsy, pilastry, okna, kartusz.
-    fileprivate static func korpus(_ ctx: inout GraphicsContext, noc: Bool, u: UkladRatusza, k: PaletaRatusza) {
+    fileprivate static func korpus(_ ctx: inout GraphicsContext, noc: Bool, u: UkladRatusza, k: PaletaRatusza, luna: Bool) {
         let s: CGFloat = u.s
         let bw: CGFloat = 39
 
@@ -511,7 +580,7 @@ enum ScenaRatusza {
         ctx.fill(u.prost(-bw, 34, bw, 11), with: .color(k.sciana))
         ctx.fill(u.prost(-bw, 34, -24, 11), with: .color(k.scianaCien))
         ctx.fill(u.prost(-bw, 11, bw, 0), with: .color(k.cokol))
-        if noc {
+        if noc && luna {
             let st: [Gradient.Stop] = [
                 PomRA.stop(PomRA.rgba(210, 32, 68, 0.68), 0),
                 PomRA.stop(PomRA.rgba(210, 32, 68, 0), 1)
@@ -760,6 +829,116 @@ enum ScenaRatusza {
             let czerwony = PomRA.wielokat([CGPoint(x: fx0, y: yM0), CGPoint(x: fx1, y: yM1),
                                            CGPoint(x: fx1, y: yB1), CGPoint(x: fx0, y: yB0)])
             ctx.fill(czerwony, with: .color(PomRA.rgba(rr, rg, rb, 0.98)))
+        }
+    }
+}
+
+// MARK: - Panorama Leszna na zwykłe dni
+
+extension ScenaRatusza {
+    /// Panorama Leszna na zwykłe dni z prawdziwym ratuszem Ferrariego i kamienicami wokół Rynku, tymi samymi co
+    /// w scenach 11 Listopada i zimowych (Karol 25.11: „tą grafikę w pogodzie też możesz poprawić na naszą nową
+    /// z nowym ratuszem”). Bez reflektorów i flag; drzewa w barwach pory roku, zimą śnieg i świerki.
+    /// Rysowana na niebie i pogodzie ScenaPogody (słońce, księżyc, chmury, opady i liście zostają z tyłu).
+    static func panorama(_ ctx: inout GraphicsContext, size: CGSize, noc: Bool, swiatla: Bool,
+                         pora: Motyw.Scena, ziemia: Color, kafel: Bool) {
+        let w: CGFloat = size.width
+        let h: CGFloat = size.height
+        guard w > 1, h > 1 else { return }
+        // układ jak w scenach z ratuszem: przy zmianie sceny z Panoramy na zimę ratusz zostaje w tym samym miejscu
+        let yRynek: CGFloat = h * 0.645
+        let scR: CGFloat = (h / 276) * 0.96 * PlanRatusza.skala(w, h)
+        let cxR: CGFloat = (w < 560) ? (w * 0.666) : (w * 0.68)
+        let u = UkladRatusza(cx: cxR, yb: PlanRatusza.podstawa(w, h), s: scR)
+        let zimowa: Bool = pora == .zima || pora == .swieta
+
+        brukPanoramy(&ctx, w: w, h: h, yRynek: yRynek, u: u, noc: noc, zimowa: zimowa, ziemia: ziemia)
+        kamienice(&ctx, w: w, noc: noc, yRynek: yRynek, u: u, styl: stylPanoramy(pora, noc: noc, swiatla: swiatla))
+        let kol = PaletaRatusza(panoramaNoc: noc)
+        korpus(&ctx, noc: noc, u: u, k: kol, luna: false)
+        portalIDach(&ctx, u: u, k: kol)
+        if zimowa {
+            // śnieg na dachu ratusza
+            ctx.fill(u.wielokat([(-37, 40.2), (-30, 46.5), (30, 46.5), (37, 40.2)]),
+                     with: .color(Color(hex: noc ? "#cbe0f5" : "#e8f4ff")))
+            ctx.stroke(u.linia(-39.8, 40.5, 39.8, 40.5), with: .color(.white), lineWidth: max(1.5, 2.1 * scR))
+        }
+        wieza(&ctx, u: u, k: kol)
+        zegar(&ctx, noc: noc, u: u, k: kol)
+        helm(&ctx, noc: noc, u: u, k: kol)
+        if pora == .sylwester {
+            let rok: Int = Calendar.current.component(.year, from: Date())
+            let miesiac: Int = Calendar.current.component(.month, from: Date())
+            let napis: String = String(miesiac == 12 ? rok + 1 : rok)
+            ctx.draw(Text(napis).font(.system(size: 18 * scR, weight: .heavy)).foregroundColor(Color(hex: "#e8c26a")),
+                     at: CGPoint(x: w * 0.2, y: yRynek - 40 * scR))
+        }
+        if pora == .swieta && !kafel {
+            // duża choinka na Rynku (w karcie Startu byłaby pod kolumnami prognozy)
+            let styl = StylKamienic(flagi: false, swiatla: true, korona: Color(hex: "#14532d"), blask: Color(hex: "#1f6a3a"),
+                                    snieg: true, swierki: true)
+            var duza = ctx
+            duza.translateBy(x: w * 0.2, y: yRynek + 14 * scR)
+            duza.scaleBy(x: 3, y: 3)
+            swierk(&duza, tx: 0, yDol: 0, s: scR, styl: styl)
+        }
+    }
+
+    /// Drzewa i okna Panoramy według pory roku.
+    fileprivate static func stylPanoramy(_ pora: Motyw.Scena, noc: Bool, swiatla: Bool) -> StylKamienic {
+        switch pora {
+        case .jesien, .listopad:
+            // jesienne lipy; 11 Listopada także flagi na kamienicach
+            return StylKamienic(flagi: pora == .listopad, swiatla: swiatla,
+                                korona: noc ? PomRA.rgba(70, 38, 16, 0.96) : PomRA.rgba(180, 83, 9, 0.96),
+                                blask: noc ? PomRA.rgba(96, 56, 22, 0.96) : PomRA.rgba(217, 119, 6, 0.96))
+        case .wiosna:
+            return StylKamienic(flagi: false, swiatla: swiatla,
+                                korona: noc ? PomRA.rgba(26, 46, 34, 0.96) : PomRA.rgba(96, 150, 72, 0.96),
+                                blask: noc ? PomRA.rgba(36, 60, 44, 0.96) : PomRA.rgba(144, 190, 100, 0.96))
+        case .lato:
+            return StylKamienic(flagi: false, swiatla: swiatla,
+                                korona: noc ? PomRA.rgba(20, 40, 30, 0.96) : PomRA.rgba(52, 110, 48, 0.96),
+                                blask: noc ? PomRA.rgba(30, 54, 40, 0.96) : PomRA.rgba(84, 140, 64, 0.96))
+        case .zima, .swieta, .sylwester:
+            return StylKamienic(flagi: false, swiatla: swiatla,
+                                korona: noc ? Color(hex: "#123129") : Color(hex: "#1f4f43"),
+                                blask: noc ? Color(hex: "#18392f") : Color(hex: "#2a6253"),
+                                snieg: pora != .sylwester, swierki: true)
+        }
+    }
+
+    /// Płyta Rynku w kolorze ziemi Panoramy (ten sam kolor ma plakietka z datą), ciepła poświata latarni nocą, łuki bruku.
+    fileprivate static func brukPanoramy(_ ctx: inout GraphicsContext, w: CGFloat, h: CGFloat, yRynek: CGFloat,
+                                         u: UkladRatusza, noc: Bool, zimowa: Bool, ziemia: Color) {
+        let s: CGFloat = u.s
+        let st: [Gradient.Stop]
+        if zimowa {
+            st = noc ? [PomRA.stopHex("#9fb0c6", 0), PomRA.stopHex("#b4c3d6", 0.45), PomRA.stop(ziemia, 1)]
+                : [PomRA.stopHex("#f4f8fc", 0), PomRA.stopHex("#e6eef7", 0.45), PomRA.stop(ziemia, 1)]
+        } else {
+            st = noc ? [PomRA.stopHex("#151c2e", 0), PomRA.stopHex("#0e1422", 0.45), PomRA.stop(ziemia, 1)]
+                : [PomRA.stopHex("#8d877c", 0), PomRA.stopHex("#6a645a", 0.45), PomRA.stop(ziemia, 1)]
+        }
+        let wysBruku: CGFloat = h - yRynek
+        ctx.fill(PomRA.prost(0, yRynek, w, wysBruku), with: PomRA.pionowy(st, yRynek, h))
+
+        if noc {
+            let c = CGPoint(x: u.cx, y: u.yb + 18 * s)
+            let stC: [Gradient.Stop] = [PomRA.stop(PomRA.rgba(255, 214, 140, 0.22), 0), PomRA.stop(PomRA.rgba(255, 214, 140, 0), 1)]
+            ctx.fill(PomRA.prost(u.cx - 70 * s, yRynek, 140 * s, wysBruku), with: PomRA.promien(stC, c, 2, 52 * s))
+        }
+
+        let kolorLuku: Color = zimowa ? (noc ? PomRA.rgba(200, 228, 255, 0.08) : PomRA.rgba(120, 150, 185, 0.16))
+            : (noc ? PomRA.rgba(255, 255, 255, 0.045) : PomRA.rgba(255, 255, 255, 0.10))
+        let grub: CGFloat = max(0.7, 0.8 * s)
+        let cyLuku: CGFloat = u.yb + 4 * s
+        var rad: CGFloat = 28
+        while rad < 260 {
+            var luk = Path()
+            PomRA.dodajLuk(&luk, u.cx, cyLuku, rad * 1.45 * s, rad * 0.42 * s, 0.06 * Double.pi, 0.94 * Double.pi, 32, true)
+            ctx.stroke(luk, with: .color(kolorLuku), lineWidth: grub)
+            rad += 20
         }
     }
 }
