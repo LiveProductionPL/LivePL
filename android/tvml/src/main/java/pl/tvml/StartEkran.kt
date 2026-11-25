@@ -17,9 +17,18 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.runtime.key
+import androidx.compose.ui.unit.Dp
+import kotlin.math.ceil
+import kotlin.math.max
+import kotlin.math.roundToInt
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -76,8 +85,9 @@ fun StartEkran(m: Magazyn) {
     ) {
         LazyColumn(state = stan, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             item(key = "kategorie") {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(m.kategorie, key = { it.nazwa }) { k ->
+                // kropka na każdy ekran przewijania (Karol 25.11: przy każdej karuzeli wskaźnik)
+                KaruzelaPozioma(odstepElementow = 8.dp) {
+                    m.kategorie.forEach { k -> key(k.nazwa) {
                         val wybrana = kategoria == k.slug
                         Box(
                             Modifier.height(34.dp).clip(CircleShape)
@@ -92,7 +102,7 @@ fun StartEkran(m: Magazyn) {
                         ) {
                             Text(k.nazwa, color = if (wybrana) m.motyw.napisNaAkcencie.w(ciemny) else b.tekst, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         }
-                    }
+                    } }
                 }
             }
             m.blad?.let { item(key = "blad") { Text(it, color = b.slaby, fontSize = 14.sp) } }
@@ -141,8 +151,9 @@ private fun androidx.compose.foundation.lazy.LazyListScope.blok(m: Magazyn, blok
                 if (blok.limit == 1) item(key = blok.id) {
                     KafelFilmu(filmy.first(), Modifier.fillMaxWidth())
                 } else item(key = blok.id) {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(filmy.take(if (blok.limit > 0) blok.limit else 6), key = { it.id }) { f -> KafelFilmu(f, Modifier.width(220.dp)) }
+                    val pokazane = filmy.take(if (blok.limit > 0) blok.limit else 6)
+                    KaruzelaPozioma(liczba = pokazane.size) {
+                        pokazane.forEach { f -> key(f.id) { KafelFilmu(f, Modifier.width(220.dp)) } }
                     }
                 }
             }
@@ -171,16 +182,16 @@ private fun androidx.compose.foundation.lazy.LazyListScope.blok(m: Magazyn, blok
             if (lista.isNotEmpty()) tytul()
             item(key = blok.id) {
                 LaunchedEffect(Unit) { if (m.wKategorii["_fotorelacje"] == null) m.fotorelacje(blok.limit) }
-                if (lista.isNotEmpty()) LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(lista, key = { it.id }) { a -> KartaArtykulu(a, 200.dp, Modifier.width(260.dp)) }
+                if (lista.isNotEmpty()) KaruzelaPozioma(liczba = lista.size) {
+                    lista.forEach { a -> key(a.id) { KartaArtykulu(a, 200.dp, Modifier.width(260.dp)) } }
                 }
             }
         }
         "counties" -> if (m.gminy.isNotEmpty()) {
             tytul()
             item(key = blok.id) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(m.gminy, key = { it.id }) { g -> PigulkaGminy(g) }
+                KaruzelaPozioma(odstepElementow = 10.dp) {
+                    m.gminy.forEach { g -> key(g.id) { PigulkaGminy(g) } }
                 }
             }
         }
@@ -294,17 +305,64 @@ fun SzkieletKaruzeli() {
 
 @Composable
 fun Karuzela(artykuly: List<Artykul>) {
-    val b = LocalBarwy.current
     val strony = rememberPagerState { artykuly.size }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         HorizontalPager(strony, pageSpacing = 12.dp, modifier = Modifier.fillMaxWidth().height(300.dp)) { i ->
             KartaArtykulu(artykuly[i], 300.dp)
         }
-        Row(Modifier.fillMaxWidth().clearAndSetSemantics { }, horizontalArrangement = Arrangement.Center) {
-            artykuly.indices.forEach { i ->
-                val wybrany = i == strony.currentPage
-                Box(Modifier.padding(horizontal = 3.dp).size(if (wybrany) 18.dp else 6.dp, 6.dp).clip(CircleShape).background(if (wybrany) Barwy.zloto else b.ramka))
-            }
+        KropkiKaruzeli(artykuly.size, strony.currentPage)
+    }
+}
+
+/** Kropki pod karuzelą: złota kreska 18×6 to miejsce, w którym jesteś, szare kropki 6×6 co 6 dp. Tak samo na iOS. */
+@Composable
+fun KropkiKaruzeli(liczba: Int, aktywna: Int, modifier: Modifier = Modifier) {
+    val b = LocalBarwy.current
+    Row(
+        modifier.fillMaxWidth().clearAndSetSemantics { },
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+    ) {
+        repeat(liczba) { i ->
+            val wybrana = i == aktywna
+            val szerokosc by animateDpAsState(if (wybrana) 18.dp else 6.dp, tween(200), label = "kropka")
+            val barwa by animateColorAsState(if (wybrana) Barwy.zloto else b.ramka, tween(200), label = "barwa kropki")
+            Box(Modifier.size(szerokosc, 6.dp).clip(CircleShape).background(barwa))
+        }
+    }
+}
+
+/**
+ * Pozioma karuzela z kropkami pod spodem (Karol 25.11: „Jak jest karuzela musi być jakiś wskaźnik bo nikt nie wie,
+ * że ma przesunąć palcem”). Kropka na każdy element ([liczba]: filmy, fotorelacje) albo, bez [liczba], na każdy ekran
+ * przewijania (kategorie, gminy, prognoza godzinowa). Bieżąca kropka według postępu przewinięcia, więc na końcu
+ * zawsze świeci ostatnia. Gdy wszystko mieści się na ekranie, kropek nie ma. Tak samo na iOS (KaruzelaPozioma).
+ * [wewnatrz]: margines treści w karcie z ramką (prognoza godzinowa), [odstep]: od treści do kropek,
+ * [dolnyOdstep]: pod kropkami.
+ */
+@Composable
+fun KaruzelaPozioma(
+    modifier: Modifier = Modifier,
+    liczba: Int? = null,
+    odstepElementow: Dp = 12.dp,
+    wewnatrz: Dp = 0.dp,
+    odstep: Dp = 8.dp,
+    dolnyOdstep: Dp = 0.dp,
+    tresc: @Composable RowScope.() -> Unit,
+) {
+    val przewiniecie = rememberScrollState()
+    val zakres = przewiniecie.maxValue
+    val ekran = przewiniecie.viewportSize
+    val ile = if (zakres > 1 && ekran > 0) liczba ?: max(2, ceil((ekran + zakres).toFloat() / ekran).toInt()) else 0
+    val kropki = ile > 1
+    Column(modifier) {
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(przewiniecie)
+                .padding(start = wewnatrz, top = wewnatrz, end = wewnatrz, bottom = if (kropki) 0.dp else wewnatrz),
+            horizontalArrangement = Arrangement.spacedBy(odstepElementow),
+        ) { tresc() }
+        if (kropki) {
+            val postep = (przewiniecie.value.toFloat() / zakres).coerceIn(0f, 1f)
+            KropkiKaruzeli(ile, (postep * (ile - 1)).roundToInt(), Modifier.padding(top = odstep, bottom = dolnyOdstep))
         }
     }
 }
@@ -329,7 +387,9 @@ fun KafelPogody(m: Magazyn) {
     val teraz = m.chwila()
     // pasek daty motywu z panelu (API 1.8.3 theme.dateBar albo etap z harmonogramu); bez niego reguły jak na iPhonie
     val pasek = m.pasekDatyTeraz(teraz)
-    val paleta = PaletaBelki.dla(scena, noc, svg != null, teraz, pasek, m.motyw.scena())
+    // pora roku albo motywu: drzewa, śnieg i ziemia Panoramy oraz kolor belki z datą (ten sam co ziemia)
+    val pora = m.motyw.scena(teraz.monthValue)
+    val paleta = PaletaBelki.dla(scena, noc, svg != null, teraz, pasek, pora)
     val data = dataKarty(m.dzisiaj, teraz.toLocalDate())
     // config.today z innego dnia (bez sieci po północy): bez wczorajszych imion i święta; w motywie imiona z dateBar.days[]
     val dzisiajAktualne = m.dzisiaj?.data.let { it == null || it == teraz.toLocalDate() }
@@ -360,7 +420,7 @@ fun KafelPogody(m: Magazyn) {
         // proporcje karty strony w telefonie: ok. 1,05 : 1 razem z plakietką; przy dużym tekście rośnie razem z nim
         val wysokosc = maxWidth / 1.05f
         Box(Modifier.fillMaxWidth().heightIn(min = wysokosc)) {
-            ScenaStrony(scena, stan, noc, opcje, p?.efekt, Modifier.matchParentSize(), svg, kartaStartu = true)
+            ScenaStrony(scena, stan, noc, opcje, p?.efekt, Modifier.matchParentSize(), svg, kartaStartu = true, poraRoku = pora)
             // lekkie przyciemnienie pod nagłówkiem i temperaturą (scena zostaje widoczna jak na stronie)
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.22f), 0.32f to Color.Transparent)))
             Column(Modifier.fillMaxWidth().heightIn(min = wysokosc).padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 10.dp).clearAndSetSemantics { }) {

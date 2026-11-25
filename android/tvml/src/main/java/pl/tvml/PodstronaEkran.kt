@@ -280,6 +280,8 @@ private fun OgloszenieArkusz(o: Ogloszenie, zamknij: () -> Unit) {
             HorizontalPager(strony, pageSpacing = 8.dp, modifier = Modifier.fillMaxWidth().height(240.dp).clip(RoundedCornerShape(14.dp))) { i ->
                 Obraz(o.zdjecia[i], Modifier.fillMaxSize())
             }
+            // jak kropki strony pod zdjęciami na iOS (Karol 25.11: przy każdej karuzeli wskaźnik)
+            if (o.zdjecia.size > 1) KropkiKaruzeli(o.zdjecia.size, strony.currentPage, Modifier.padding(top = 8.dp))
             Odstep(8.dp)
         }
         if (o.kategoria.isNotEmpty()) Text(o.kategoria.uppercase(), color = b.slaby, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)

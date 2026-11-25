@@ -3,7 +3,6 @@ package pl.tvml
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -66,7 +65,10 @@ fun PogodaEkran(m: Magazyn) {
             ) {
                 // ta sama scena ze strony co na karcie Startu (harmonogram motywów, stan i noc z /api/v1/weather)
                 val stan = p?.ikona?.ifEmpty { null } ?: "cloudy"
-                ScenaStrony(m.scenaPogody(stan), stan, m.nocSceny(), m.opcjeSceny(stan), p?.efekt, Modifier.fillMaxSize(), m.scenaSvgTeraz())
+                ScenaStrony(
+                    m.scenaPogody(stan), stan, m.nocSceny(), m.opcjeSceny(stan), p?.efekt, Modifier.fillMaxSize(), m.scenaSvgTeraz(),
+                    poraRoku = m.motyw.scena(m.chwila().monthValue),
+                )
                 Column(Modifier.padding(18.dp).clearAndSetSemantics { }, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     val styl = TextStyle(color = Color.White, shadow = cienNapisu)
                     Text(p?.let { Pogoda.stopnie(it.temperatura) + "C" } ?: "–", style = styl.copy(fontSize = 52.sp, fontWeight = FontWeight.Black, lineHeight = 56.sp))
@@ -109,10 +111,10 @@ fun PogodaEkran(m: Magazyn) {
 
             val godziny = p?.godziny.orEmpty()
             if (godziny.isNotEmpty()) {
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(b.karta).border(1.dp, b.ramka, RoundedCornerShape(14.dp))
-                        .horizontalScroll(rememberScrollState()).padding(14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                // kropki w karcie, pod godzinami (Karol 25.11: przy każdej karuzeli wskaźnik przewijania), jak na iOS
+                KaruzelaPozioma(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(b.karta).border(1.dp, b.ramka, RoundedCornerShape(14.dp)),
+                    odstepElementow = 14.dp, wewnatrz = 14.dp, odstep = 10.dp, dolnyOdstep = 10.dp,
                 ) {
                     godziny.take(24).forEach { g ->
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {

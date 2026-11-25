@@ -143,8 +143,10 @@ class RamaSceny(
     val ukryjGwiazdySceny: Boolean,
     /** Strona rysuje kartę główną w trybie „sidebar” (canvas rysuje też napisy); w aplikacji zawsze true. */
     val sidebarMode: Boolean = true,
-    /** Karta pogody na Starcie (kolumny i plakietka przy dole): Panorama Leszna stoi wyżej ([lesznoPanorama]). */
+    /** Karta pogody na Starcie (kolumny i plakietka przy dole): bez dużej choinki w Panoramie ([panoramaRatusza]). */
     val kartaStartu: Boolean = false,
+    /** Pora roku albo motywu (Motyw.scena): drzewa, śnieg i ziemia Panoramy Leszna, jak na iOS. */
+    val poraRoku: Motyw.Scena = Motyw.zwykly.scena(teraz.monthValue),
 ) {
     val horizonY = h * 0.58
     val foreY = h * 0.80
@@ -332,6 +334,7 @@ object ScenyStrony {
 fun ScenaStrony(
     id: String, stan: String, noc: Boolean, opcje: OpcjeSceny, efekt: EfektPogody?, modifier: Modifier = Modifier, svg: ScenaSvg? = null,
     kartaStartu: Boolean = false,
+    poraRoku: Motyw.Scena? = null,
 ) {
     if (svg != null) return ScenaZSvg(svg, noc, modifier)
     val ruch = ValueAnimator.areAnimatorsEnabled()
@@ -352,10 +355,12 @@ fun ScenaStrony(
                 val stan0 = nc.save()
                 nc.scale(density, density)
                 plotno.nowaKlatka(nc)
+                val teraz = ZonedDateTime.now(Daty.strefa)
                 val rama = RamaSceny(
-                    plotno, size.width / g, size.height / g, czas, noc, stan, id, opcje, ZonedDateTime.now(Daty.strefa), ruch, pamiec,
+                    plotno, size.width / g, size.height / g, czas, noc, stan, id, opcje, teraz, ruch, pamiec,
                     ukryjGwiazdySceny = !specjalna && efekt != null && !NakladkaPogody.gwiazdy(efekt, noc),
                     kartaStartu = kartaStartu,
+                    poraRoku = poraRoku ?: Motyw.zwykly.scena(teraz.monthValue),
                 )
                 ScenyStrony.rysuj(rama)
                 nc.restoreToCount(stan0)
