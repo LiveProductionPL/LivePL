@@ -32,13 +32,17 @@
         <img src="../assets/wstega-jasna.png" alt="LivePL" draggable="false">
       </picture>
     </div>
-    <button class="wiecej" id="programy-gora" type="button" hidden></button>
-    <nav id="programy" aria-label="Programy"></nav>
-    <button class="wiecej" id="programy-dol" type="button" hidden></button>
+    <div class="lista" id="programy-lista">
+      <nav id="programy" aria-label="Programy"></nav>
+      <button class="wiecej gora" id="programy-gora" type="button" hidden></button>
+      <button class="wiecej dol" id="programy-dol" type="button" hidden></button>
+    </div>
     <div id="kreska" role="separator" aria-orientation="horizontal" tabindex="0" aria-label="Granica między zapisanymi stronami a otwartymi kartami" hidden></div>
-    <button class="wiecej" id="karty-gora" type="button" hidden></button>
-    <nav id="karty" aria-label="Otwarte karty"></nav>
-    <button class="wiecej" id="karty-dol" type="button" hidden></button>
+    <div class="lista" id="karty-lista">
+      <nav id="karty" aria-label="Otwarte karty"></nav>
+      <button class="wiecej gora" id="karty-gora" type="button" hidden></button>
+      <button class="wiecej dol" id="karty-dol" type="button" hidden></button>
+    </div>
     <button id="nowa" type="button" title="Nowa karta (Ctrl+T)" aria-label="Nowa karta"></button>
   </aside>
 

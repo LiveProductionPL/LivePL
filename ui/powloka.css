@@ -267,13 +267,33 @@ body.ciagnie-kreske, body.ciagnie-kreske * { cursor: row-resize !important; }
 }
 
 /* „jest więcej”: strzałka z liczbą ukrytych ikon; kliknięcie przewija, przy przeciąganiu wystarczy najechać */
+/* lista z nakładanymi strzałkami: strzałka leży na wygaszonej krawędzi listy i nie zabiera miejsca,
+   więc przy przewijaniu nic nie skacze (Karol, 25.11: „przesuwanie ikon powinno być płynne”) */
+.lista {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 0;
+}
+/* wysokość listy programów ustawia ulozPasek (powloka.js), więc ramka listy się nie kurczy; kurczą się karty */
+#programy-lista { flex: 0 0 auto; }
+#karty-lista { flex: 0 1 auto; }
+#karty-lista #karty { flex: 0 1 auto; }
+/* aktywna ikona przewinięta do widoku nie chowa się pod strzałką na krawędzi */
+#programy, #karty { scroll-padding-block: 26px; }
+
 .wiecej {
-  flex: none;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
   width: 52px;
   height: 22px;
-  margin: 2px 0;
   border-radius: 6px;
-  background: var(--hover);
+  background: var(--tlo);
+  box-shadow: 0 0 0 1px var(--kreska), 0 2px 6px rgba(0, 0, 0, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -284,8 +304,10 @@ body.ciagnie-kreske, body.ciagnie-kreske * { cursor: row-resize !important; }
   line-height: 1;
 }
 
+.wiecej.gora { top: 1px; }
+.wiecej.dol { bottom: 1px; }
 .wiecej[hidden] { display: none; }
-.wiecej:hover { background: var(--wcisniety); color: var(--tekst); }
+.wiecej:hover { background: color-mix(in srgb, var(--tlo) 70%, var(--kanal) 30%); color: var(--tekst); }
 .wiecej .ik { width: 15px; height: 15px; stroke-width: 2.4; }
 
 /* przeciąganie ikon i kart */

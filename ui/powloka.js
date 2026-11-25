@@ -270,8 +270,9 @@ for (const l of LISTY) {
 // zawsze zostaje miejsce na jedną kartę. Dwuklik wraca do układu automatycznego.
 
 const kreskaEl = $('#kreska');
-const NAJMNIEJ_PROGRAMOW = 46; // jedna ikona
-const NAJMNIEJ_KART = 48; // jedna karta
+// najmniej około dwóch ikon: strzałki leżą na krawędziach listy, więc między nimi zostaje cała ikona
+const NAJMNIEJ_PROGRAMOW = 100;
+const NAJMNIEJ_KART = 100;
 const WSZYSTKIE_PROGRAMY = 9999; // „pokaż wszystkie zapisane”, ile zmieści okno
 let wysokoscProgramow = null; // null: automatycznie
 let ciagniecie = null;
@@ -292,7 +293,7 @@ function ulozPasek() {
   // miejsce na obie listy: wysokość boku bez logo, strzałek, kreski i przycisku nowej karty
   let inne = 0;
   for (const el of $('#bok').children) {
-    if (el === programy || el === karty || el.hidden) continue;
+    if (el.classList.contains('lista') || el.hidden) continue;
     const s = getComputedStyle(el);
     if (s.display === 'none') continue;
     inne += el.getBoundingClientRect().height + parseFloat(s.marginTop) + parseFloat(s.marginBottom);
