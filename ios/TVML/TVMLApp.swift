@@ -174,7 +174,9 @@ struct Baner: View {
                 Spacer()
                 Button { m.pokaz(.pogoda) } label: {
                     HStack(spacing: 6) {
-                        Image(systemName: ikonaPogody(m.pogoda?.ikona ?? "cloud"))
+                        // ikony pogody wszędzie z jednego zestawu strony (Karol 25.11: „ikony pogody zawsze muszą być zjednolicone”)
+                        IkonaRysowana(stan: m.pogoda?.ikona ?? "cloud", noc: !(m.pogoda?.dzien ?? true))
+                            .frame(width: 22, height: 22).accessibilityHidden(true)
                         Text(m.pogoda.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–")
                     }
                     .font(.system(size: 14, weight: .semibold))

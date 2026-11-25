@@ -81,7 +81,7 @@ struct PogodaWidok: View {
                             ForEach(godziny.prefix(24)) { g in
                                 VStack(spacing: 4) {
                                     Text(g.czas).czcionka(12, .semibold)
-                                    Image(systemName: ikonaPogody(g.ikona)).symbolRenderingMode(.multicolor).font(.system(size: 20))
+                                    IkonaRysowana(stan: g.ikona, noc: false).frame(width: 28, height: 28).accessibilityHidden(true)
                                     Text(Pogoda.stopnie(g.temp)).czcionka(13, .bold)
                                     if g.opad > 0 { Text("\(g.opad)%").czcionka(11, .semibold).foregroundStyle(Barwy.link) }
                                 }
@@ -99,7 +99,7 @@ struct PogodaWidok: View {
                         ForEach(Array(dni.enumerated()), id: \.element.id) { i, d in
                             HStack {
                                 Text(d.nazwa).czcionka(15, .bold).frame(width: 36, alignment: .leading)
-                                Image(systemName: ikonaPogody(d.ikona)).symbolRenderingMode(.multicolor).frame(width: 30)
+                                IkonaRysowana(stan: d.ikona, noc: false).frame(width: 30, height: 30).accessibilityHidden(true)
                                 Text(d.opis).czcionka(13).foregroundStyle(Barwy.slaby).lineLimit(1)
                                 Spacer()
                                 if d.opad > 0 { Text("\(d.opad)%").czcionka(12, .semibold).foregroundStyle(Barwy.link) }
