@@ -560,7 +560,7 @@ final class Magazyn: ObservableObject {
     @Published var filmy: [Film] = []
     /// Następna strona filmów (/api/v1/videos, nextCursor); nil = to już wszystkie.
     @Published var filmyKursor: String?
-    private var ladujeFilmy = false
+    @Published var ladujeFilmy = false
     @Published var pogoda: Pogoda?
     @Published var motyw = Motyw.zwykly
     @Published var wKategorii: [String: [Artykul]] = [:]
@@ -738,7 +738,7 @@ final class Magazyn: ObservableObject {
         async let k = konfiguracja()
         async let a = Siec.v1("articles", ["limit": "20"])
         async let b = Siec.v1("articles/most-read", ["limit": "10"])
-        async let d = Siec.v1("videos", ["limit": "12"])
+        async let d = Siec.v1("videos", ["limit": "15"])
         async let e = Siec.v1("weather")
         let (konfOdp, tokenPodgladu) = await k
         // podgląd bez odpowiedzi serwera: zostaje to, co już widać
@@ -837,8 +837,9 @@ final class Magazyn: ObservableObject {
         return true
     }
 
-    /// Kolejne filmy w zakładce Wideo przy przewijaniu (cursor=nextCursor). Archiwum na serwerze ma od 25.11 także
-    /// filmy z artykułów, ok. 140 (Karol: w aplikacji było tylko 15 filmów).
+    /// Kolejne 15 filmów w zakładce Wideo po stuknięciu „Starsze filmy” (cursor=nextCursor). Archiwum na serwerze ma
+    /// od 25.11 także filmy z artykułów, ok. 140 (Karol: „miało wczytywac filmy po 15 i dac opcje wczytania kolejnych
+    /// a nie od razu wszytskie”).
     func wiecejFilmow() async {
         guard let kursor = filmyKursor, !ladujeFilmy else { return }
         ladujeFilmy = true

@@ -47,10 +47,22 @@ struct WideoWidok: View {
                     }
                     .buttonStyle(.plain)
                 }
-                // koniec listy: doczytanie kolejnych filmów z archiwum
+                // koniec listy: kolejne 15 filmów z archiwum dopiero po stuknięciu (jak na Androidzie)
                 if m.filmyKursor != nil && !m.filmy.isEmpty {
-                    ProgressView().tint(.white).frame(maxWidth: .infinity, minHeight: 60)
-                        .task(id: m.filmy.count) { await m.wiecejFilmow() }
+                    Group {
+                        if m.ladujeFilmy {
+                            ProgressView().tint(.white)
+                        } else {
+                            Button { Task { await m.wiecejFilmow() } } label: {
+                                Text(Napisy.t("app.videoMore", "Starsze filmy")).czcionka(15, .bold).foregroundStyle(.white)
+                                    .padding(.horizontal, 20).frame(minHeight: 44)
+                                    .background(Color(hex: "#1c2840"), in: Capsule())
+                                    .overlay(Capsule().stroke(Color.white.opacity(0.2)))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 60)
                 }
             }
             .padding(16)
