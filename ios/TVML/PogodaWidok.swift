@@ -286,135 +286,13 @@ struct ScenaPogody: View {
 
     private func rysuj(ctx: inout GraphicsContext, size: CGSize, t: Double) {
         if let s = scenaStrony { rysujStrony(s, ctx: &ctx, size: size, t: t); return }
-        if let e = wgEfektu { rysujEfekt(ctx: &ctx, size: size, t: t, e: e); return }
-        let w = size.width, h = size.height
-        ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .linearGradient(Gradient(colors: niebo()), startPoint: .zero, endPoint: CGPoint(x: 0, y: h)))
-
-        // gwiazdy
-        if noc && (stan.jasne || scena == .sylwester) {
-            for i in 0..<45 {
-                let x = Double((i * 97) % 1000) / 1000 * w
-                let y = Double((i * 61) % 1000) / 1000 * h * 0.55
-                ctx.opacity = 0.45 + 0.45 * sin(t * 1.6 + Double(i))
-                ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: 2, height: 2)), with: .color(.white))
-            }
-            ctx.opacity = 1
-        }
-        // słońce albo księżyc
-        if !noc && stan.jasne {
-            let wysoko = pora == .dzien
-            let c = srodekCiala(w: w, h: h, domyslny: CGPoint(x: w * 0.78, y: wysoko ? h * 0.18 : h * 0.45))
-            let kolor = wysoko ? Color(hex: "#fff3b0") : Color(hex: "#ffb36b")
-            let k: CGFloat = kafel ? 0.58 : 1
-            ctx.fill(Path(ellipseIn: CGRect(x: c.x - 70 * k, y: c.y - 70 * k, width: 140 * k, height: 140 * k)),
-                     with: .radialGradient(Gradient(colors: [kolor.opacity(0.55), kolor.opacity(0)]), center: c, startRadius: 20 * k, endRadius: 70 * k))
-            ctx.fill(Path(ellipseIn: CGRect(x: c.x - 26 * k, y: c.y - 26 * k, width: 52 * k, height: 52 * k)), with: .color(kolor))
-        } else if noc && stan.jasne {
-            // sierp: koło minus przesunięte koło (even-odd dawało dwa sierpy)
-            let d: CGFloat = kafel ? 24 : 40
-            let c = srodekCiala(w: w, h: h, domyslny: CGPoint(x: w * 0.74 + 20, y: 46))
-            let ksiezyc = Path(ellipseIn: CGRect(x: c.x - d / 2, y: c.y - d / 2, width: d, height: d))
-                .subtracting(Path(ellipseIn: CGRect(x: c.x - d / 2 + d * 0.3, y: c.y - d / 2 - d * 0.15, width: d, height: d)))
-            ctx.fill(ksiezyc, with: .color(Color(hex: "#f4f1de")))
-        }
-        // reflektory i fajerwerki
-        if (scena == .sylwester || scena == .listopad) && swiatla {
-            let kolory: [Color] = scena == .listopad ? [.white, Color(hex: "#dc143c")] : [Color(hex: "#e8c26a"), Color(hex: "#e8c26a")]
-            for (i, kolor) in kolory.enumerated() {
-                let kat = sin(t * 0.6 + Double(i) * 2) * 0.25 + (i == 0 ? -0.35 : 0.35)
-                let baza = CGPoint(x: w * 0.52, y: h * 0.84)
-                var snop = Path()
-                snop.move(to: baza)
-                snop.addLine(to: CGPoint(x: baza.x + CGFloat(sin(kat - 0.06)) * h, y: baza.y - CGFloat(cos(kat - 0.06)) * h))
-                snop.addLine(to: CGPoint(x: baza.x + CGFloat(sin(kat + 0.06)) * h, y: baza.y - CGFloat(cos(kat + 0.06)) * h))
-                snop.closeSubpath()
-                ctx.fill(snop, with: .color(kolor.opacity(0.18)))
-            }
-        }
-        if scena == .sylwester && swiatla {
-            let barwy = [Color(hex: "#e8c26a"), Color(hex: "#f472b6"), Color(hex: "#7dd3fc")]
-            for i in 0..<3 {
-                let okres = 2.6 + Double(i) * 0.7
-                let faza = (t + Double(i) * 0.9).truncatingRemainder(dividingBy: okres) / okres
-                // kafel: małe fajerwerki nad Ratuszem, w przerwie między temperaturą a prognozą
-                let c = kafel ? CGPoint(x: w * [0.45, 0.55, 0.5][i], y: h * [0.42, 0.5, 0.62][i])
-                    : CGPoint(x: w * [0.2, 0.55, 0.82][i], y: h * [0.18, 0.1, 0.22][i])
-                let r = kafel ? 4 + faza * 16 : 6 + faza * 34
-                ctx.opacity = 1 - faza
-                for k in 0..<12 {
-                    let a = Double(k) / 12 * 2 * .pi
-                    var p = Path()
-                    p.move(to: CGPoint(x: c.x + CGFloat(cos(a)) * r * 0.45, y: c.y + CGFloat(sin(a)) * r * 0.45))
-                    p.addLine(to: CGPoint(x: c.x + CGFloat(cos(a)) * r, y: c.y + CGFloat(sin(a)) * r))
-                    ctx.stroke(p, with: .color(barwy[i]), lineWidth: 1.6)
-                }
-            }
-            ctx.opacity = 1
-        }
-        // chmury
-        let ileChmur: Int = { switch stan { case .slonce: return 1; case .przejasnienia, .wiatr: return 3; case .chmury, .deszcz: return 6; case .burza: return 7; case .snieg: return 5; case .mgla: return 0 } }()
-        let kolorChmur: Color = noc ? Color(hex: "#2a3550") : ([.deszcz, .burza].contains(stan) ? Color(hex: "#5f6b7d") : (stan == .chmury ? Color(hex: "#cdd5e0") : .white))
-        for i in 0..<ileChmur {
-            let szer = 100 + Double(i % 3) * 30
-            let szybkosc = (stan == .wiatr ? 26 : 8) + Double(i) * 1.5
-            let x = (Double(i) * 137 + t * szybkosc).truncatingRemainder(dividingBy: w + szer * 2) - szer
-            let y = 12 + Double((i * 53) % 70)
-            ctx.opacity = 0.75 * krycieChmur
-            ctx.fill(chmura(CGRect(x: x, y: y, width: szer, height: szer * 0.42)), with: .color(kolorChmur))
-        }
-        ctx.opacity = 1
-        // błyskawica
-        if stan == .burza && !bezRuchu {
-            let blysk = sin(t * 0.9) > 0.97 || sin(t * 1.7 + 1) > 0.985
-            if blysk {
-                ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.white.opacity(0.25)))
-                var b = Path()
-                let x0 = kafel ? w * 0.48 : w * 0.3
-                b.move(to: CGPoint(x: x0 + 20, y: h * 0.18)); b.addLine(to: CGPoint(x: x0, y: h * 0.42)); b.addLine(to: CGPoint(x: x0 + 14, y: h * 0.42))
-                b.addLine(to: CGPoint(x: x0 - 6, y: h * 0.7)); b.addLine(to: CGPoint(x: x0 + 28, y: h * 0.36)); b.addLine(to: CGPoint(x: x0 + 14, y: h * 0.36)); b.closeSubpath()
-                ctx.fill(b, with: .color(Color(hex: "#fde68a")))
-            }
-        }
-        // deszcz
-        if stan == .deszcz || stan == .burza {
-            let ile = stan == .burza ? 80 : 55
-            for i in 0..<ile {
-                let x0 = Double((i * 151) % 1000) / 1000 * w
-                let y = (Double((i * 89) % 1000) / 1000 * h + t * 420).truncatingRemainder(dividingBy: h + 20) - 10
-                var kropla = Path()
-                kropla.move(to: CGPoint(x: x0 + y * 0.12, y: y)); kropla.addLine(to: CGPoint(x: x0 + y * 0.12 + 3, y: y + 13))
-                ctx.stroke(kropla, with: .color(Color(red: 0.84, green: 0.9, blue: 0.98).opacity(0.7)), lineWidth: 1.4)
-            }
-        }
-        // śnieg
-        let platki = stan == .snieg ? 70 : (zimowo && ![.deszcz, .burza].contains(stan) ? 28 : 0)
-        for i in 0..<platki {
-            let r = 1.5 + Double(i % 3)
-            let y = (Double((i * 89) % 1000) / 1000 * h + t * (22 + r * 6)).truncatingRemainder(dividingBy: h + 10) - 5
-            let x = Double((i * 151) % 1000) / 1000 * w + sin(t + Double(i)) * 10
-            ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: r * 2, height: r * 2)), with: .color(.white.opacity(0.9)))
-        }
-        // liście na wietrze
-        if stan == .wiatr && scena == .jesien {
-            let barwy = [Color(hex: "#ea580c"), Color(hex: "#d97706"), Color(hex: "#b45309")]
-            for i in 0..<14 {
-                let x = (Double((i * 151) % 1000) / 1000 * w + t * 90).truncatingRemainder(dividingBy: w + 20) - 10
-                let y = Double((i * 89) % 1000) / 1000 * h * 0.7 + sin(t * 2 + Double(i)) * 14
-                var lisc = ctx
-                lisc.translateBy(x: x, y: y)
-                lisc.rotate(by: .radians(t * 3 + Double(i)))
-                lisc.fill(Path(ellipseIn: CGRect(x: -5, y: -2.5, width: 10, height: 5)), with: .color(barwy[i % 3]))
-            }
-        }
-        panorama(ctx: &ctx, w: w, h: h)
-        // mgła
-        if stan == .mgla {
-            for i in 0..<3 {
-                let y = h * (0.4 + Double(i) * 0.18)
-                let x = sin(t * 0.2 + Double(i)) * 30 - 40
-                ctx.fill(Path(CGRect(x: x, y: y, width: w + 80, height: 46)), with: .color(Color(hex: "#ebeff3").opacity((0.45 + Double(i) * 0.1) * krycieChmur)))
-            }
-        }
+        // Panorama Leszna (leszno-panorama) jak na stronie od 25.11 (Karol: „na stronie jest już idealnie”): Rynek
+        // z ratuszem ze sceny 11 Listopada w wersji codziennej (ScenaRatusza, codzienny), a na nim pogoda z serwera
+        // jako nakładka, bo na stronie Panorama nie jest sceną specjalną (pogoda-efekty.js, scenaSpecjalna).
+        // Zastępuje dawny zarys ratusza z kółkiem zegara (siatka 358 × 130) i niebo według ikony.
+        var c = ctx
+        ScenaRatusza.rysuj(&c, size: size, t: t, warunki: warunki ?? WarunkiSceny(noc: noc), codzienny: true)
+        if let e = wgEfektu { rysujEfekt(ctx: &ctx, size: size, t: t, e: e, tylkoNakladka: true) }
     }
 
     // MARK: efekt z serwera (API 1.7.2), jak na stronie: aktualna pogoda, a nie sama pora roku
@@ -596,7 +474,6 @@ struct ScenaPogody: View {
                 lisc.fill(Path(ellipseIn: CGRect(x: -4.4, y: -2.1, width: 8.8, height: 4.2)), with: .color(barwy[k % 4]))
             }
         }
-        if !tylkoNakladka { panorama(ctx: &ctx, w: w, h: h) }
         // mgła: 5 półprzezroczystych pasm na przemian w lewo i w prawo i mleczny dół, bez gwiazd i liści
         if e.rodzaj == "fog" {
             let kolorMgly = wNocy ? Color(red: 168 / 255, green: 180 / 255, blue: 204 / 255)
@@ -633,12 +510,5 @@ struct ScenaPogody: View {
         p.addEllipse(in: CGRect(x: r.minX + r.width * 0.22, y: r.minY, width: r.width * 0.5, height: r.height * 0.9))
         p.addEllipse(in: CGRect(x: r.minX + r.width * 0.48, y: r.minY + r.height * 0.25, width: r.width * 0.52, height: r.height * 0.75))
         return p
-    }
-
-    /// Panorama Leszna na zwykłe dni: prawdziwy ratusz Ferrariego i kamienice wokół Rynku, jak w scenach 11 Listopada
-    /// i zimowych (ScenaRatusza.panorama), w barwach pory roku. Dawny zarys ratusza z kółkiem zegara zastąpiony 25.11.
-    private func panorama(ctx: inout GraphicsContext, w: CGFloat, h: CGFloat) {
-        ScenaRatusza.panorama(&ctx, size: CGSize(width: w, height: h), noc: noc, swiatla: swiatla, pora: scena,
-                              ziemia: Self.kolorZiemi(scena: scena, noc: noc), kafel: kafel)
     }
 }

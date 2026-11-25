@@ -728,13 +728,17 @@ struct KartaPogody: View {
     }
     private var paleta: PaletaBelki {
         let p = PaletaBelki.dla(scenaKarty ?? WyborSceny.Scena(), noc: noc, rok: Calendar.current.component(.year, from: Date()))
-        guard let s = scenaKarty, s.panorama, s.svg == nil else { return p }
-        // panorama Leszna: belka w kolorze jej ziemi według pory roku (zimą i w Święta śnieg, wtedy ciemny tekst)
-        let jasna = ScenaPogody.zimowa(scena)
-        return PaletaBelki(tlo: ScenaPogody.kolorZiemi(scena: scena, noc: noc), akcent: p.akcent,
-                           data: jasna ? Color(hex: "#0f172a") : Color.white,
-                           drugaLinia: jasna ? Color(hex: "#334155") : Color(hex: "#e2e8f0"),
+        guard rynek, scenaKarty?.svg == nil, scenaKarty?.strony != .ratusz11Listopada else { return p }
+        // Panorama Leszna: belka w kolorze bruku Rynku, jak przy scenie 11 Listopada (od 25.11 ten sam Rynek)
+        return PaletaBelki(tlo: Color(hex: noc ? "#161a24" : "#4a505c"), akcent: p.akcent,
+                           data: Color.white, drugaLinia: Color(hex: "#e2e8f0"),
                            medal: p.medal, obwodka: p.obwodka, ikona: p.ikona)
+    }
+    /// Rynek z ratuszem (Panorama Leszna albo 11 Listopada): na stronie zamiast poduszek pod kolumnami jest
+    /// przyciemniony pas pod pomiarami i prognozą (weather-effects.js, hudScrim; Karol 25.11).
+    private var rynek: Bool {
+        guard let s = scenaKarty else { return true }
+        return s.svg == nil && (s.panorama || s.strony == .ratusz11Listopada)
     }
 
     var body: some View {
@@ -823,10 +827,23 @@ struct KartaPogody: View {
                         }
                         .shadow(color: cien, radius: 3).opacity(widac)
                         // wąska poduszka pod kolumną jak na stronie: rgba(6,12,26,0.30) w nocy, 0.36 w dzień
+                        // (na Rynku z ratuszem zamiast niej wspólny pas, niżej)
                         .padding(.horizontal, 9).padding(.vertical, 8)
-                        .background(Color(red: 6 / 255, green: 12 / 255, blue: 26 / 255).opacity(noc ? 0.30 : 0.36),
+                        .background(Color(red: 6 / 255, green: 12 / 255, blue: 26 / 255).opacity(rynek ? 0 : (noc ? 0.30 : 0.36)),
                                     in: RoundedRectangle(cornerRadius: 11))
                         .frame(maxWidth: .infinity)
+                    }
+                }
+                .background {
+                    if rynek && warstwa != .tekst {
+                        // hudScrim ze strony: rgba(8,14,28) od 0 do 0,44 (noc 0,34) i 0,48 (noc 0,38), na całą szerokość karty
+                        let k = Color(red: 8 / 255, green: 14 / 255, blue: 28 / 255)
+                        LinearGradient(stops: [.init(color: k.opacity(0), location: 0),
+                                               .init(color: k.opacity(noc ? 0.34 : 0.44), location: 0.22),
+                                               .init(color: k.opacity(noc ? 0.38 : 0.48), location: 0.82),
+                                               .init(color: k.opacity(0), location: 1)],
+                                       startPoint: .top, endPoint: .bottom)
+                            .padding(.horizontal, -14).padding(.vertical, -14)
                     }
                 }
             }

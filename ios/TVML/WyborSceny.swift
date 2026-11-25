@@ -104,8 +104,8 @@ struct WyborSceny: Equatable {
         var zSerwera = false
         /// Scena narysowana w aplikacji; nieznany albo pusty id → autumn-forest (strona robi tak samo).
         var strony: ScenaStrony { ScenaStrony(rawValue: id) ?? .autumnForest }
-        /// „leszno-panorama” (Karol, 23.11: „Panorama Leszna niech jest wszędzie”): pierwotna panorama aplikacji
-        /// z Ratuszem i kamienicami, drzewami i ozdobami według pory roku (ScenaPogody.panorama).
+        /// „leszno-panorama” (Karol, 23.11: „Panorama Leszna niech jest wszędzie”): od 25.11 jak na stronie Rynek
+        /// z ratuszem ze sceny 11 Listopada w wersji codziennej (ScenaRatusza, codzienny) z pogodą jako nakładką.
         var panorama: Bool { id == "leszno-panorama" }
         /// Scena ze strony do narysowania; nil = panorama Leszna aplikacji.
         var doRysowania: ScenaStrony? { panorama ? nil : strony }
