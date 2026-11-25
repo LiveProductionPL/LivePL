@@ -11,7 +11,7 @@ struct StartWidok: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
-                ScrollView(.horizontal, showsIndicators: false) {
+                KaruzelaPozioma {
                     HStack(spacing: 8) {
                         ForEach(m.kategorie, id: \.nazwa) { k in
                             let wybrana = kategoria == k.slug
@@ -30,7 +30,6 @@ struct StartWidok: View {
                         }
                     }
                 }
-                .scrollClipDisabled()
 
                 if let blad = m.blad {
                     Text(blad).czcionka(14).foregroundStyle(Barwy.slaby)
@@ -96,14 +95,14 @@ struct BlokWidok: View {
                 Button { film = f } label: { KafelFilmu(film: f, szerokosc: min(UIScreen.main.bounds.width, 760) - 32) }.buttonStyle(.plain)
             } else if !m.filmy.isEmpty {
                 tytul
-                ScrollView(.horizontal, showsIndicators: false) {
+                let filmy = Array(m.filmy.prefix(blok.limit > 0 ? blok.limit : 6))
+                KaruzelaPozioma(liczba: filmy.count) {
                     HStack(spacing: 12) {
-                        ForEach(m.filmy.prefix(blok.limit > 0 ? blok.limit : 6)) { f in
+                        ForEach(filmy) { f in
                             Button { film = f } label: { KafelFilmu(film: f, szerokosc: 220) }.buttonStyle(.plain)
                         }
                     }
                 }
-                .scrollClipDisabled()
             }
         case "posts":
             let lista = listaWpisow
@@ -138,14 +137,13 @@ struct BlokWidok: View {
             Group {
                 if !lista.isEmpty {
                     tytul
-                    ScrollView(.horizontal, showsIndicators: false) {
+                    KaruzelaPozioma(liczba: lista.count) {
                         HStack(spacing: 12) {
                             ForEach(lista) { a in
                                 NavigationLink(value: a) { KartaArtykulu(artykul: a, wysokosc: 200).frame(width: 260) }.buttonStyle(.plain)
                             }
                         }
                     }
-                    .scrollClipDisabled()
                 }
             }
             .task { if m.wKategorii["_fotorelacje"] == nil { await m.fotorelacje(limit: blok.limit) } }
@@ -185,7 +183,7 @@ struct BlokWidok: View {
         case "counties":
             if !m.gminy.isEmpty {
                 tytul
-                ScrollView(.horizontal, showsIndicators: false) {
+                KaruzelaPozioma {
                     HStack(spacing: 10) {
                         ForEach(m.gminy) { g in
                             NavigationLink(value: g) {
@@ -202,7 +200,6 @@ struct BlokWidok: View {
                         }
                     }
                 }
-                .scrollClipDisabled()
             }
         case "social":
             tytul
@@ -340,13 +337,66 @@ struct Karuzela: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: 300)
-            HStack(spacing: 6) {
-                ForEach(0..<artykuly.count, id: \.self) { i in
-                    Capsule().fill(i == wybrany ? Barwy.zloto : Barwy.ramka).frame(width: i == wybrany ? 18 : 6, height: 6)
-                }
+            KropkiKaruzeli(liczba: artykuly.count, aktywna: wybrany)
+        }
+    }
+}
+
+/// Kropki pod karuzelą: złota kreska to miejsce, w którym jesteś.
+struct KropkiKaruzeli: View {
+    let liczba: Int
+    let aktywna: Int
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<liczba, id: \.self) { i in
+                Capsule().fill(i == aktywna ? Barwy.zloto : Barwy.ramka).frame(width: i == aktywna ? 18 : 6, height: 6)
             }
-            .frame(maxWidth: .infinity)
-            .accessibilityHidden(true)
+        }
+        .frame(maxWidth: .infinity)
+        .animation(.easeOut(duration: 0.2), value: aktywna)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Pozioma karuzela z kropkami pod spodem (Karol 25.11: „Jak jest karuzela musi być jakiś wskaźnik bo nikt nie wie,
+/// że ma przesunąć palcem”). Kropka na każdy element (filmy, fotorelacje) albo na każdy ekran przy wąskich przyciskach
+/// (kategorie, gminy, prognoza godzinowa). Gdy wszystko mieści się na ekranie, kropek nie ma.
+struct KaruzelaPozioma<Tresc: View>: View {
+    /// Liczba elementów; bez niej kropka na każdy ekran przewijania.
+    var liczba: Int? = nil
+    /// Treść może wychodzić poza margines strony (karuzele na Starcie); w karcie z ramką trzeba ją przyciąć.
+    var przycinaj = false
+    /// Odstęp kropek od treści i od dołu (w karcie prognozy kropki są w środku karty).
+    var odstep: CGFloat = 8
+    var dolnyOdstep: CGFloat = 0
+    @ViewBuilder var tresc: Tresc
+    @State private var stan = Przewiniecie()
+
+    struct Przewiniecie: Equatable {
+        var postep: CGFloat = 0
+        var ekrany = 1
+        var przewija = false
+    }
+
+    var body: some View {
+        let ile = liczba ?? stan.ekrany
+        VStack(spacing: odstep) {
+            ScrollView(.horizontal, showsIndicators: false) { tresc }
+                .scrollClipDisabled(!przycinaj)
+                .onScrollGeometryChange(for: Przewiniecie.self) { g in
+                    let szerokosc = g.contentSize.width + g.contentInsets.leading + g.contentInsets.trailing
+                    let zakres = szerokosc - g.containerSize.width
+                    guard zakres > 1, g.containerSize.width > 0 else { return Przewiniecie() }
+                    let postep = min(max((g.contentOffset.x + g.contentInsets.leading) / zakres, 0), 1)
+                    return Przewiniecie(postep: postep, ekrany: max(2, Int((szerokosc / g.containerSize.width).rounded(.up))), przewija: true)
+                } action: { _, nowy in
+                    stan = nowy
+                }
+            if stan.przewija && ile > 1 {
+                KropkiKaruzeli(liczba: ile, aktywna: Int((stan.postep * CGFloat(ile - 1)).rounded()))
+                    .padding(.bottom, dolnyOdstep)
+            }
         }
     }
 }

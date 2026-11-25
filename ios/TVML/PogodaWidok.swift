@@ -76,7 +76,8 @@ struct PogodaWidok: View {
                 }
 
                 if let godziny = p?.godziny, !godziny.isEmpty {
-                    ScrollView(.horizontal, showsIndicators: false) {
+                    // kropki w karcie, pod godzinami (Karol 25.11: przy każdej karuzeli wskaźnik przewijania)
+                    KaruzelaPozioma(przycinaj: true, odstep: -4, dolnyOdstep: 10) {
                         HStack(spacing: 14) {
                             ForEach(godziny.prefix(24)) { g in
                                 VStack(spacing: 4) {
