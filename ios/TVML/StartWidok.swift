@@ -1239,3 +1239,27 @@ struct IkonaRysowana: View {
         Image(IkonyPogodyStrony.nazwa(stan, noc: noc)).resizable().scaledToFit()
     }
 }
+
+/// Czy o danej godzinie jest noc — jak WeatherIcons.isNightAt na stronie: przed wschodem albo od zachodu słońca;
+/// bez wschodu i zachodu z API zapas SUN_LESZNO według miesiąca (minuty od północy, czas warszawski).
+enum NocWedlugGodziny {
+    static let slonceLeszno: [(Int, Int)] = [(475, 980), (435, 1035), (370, 1075), (360, 1185), (305, 1235), (275, 1270),
+                                             (295, 1260), (340, 1215), (390, 1150), (440, 1085), (435, 970), (475, 950)]
+
+    /// „HH:MM” albo ISO („2026-11-21T07:12”) → minuty od północy.
+    static func minuty(_ s: String) -> Int? {
+        let czesc = s.split(separator: "T").last.map(String.init) ?? s
+        let p = czesc.split(separator: ":")
+        guard p.count >= 2, let h = Int(p[0]), let m = Int(p[1].prefix(2)) else { return nil }
+        return h * 60 + m
+    }
+
+    static func noc(_ czas: String, wschod: String, zachod: String) -> Bool {
+        guard let t = minuty(czas) else { return false }
+        let miesiac = Calendar.current.component(.month, from: Date()) - 1
+        let zapas = slonceLeszno[max(0, min(11, miesiac))]
+        let w = minuty(wschod) ?? zapas.0
+        let z = minuty(zachod) ?? zapas.1
+        return t < w || t >= z
+    }
+}

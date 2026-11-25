@@ -81,7 +81,9 @@ struct PogodaWidok: View {
                             ForEach(godziny.prefix(24)) { g in
                                 VStack(spacing: 4) {
                                     Text(g.czas).czcionka(12, .semibold)
-                                    IkonaRysowana(stan: g.ikona, noc: false).frame(width: 28, height: 28).accessibilityHidden(true)
+                                    // noc według godziny, jak isNightAt na stronie (wschód i zachód z API)
+                                    IkonaRysowana(stan: g.ikona, noc: NocWedlugGodziny.noc(g.czas, wschod: p?.wschod ?? "", zachod: p?.zachod ?? ""))
+                                        .frame(width: 28, height: 28).accessibilityHidden(true)
                                     Text(Pogoda.stopnie(g.temp)).czcionka(13, .bold)
                                     if g.opad > 0 { Text("\(g.opad)%").czcionka(11, .semibold).foregroundStyle(Barwy.link) }
                                 }
