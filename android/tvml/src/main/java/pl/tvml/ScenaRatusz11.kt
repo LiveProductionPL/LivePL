@@ -10,7 +10,7 @@ package pl.tvml
  * Geometria i kolory Ratusza (weather-effects.js 2238–2241, 2474–2475, 2511–2525): yRynek, yBase, scR, cxR,
  * przeliczenie „jednostek” Ratusza X(dx) / Y(dy) (y rośnie w górę) i pomocnik fillRectXY.
  */
-private class Ratusz11Uklad(r: RamaSceny, panorama: Boolean = false) {
+private class Ratusz11Uklad(r: RamaSceny) {
     private val plotno = r.ctx
     val yRynek = r.h * 0.645
     // ratusz bliżej i większy na szerokiej karcie aplikacji (PlanRatusza w ScenyRatuszSezon.kt, jak na iOS)
@@ -18,15 +18,13 @@ private class Ratusz11Uklad(r: RamaSceny, panorama: Boolean = false) {
     val scR = (r.h / 276) * 0.96 * PlanRatusza.skala(r.w, r.h)
     val cxR = if (r.w < 560) (r.w * 0.666) else (r.w * 0.68)
 
-    // 4. Architektura Ratusza w Lesznie (Merlini / Ferrari — Dzień w słońcu vs Noc Biało-Czerwona Iluminacja).
-    // Panorama na zwykłe dni ([panoramaRatusza]): w dzień te same barwy, w nocy ciepłe światło latarni zamiast
-    // biało-czerwonej iluminacji (jak PaletaRatusza(panoramaNoc:) na iOS).
-    private val cieplaNoc = panorama && r.isNight
-    val colPlinth = if (cieplaNoc) "#6b5d48" else if (r.isNight) "#ac1834" else "#b8a686"
-    val colWall = if (cieplaNoc) "#d9cdb4" else if (r.isNight) "#e2dedc" else "#e7dcc9"
-    val colWallSh = if (cieplaNoc) "#bfb196" else if (r.isNight) "#c4bcc0" else "#d2c6b1"
-    val colPilaster = if (cieplaNoc) "#f3eee2" else if (r.isNight) "#fcfafc" else "#f9f7f2"
-    val colTerracotta = if (cieplaNoc) "#7a3a2e" else if (r.isNight) "#d2203e" else "#a84e3c"
+    // 4. Architektura Ratusza w Lesznie (Merlini / Ferrari — Dzień w słońcu vs Noc Biało-Czerwona Iluminacja)
+    // Rynek codzienny (Panorama) nocą: cokół i fryz w ciepłym świetle zamiast biało-czerwonej iluminacji
+    val colPlinth = if (r.isNight) (if (r.rynekCodzienny) "#8a7a62" else "#ac1834") else "#b8a686"
+    val colWall = if (r.isNight) "#e2dedc" else "#e7dcc9"
+    val colWallSh = if (r.isNight) "#c4bcc0" else "#d2c6b1"
+    val colPilaster = if (r.isNight) "#fcfafc" else "#f9f7f2"
+    val colTerracotta = if (r.isNight) (if (r.rynekCodzienny) "#8e4434" else "#d2203e") else "#a84e3c"
     val colRoof = if (r.isNight) "#1a202e" else "#383e48"
     val colHelmet = if (r.isNight) "#181d2a" else "#2a2f38"
     val colHelmetHi = if (r.isNight) "#343c4e" else "#444c58"
@@ -56,7 +54,8 @@ internal fun RamaSceny.ratusz11Listopada() {
     ratusz11Iluminacja(u)
     ratusz11Korpus(u)
     ratusz11Wieza(u)
-    with(u) {
+    // Rynek codzienny (Panorama, weather-effects.js 2871–2877): bez masztów z flagami
+    if (!rynekCodzienny) with(u) {
         // 5. Trzy maszty flagowe obok schodów Ratusza (dokładnie jak na fotografii!)
         ratusz11Flaga(u, cxR - 17 * scR, yBase - 17 * scR, yBase + 2 * scR, 7.8 * scR, 4.5 * scR, 0.0, 0.0)
         ratusz11Flaga(u, cxR - 13 * scR, yBase - 19 * scR, yBase + 2 * scR, 7.8 * scR, 4.5 * scR, 0.0, 0.9)
@@ -157,8 +156,8 @@ private fun RamaSceny.ratusz11Rynek(u: Ratusz11Uklad) {
         // Nocne odbicia biało-czerwonej iluminacji Ratusza na bruku Rynku
         if (isNight) {
             val refRed = ctx.createRadialGradient(cxR - 10 * scR, yBase + 22 * scR, 2.0, cxR - 10 * scR, yBase + 22 * scR, 48 * scR)
-            refRed.addColorStop(0.0, "rgba(220,24,60,0.34)")
-            refRed.addColorStop(1.0, "rgba(220,24,60,0)")
+            refRed.addColorStop(0.0, "rgba($iluRgb,0.34)")
+            refRed.addColorStop(1.0, "rgba($iluRgb,0)")
             ctx.fillStyle = refRed
             ctx.fillRect(cxR - 65 * scR, yRynek, 130 * scR, h - yRynek)
 
@@ -182,34 +181,8 @@ private fun RamaSceny.ratusz11Rynek(u: Ratusz11Uklad) {
     }
 }
 
-/**
- * Wygląd pierzei kamienic (jak StylKamienic na iOS): na 11 Listopada flagi i zielone lipy, w Panoramie drzewa
- * w barwach pory roku, zimą śnieg na gzymsach i świerki.
- */
-private data class StylKamienic(
-    /** pionowe biało-czerwone flagi na elewacjach */
-    val flagi: Boolean = true,
-    /** zapalone okna (noc, zmierzch, Święta) */
-    val swiatla: Boolean,
-    /** korona drzewa i jej jaśniejszy blask */
-    val korona: String,
-    val blask: String,
-    /** śnieg na gzymsach i czubkach świerków */
-    val snieg: Boolean = false,
-    /** świerki zamiast lip (zima, Święta, Sylwester) */
-    val swierki: Boolean = false,
-) {
-    companion object {
-        fun listopad(noc: Boolean) = StylKamienic(
-            swiatla = noc,
-            korona = if (noc) "rgba(22,38,34,0.96)" else "rgba(78,108,64,0.96)",
-            blask = if (noc) "rgba(32,52,44,0.96)" else "rgba(106,136,76,0.96)",
-        )
-    }
-}
-
 /** weather-effects.js 2343–2471: pierzeje kamieniczek wokół Rynku (przerwa na Ratusz), okna, flagi i szpaler lip. */
-private fun RamaSceny.ratusz11Kamienice(u: Ratusz11Uklad, styl: StylKamienic = StylKamienic.listopad(isNight)) {
+private fun RamaSceny.ratusz11Kamienice(u: Ratusz11Uklad) {
     with(u) {
         // 2. Pierzeje zabytkowych kamieniczek wokół Rynku w Lesznie + szpaler lip
         val dayPalettes = listOf(
@@ -283,14 +256,9 @@ private fun RamaSceny.ratusz11Kamienice(u: Ratusz11Uklad, styl: StylKamienic = S
                 ctx.fill()
             }
 
-            // Gzyms kamienicy (w Panoramie zimą śnieżna czapa)
-            if (styl.snieg) {
-                ctx.strokeStyle = if (isNight) "#d8ecff" else "#ffffff"
-                ctx.lineWidth = Math.max(1.4, 1.9 * scR)
-            } else {
-                ctx.strokeStyle = trimCol
-                ctx.lineWidth = Math.max(0.9, 1.0 * scR)
-            }
+            // Gzyms kamienicy
+            ctx.strokeStyle = trimCol
+            ctx.lineWidth = Math.max(0.9, 1.0 * scR)
             ctx.beginPath()
             ctx.moveTo(hxCursor, hy)
             ctx.lineTo(hxCursor + hw, hy)
@@ -302,7 +270,7 @@ private fun RamaSceny.ratusz11Kamienice(u: Ratusz11Uklad, styl: StylKamienic = S
                 val wy = hy + (5 + rI * 8.5) * scR
                 var wx = hxCursor + 4.5 * scR
                 while (wx < hxCursor + hw - 5.5 * scR) {
-                    if (styl.swiatla) {
+                    if (isNight) {
                         val lit = (((Math.round(wx).toInt() * 7 + rI * 3 + hIdx * 5) % 4) != 0)
                         ctx.fillStyle = if (lit) "rgba(255,214,120,0.82)" else "#161e30"
                         ctx.fillRect(wx, wy, 3.3 * scR, 5.0 * scR)
@@ -316,8 +284,8 @@ private fun RamaSceny.ratusz11Kamienice(u: Ratusz11Uklad, styl: StylKamienic = S
                 }
             }
 
-            // Pionowe biało-czerwone flagi świąteczne na kamienicach Rynku
-            if (styl.flagi) {
+            // Pionowe biało-czerwone flagi świąteczne na kamienicach Rynku (tylko 11 listopada)
+            if (!rynekCodzienny) {
                 val bfx = hxCursor + hw * 0.5
                 val bfy = hy + 10.8 * scR
                 ctx.fillStyle = "rgba(255,255,255,0.94)"
@@ -326,28 +294,27 @@ private fun RamaSceny.ratusz11Kamienice(u: Ratusz11Uklad, styl: StylKamienic = S
                 ctx.fillRect(bfx - 0.05 * scR, bfy, 1.25 * scR, 7.2 * scR)
             }
 
-            // Zielone lipy wzdłuż pierzei Rynku (co druga kamienica), w Panoramie zimą świerki
+            // Zielone lipy wzdłuż pierzei Rynku (co druga kamienica)
             if (hIdx % 2 == 0) {
                 val tx = hxCursor + hw * 0.82
-                if (styl.swierki) {
-                    swierk(tx, yRynek, scR, styl)
-                } else {
-                    val ty = yRynek - 5 * scR
-                    ctx.strokeStyle = "#372a22"
-                    ctx.lineWidth = Math.max(1.0, 1.4 * scR)
-                    ctx.beginPath()
-                    ctx.moveTo(tx, yRynek)
-                    ctx.lineTo(tx, ty + 2 * scR)
-                    ctx.stroke()
-                    ctx.fillStyle = styl.korona
-                    ctx.beginPath()
-                    ctx.ellipse(tx, ty - 1.5 * scR, 6.4 * scR, 4.5 * scR, 0.0, 0.0, Math.PI * 2)
-                    ctx.fill()
-                    ctx.fillStyle = styl.blask
-                    ctx.beginPath()
-                    ctx.ellipse(tx - 1.0 * scR, ty - 2.6 * scR, 4.2 * scR, 3.6 * scR, 0.0, 0.0, Math.PI * 2)
-                    ctx.fill()
-                }
+                val ty = yRynek - 5 * scR
+                ctx.strokeStyle = "#372a22"
+                ctx.lineWidth = Math.max(1.0, 1.4 * scR)
+                ctx.beginPath()
+                ctx.moveTo(tx, yRynek)
+                ctx.lineTo(tx, ty + 2 * scR)
+                ctx.stroke()
+                // na co dzień od września do listopada rude (lipyJesien), poza tym zielone
+                ctx.fillStyle = if (lipyJesien) (if (isNight) "rgba(58,34,22,0.96)" else "rgba(176,96,40,0.96)")
+                else (if (isNight) "rgba(22,38,34,0.96)" else "rgba(78,108,64,0.96)")
+                ctx.beginPath()
+                ctx.ellipse(tx, ty - 1.5 * scR, 6.4 * scR, 4.5 * scR, 0.0, 0.0, Math.PI * 2)
+                ctx.fill()
+                ctx.fillStyle = if (lipyJesien) (if (isNight) "rgba(78,46,26,0.96)" else "rgba(210,138,58,0.96)")
+                else (if (isNight) "rgba(32,52,44,0.96)" else "rgba(106,136,76,0.96)")
+                ctx.beginPath()
+                ctx.ellipse(tx - 1.0 * scR, ty - 2.6 * scR, 4.2 * scR, 3.6 * scR, 0.0, 0.0, Math.PI * 2)
+                ctx.fill()
             }
 
             hxCursor += hw
@@ -372,16 +339,16 @@ private fun RamaSceny.ratusz11Iluminacja(u: Ratusz11Uklad) {
             ctx.closePath(); ctx.fill()
 
             val bRed = ctx.createLinearGradient(0.0, Y(25), 0.0, 0.0)
-            bRed.addColorStop(0.0, "rgba(220,20,60,0.34)")
-            bRed.addColorStop(1.0, "rgba(220,20,60,0.03)")
+            bRed.addColorStop(0.0, "rgba($iluRgb,0.34)")
+            bRed.addColorStop(1.0, "rgba($iluRgb,0.03)")
             ctx.fillStyle = bRed
             ctx.beginPath()
             ctx.moveTo(X(4), Y(20)); ctx.lineTo(X(14) - beamSway, 0.0); ctx.lineTo(X(60) - beamSway, 0.0); ctx.lineTo(X(28), Y(20))
             ctx.closePath(); ctx.fill()
 
             val glowC = ctx.createRadialGradient(cxR, Y(52), 4.0, cxR, Y(52), 76 * scR)
-            glowC.addColorStop(0.0, "rgba(220,25,60,0.38)")
-            glowC.addColorStop(1.0, "rgba(220,25,60,0)")
+            glowC.addColorStop(0.0, "rgba($iluRgb,0.38)")
+            glowC.addColorStop(1.0, "rgba($iluRgb,0)")
             ctx.fillStyle = glowC
             ctx.beginPath(); ctx.arc(cxR, Y(52), 76 * scR, 0.0, Math.PI * 2); ctx.fill()
 
@@ -395,11 +362,8 @@ private fun RamaSceny.ratusz11Iluminacja(u: Ratusz11Uklad) {
     }
 }
 
-/**
- * weather-effects.js 2527–2603: korpus Ratusza: cień, cokół, gzymsy, pilastry, okna, kartusz, portal, schody, dach
- * i attyka. [luna]: czerwona poświata na cokole nocą (11 Listopada; w Panoramie bez niej).
- */
-private fun RamaSceny.ratusz11Korpus(u: Ratusz11Uklad, luna: Boolean = true) {
+/** weather-effects.js 2527–2603: korpus Ratusza: cień, cokół, gzymsy, pilastry, okna, kartusz, portal, schody, dach i attyka. */
+private fun RamaSceny.ratusz11Korpus(u: Ratusz11Uklad) {
     with(u) {
         // Cień pod bryłą Ratusza na bruku
         ctx.fillStyle = "rgba(0,0,0,0.26)"
@@ -411,7 +375,7 @@ private fun RamaSceny.ratusz11Korpus(u: Ratusz11Uklad, luna: Boolean = true) {
         fillRectXY(-bw, 34.0, bw, 11.0, colWall)
         fillRectXY(-bw, 34.0, -24.0, 11.0, colWallSh)
         fillRectXY(-bw, 11.0, bw, 0.0, colPlinth)
-        if (isNight && luna) {
+        if (isNight) {
             val upWash = ctx.createLinearGradient(0.0, Y(11), 0.0, Y(18))
             upWash.addColorStop(0.0, "rgba(210,32,68,0.68)")
             upWash.addColorStop(1.0, "rgba(210,32,68,0)")
@@ -596,154 +560,6 @@ private fun RamaSceny.ratusz11Zegar(u: Ratusz11Uklad) {
         ctx.moveTo(cxR, Y(cyClk))
         ctx.lineTo(cxR + Math.cos(minAng) * 4.0 * scR, Y(cyClk) + Math.sin(minAng) * 4.0 * scR)
         ctx.stroke()
-    }
-}
-
-/** Mały świerk przed kamienicą (zima, Święta, Sylwester), ze śniegiem na czubkach gałęzi, gdy jest śnieg. Jak na iOS. */
-private fun RamaSceny.swierk(tx: Double, yDol: Double, s: Double, styl: StylKamienic) {
-    ctx.strokeStyle = "#372a22"
-    ctx.lineWidth = Math.max(1.0, 1.4 * s)
-    ctx.beginPath()
-    ctx.moveTo(tx, yDol)
-    ctx.lineTo(tx, yDol - 2.5 * s)
-    ctx.stroke()
-    // trzy piętra gałęzi: połowa szerokości, wierzchołek i dół (jednostki nad ziemią)
-    val pietra = listOf(Triple(5.6, 9.0, 2.0), Triple(4.4, 12.6, 6.0), Triple(3.0, 15.4, 9.6))
-    pietra.forEachIndexed { i, (pol, gora, dol) ->
-        val polowa = pol * s
-        val yGora = yDol - gora * s
-        val yDolPietra = yDol - dol * s
-        ctx.fillStyle = if (i % 2 == 0) styl.korona else styl.blask
-        ctx.beginPath()
-        ctx.moveTo(tx - polowa, yDolPietra); ctx.lineTo(tx, yGora); ctx.lineTo(tx + polowa, yDolPietra)
-        ctx.closePath(); ctx.fill()
-        if (styl.snieg) {
-            // śnieg na górnych 40% piętra
-            val f = 0.4
-            val yCzapy = yGora + (yDolPietra - yGora) * f
-            ctx.fillStyle = "rgba(241,246,251,0.95)"
-            ctx.beginPath()
-            ctx.moveTo(tx - polowa * f, yCzapy); ctx.lineTo(tx, yGora); ctx.lineTo(tx + polowa * f, yCzapy)
-            ctx.closePath(); ctx.fill()
-        }
-    }
-}
-
-/**
- * Panorama Leszna na zwykłe dni z prawdziwym ratuszem Ferrariego i kamienicami wokół Rynku, tymi samymi co w scenie
- * 11 Listopada (Karol 25.11: „Czy tą grafikę w pogodzie też możesz poprawić na naszą nową z nowym ratuszem ?”).
- * Bez reflektorów, flagi z masztami i łuny; drzewa w barwach pory roku, zimą śnieg i świerki. Układ jak w scenach
- * z ratuszem, więc przy zmianie z Panoramy na zimę ratusz zostaje w tym samym miejscu. Niebo, słońce, księżyc,
- * chmury, opady i liście rysują jak dotąd [ScenyStrony.rysuj] i nakładka pogody. 1:1 z iOS (ScenaRatusza.panorama).
- * [ziemia]: kolor ziemi Panoramy (ten sam ma belka z datą), [pora]: pora roku albo motywu.
- */
-internal fun RamaSceny.panoramaRatusza(ziemia: String, pora: Motyw.Scena, swiatla: Boolean) {
-    val u = Ratusz11Uklad(this, panorama = true)
-    // przy zerowym rozmiarze krok okien kamienic byłby zerem i pętla nie miałaby końca
-    if (!(u.scR > 0.0) || !(w > 0.0) || !(h > 0.0)) return
-    val zimowa = pora == Motyw.Scena.ZIMA || pora == Motyw.Scena.SWIETA
-    panoramaBruk(u, zimowa, ziemia)
-    ratusz11Kamienice(u, stylPanoramy(pora, swiatla))
-    ratusz11Korpus(u, luna = false)
-    with(u) {
-        if (zimowa) {
-            // śnieg na dachu ratusza
-            ctx.fillStyle = if (isNight) "#cbe0f5" else "#e8f4ff"
-            ctx.beginPath()
-            ctx.moveTo(X(-37.0), Y(40.2)); ctx.lineTo(X(-30.0), Y(46.5)); ctx.lineTo(X(30.0), Y(46.5)); ctx.lineTo(X(37.0), Y(40.2))
-            ctx.closePath(); ctx.fill()
-            ctx.strokeStyle = "#ffffff"
-            ctx.lineWidth = Math.max(1.5, 2.1 * scR)
-            ctx.beginPath(); ctx.moveTo(X(-39.8), Y(40.5)); ctx.lineTo(X(39.8), Y(40.5)); ctx.stroke()
-        }
-    }
-    ratusz11Wieza(u)
-    with(u) {
-        if (pora == Motyw.Scena.SYLWESTER) {
-            // w grudniu następny rok, w styczniu bieżący
-            val rok = if (teraz.monthValue == 12) teraz.year + 1 else teraz.year
-            ctx.save()
-            ctx.font = "800 ${18 * scR}px 'Segoe UI',system-ui,sans-serif"
-            ctx.textAlign = "center"
-            ctx.textBaseline = "middle"
-            ctx.fillStyle = "#e8c26a"
-            ctx.fillText(rok.toString(), w * 0.2, yRynek - 40 * scR)
-            ctx.restore()
-        }
-        if (pora == Motyw.Scena.SWIETA && !kartaStartu) {
-            // duża choinka na Rynku (w karcie Startu byłaby pod kolumnami prognozy)
-            val styl = StylKamienic(flagi = false, swiatla = true, korona = "#14532d", blask = "#1f6a3a", snieg = true, swierki = true)
-            ctx.save()
-            ctx.translate(w * 0.2, yRynek + 14 * scR)
-            ctx.scale(3.0, 3.0)
-            swierk(0.0, 0.0, scR, styl)
-            ctx.restore()
-        }
-    }
-}
-
-/** Drzewa i okna Panoramy według pory roku (jak stylPanoramy na iOS). */
-private fun RamaSceny.stylPanoramy(pora: Motyw.Scena, swiatla: Boolean): StylKamienic {
-    val noc = isNight
-    return when (pora) {
-        // jesienne lipy; 11 Listopada także flagi na kamienicach
-        Motyw.Scena.JESIEN, Motyw.Scena.LISTOPAD -> StylKamienic(
-            flagi = pora == Motyw.Scena.LISTOPAD, swiatla = swiatla,
-            korona = if (noc) "rgba(70,38,16,0.96)" else "rgba(180,83,9,0.96)",
-            blask = if (noc) "rgba(96,56,22,0.96)" else "rgba(217,119,6,0.96)",
-        )
-        Motyw.Scena.WIOSNA -> StylKamienic(
-            flagi = false, swiatla = swiatla,
-            korona = if (noc) "rgba(26,46,34,0.96)" else "rgba(96,150,72,0.96)",
-            blask = if (noc) "rgba(36,60,44,0.96)" else "rgba(144,190,100,0.96)",
-        )
-        Motyw.Scena.LATO -> StylKamienic(
-            flagi = false, swiatla = swiatla,
-            korona = if (noc) "rgba(20,40,30,0.96)" else "rgba(52,110,48,0.96)",
-            blask = if (noc) "rgba(30,54,40,0.96)" else "rgba(84,140,64,0.96)",
-        )
-        Motyw.Scena.ZIMA, Motyw.Scena.SWIETA, Motyw.Scena.SYLWESTER -> StylKamienic(
-            flagi = false, swiatla = swiatla,
-            korona = if (noc) "#123129" else "#1f4f43",
-            blask = if (noc) "#18392f" else "#2a6253",
-            snieg = pora != Motyw.Scena.SYLWESTER, swierki = true,
-        )
-    }
-}
-
-/** Płyta Rynku w Panoramie: gradient kończy się kolorem ziemi (tym samym co belka z datą), nocą ciepła poświata latarni, łuki bruku. */
-private fun RamaSceny.panoramaBruk(u: Ratusz11Uklad, zimowa: Boolean, ziemia: String) {
-    with(u) {
-        val g = ctx.createLinearGradient(0.0, yRynek, 0.0, h)
-        if (zimowa) {
-            g.addColorStop(0.0, if (isNight) "#9fb0c6" else "#f4f8fc")
-            g.addColorStop(0.45, if (isNight) "#b4c3d6" else "#e6eef7")
-        } else {
-            g.addColorStop(0.0, if (isNight) "#151c2e" else "#8d877c")
-            g.addColorStop(0.45, if (isNight) "#0e1422" else "#6a645a")
-        }
-        g.addColorStop(1.0, ziemia)
-        ctx.fillStyle = g
-        ctx.fillRect(0.0, yRynek, w, h - yRynek)
-
-        if (isNight) {
-            val c = ctx.createRadialGradient(cxR, yBase + 18 * scR, 2.0, cxR, yBase + 18 * scR, 52 * scR)
-            c.addColorStop(0.0, "rgba(255,214,140,0.22)")
-            c.addColorStop(1.0, "rgba(255,214,140,0)")
-            ctx.fillStyle = c
-            ctx.fillRect(cxR - 70 * scR, yRynek, 140 * scR, h - yRynek)
-        }
-
-        ctx.save()
-        ctx.strokeStyle = if (zimowa) (if (isNight) "rgba(200,228,255,0.08)" else "rgba(120,150,185,0.16)")
-        else (if (isNight) "rgba(255,255,255,0.045)" else "rgba(255,255,255,0.10)")
-        ctx.lineWidth = Math.max(0.7, 0.8 * scR)
-        for (rad in 28 until 260 step 20) {
-            ctx.beginPath()
-            ctx.ellipse(cxR, yBase + 4 * scR, rad * 1.45 * scR, rad * 0.42 * scR, 0.0, 0.06 * Math.PI, 0.94 * Math.PI)
-            ctx.stroke()
-        }
-        ctx.restore()
     }
 }
 

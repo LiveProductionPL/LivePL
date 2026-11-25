@@ -82,15 +82,10 @@ data class PaletaBelki(
             poraRoku: Motyw.Scena = Motyw.Scena.JESIEN,
         ): PaletaBelki {
             val wbud = wbudowana(id, noc, svg, teraz)
-            // panorama Leszna: belka w kolorze jej ziemi (ziemiaPanoramy: zimą i w Święta śnieg, jak na iOS), więc
-            // dół bruku i belka mają zawsze ten sam kolor
+            // Panorama Leszna: od 25.11 Rynek z 11 Listopada w wersji codziennej (jak na stronie), więc belka w kolorze
+            // bruku Rynku, jak przy scenie 11 Listopada (tak samo na iOS)
             val baza = if (id == ScenyStrony.PANORAMA && !svg) {
-                val zima = poraRoku == Motyw.Scena.ZIMA || poraRoku == Motyw.Scena.SWIETA
-                wbud.copy(
-                    tlo = kolor(ziemiaPanoramy(poraRoku, noc)),
-                    data = if (zima) kolor(0x0f172a) else Color.White,
-                    drugaLinia = if (zima) kolor(0x334155) else kolor(0xe2e8f0),
-                )
+                wbud.copy(tlo = kolor(if (noc) 0x161a24 else 0x4a505c), data = Color.White, drugaLinia = kolor(0xe2e8f0))
             } else {
                 wbud
             }

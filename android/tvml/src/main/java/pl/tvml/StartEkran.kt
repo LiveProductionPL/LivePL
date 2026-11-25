@@ -26,6 +26,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.key
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -387,9 +390,10 @@ fun KafelPogody(m: Magazyn) {
     val teraz = m.chwila()
     // pasek daty motywu z panelu (API 1.8.3 theme.dateBar albo etap z harmonogramu); bez niego reguły jak na iPhonie
     val pasek = m.pasekDatyTeraz(teraz)
-    // pora roku albo motywu: drzewa, śnieg i ziemia Panoramy oraz kolor belki z datą (ten sam co ziemia)
-    val pora = m.motyw.scena(teraz.monthValue)
-    val paleta = PaletaBelki.dla(scena, noc, svg != null, teraz, pasek, pora)
+    val paleta = PaletaBelki.dla(scena, noc, svg != null, teraz, pasek, m.motyw.scena())
+    // Rynek z ratuszem (Panorama Leszna albo 11 Listopada): na stronie zamiast poduszek pod kolumnami jest jeden
+    // przyciemniony pas pod pomiarami i prognozą (weather-effects.js 4275–4284, hudScrim; Karol 25.11). Jak na iOS.
+    val rynek = svg == null && (scena == ScenyStrony.PANORAMA || scena == "leszno-ratusz-11listopada")
     val data = dataKarty(m.dzisiaj, teraz.toLocalDate())
     // config.today z innego dnia (bez sieci po północy): bez wczorajszych imion i święta; w motywie imiona z dateBar.days[]
     val dzisiajAktualne = m.dzisiaj?.data.let { it == null || it == teraz.toLocalDate() }
@@ -400,8 +404,16 @@ fun KafelPogody(m: Magazyn) {
     val tytul = tl("app.weatherLeszno", "Pogoda w Lesznie")
     val styl = TextStyle(color = Color.White, shadow = cienKarty)
     val slaby = Color(0xFFCAD6EC)
-    // poduszki czytelności jak na stronie: rgba(6,12,26,0.30) w nocy, 0.36 w dzień
-    val poduszka = Color(0xFF060C1A).copy(alpha = if (noc) 0.30f else 0.36f)
+    // poduszki czytelności jak na stronie: rgba(6,12,26,0.30) w nocy, 0.36 w dzień (na Rynku z ratuszem wspólny pas)
+    val poduszka = if (rynek) Color.Transparent else Color(0xFF060C1A).copy(alpha = if (noc) 0.30f else 0.36f)
+    // hudScrim strony: rgba(8,14,28) 0 → 0,44 (noc 0,34) przy 22 % → 0,48 (noc 0,38) przy 82 % → 0
+    val pas = Color(0xFF080E1C)
+    val pasStopnie = arrayOf(
+        0f to pas.copy(alpha = 0f),
+        0.22f to pas.copy(alpha = if (noc) 0.34f else 0.44f),
+        0.82f to pas.copy(alpha = if (noc) 0.38f else 0.48f),
+        1f to pas.copy(alpha = 0f),
+    )
     val dni = p?.dni.orEmpty().drop(1).take(3)
     val kolumny = listOf(
         Triple(tl("app.wind", "Wiatr"), p?.wiatr?.let { String.format(Jezyk.locale, "%.1f km/h", it) } ?: "–", dni.getOrNull(0)),
@@ -420,7 +432,7 @@ fun KafelPogody(m: Magazyn) {
         // proporcje karty strony w telefonie: ok. 1,05 : 1 razem z plakietką; przy dużym tekście rośnie razem z nim
         val wysokosc = maxWidth / 1.05f
         Box(Modifier.fillMaxWidth().heightIn(min = wysokosc)) {
-            ScenaStrony(scena, stan, noc, opcje, p?.efekt, Modifier.matchParentSize(), svg, kartaStartu = true, poraRoku = pora)
+            ScenaStrony(scena, stan, noc, opcje, p?.efekt, Modifier.matchParentSize(), svg, kartaStartu = true)
             // lekkie przyciemnienie pod nagłówkiem i temperaturą (scena zostaje widoczna jak na stronie)
             Box(Modifier.matchParentSize().background(Brush.verticalGradient(0f to Color.Black.copy(alpha = 0.22f), 0.32f to Color.Transparent)))
             Column(Modifier.fillMaxWidth().heightIn(min = wysokosc).padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 10.dp).clearAndSetSemantics { }) {
@@ -440,7 +452,18 @@ fun KafelPogody(m: Magazyn) {
                 }
                 Spacer(Modifier.weight(1f))
                 // trzy kolumny na środkach w/6, w/2, 5w/6 (justify-content: space-around na stronie)
-                Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)) {
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp).then(
+                        if (rynek) Modifier.drawBehind {
+                            // pas na całą szerokość karty, 14 dp ponad i pod kolumnami (jak na iOS)
+                            val z = 14.dp.toPx()
+                            drawRect(
+                                Brush.verticalGradient(*pasStopnie, startY = -z, endY = size.height + z),
+                                topLeft = Offset(-z, -z), size = Size(size.width + 2 * z, size.height + 2 * z),
+                            )
+                        } else Modifier,
+                    ),
+                ) {
                     kolumny.forEach { (etykieta, wartosc, dzien) ->
                         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                             Column(

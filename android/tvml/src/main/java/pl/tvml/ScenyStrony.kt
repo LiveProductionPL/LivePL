@@ -143,11 +143,26 @@ class RamaSceny(
     val ukryjGwiazdySceny: Boolean,
     /** Strona rysuje kartę główną w trybie „sidebar” (canvas rysuje też napisy); w aplikacji zawsze true. */
     val sidebarMode: Boolean = true,
-    /** Karta pogody na Starcie (kolumny i plakietka przy dole): bez dużej choinki w Panoramie ([panoramaRatusza]). */
+    /** Karta pogody na Starcie (kolumny i plakietka przy dole). */
     val kartaStartu: Boolean = false,
-    /** Pora roku albo motywu (Motyw.scena): drzewa, śnieg i ziemia Panoramy Leszna, jak na iOS. */
-    val poraRoku: Motyw.Scena = Motyw.zwykly.scena(teraz.monthValue),
+    /**
+     * Panorama Leszna narysowana jako Rynek z 11 Listopada w wersji codziennej (weather-effects.js 1312–1319,
+     * rynekCodzienny): bez flag, z ciepłą iluminacją zamiast biało-czerwonej i lipami w barwach pory roku.
+     */
+    val rynekCodzienny: Boolean = false,
 ) {
+    /** Ta sama klatka jako Rynek z 11 Listopada w wersji codziennej (strona: `if (rynekCodzienny) sceneType = …`). */
+    fun jakoRynekCodzienny() = RamaSceny(
+        ctx, w, h, t, isNight, state, "leszno-ratusz-11listopada", activeCfg, teraz, ruch, pamiec, ukryjGwiazdySceny,
+        sidebarMode, kartaStartu, rynekCodzienny = true,
+    )
+
+    /** weather-effects.js 1318: lipy rude od września do listopada (tylko Rynek codzienny). */
+    val lipyJesien get() = rynekCodzienny && teraz.monthValue in 9..11
+
+    /** weather-effects.js 1319: kolor iluminacji: na co dzień ciepłe światło, 11 Listopada czerwień. */
+    val iluRgb get() = if (rynekCodzienny) "255,196,120" else "220,24,60"
+
     val horizonY = h * 0.58
     val foreY = h * 0.80
     val isStormy = state.contains("stormy") || state == "rainy-heavy"
@@ -202,7 +217,8 @@ class RamaSceny(
 object ScenyStrony {
     /**
      * „leszno-panorama” (Karol, 23.11: „Panorama Leszna niech jest wszędzie”), domyślna scena serwera od API PR #123:
-     * Ratusz i kamienice jak na stronie ([lesznoPanorama]), a pogoda na niej z nakładki pogoda-efekty.js
+     * od 25.11 jak na stronie Rynek z ratuszem ze sceny 11 Listopada w wersji codziennej ([RamaSceny.rynekCodzienny];
+     * Karol: „na stronie jest już idealnie wy macie źle”), a pogoda na niej z nakładki pogoda-efekty.js
      * (Karol, 24.11: animacje jak na szacie graficznej strony — mgła dryfuje, zasłona i mleczny dół).
      */
     const val PANORAMA = "leszno-panorama"
@@ -233,17 +249,17 @@ object ScenyStrony {
     /** Tylko w wersji testowej (--es wylacz tlo,niebo,panorama,ciemno,nakladka): szukanie elementu, który psuje grafikę emulatora. */
     var wylaczone: Set<String> = emptySet()
 
-    fun rysuj(r: RamaSceny) {
-        if (r.sceneType == "beach" || r.sceneType == "ocean") {
-            r.plazaIMorze()
+    fun rysuj(rama: RamaSceny) {
+        if (rama.sceneType == "beach" || rama.sceneType == "ocean") {
+            rama.plazaIMorze()
             return
         }
-        // panorama nie wypełnia płótna w całości: pod nią tło karty jak w CSS strony
-        if (r.sceneType == PANORAMA && "tlo" !in wylaczone) r.tloKarty()
+        // weather-effects.js 1315–1316: Panorama to Rynek z 11 Listopada w wersji codziennej (niebo, gwiazdy, Rynek
+        // i przyciemnienie dołu jak w tej scenie)
+        val r = if (rama.sceneType == PANORAMA) rama.jakoRynekCodzienny() else rama
         if ("niebo" !in wylaczone) niebo(r)
         gwiazdy(r)
         when (r.sceneType) {
-            PANORAMA -> if ("panorama" !in wylaczone) r.lesznoPanorama()
             "autumn-forest" -> r.autumnForest()
             "autumn-lake" -> r.autumnLake()
             "park-lanterns" -> r.parkLanterns()
@@ -334,7 +350,6 @@ object ScenyStrony {
 fun ScenaStrony(
     id: String, stan: String, noc: Boolean, opcje: OpcjeSceny, efekt: EfektPogody?, modifier: Modifier = Modifier, svg: ScenaSvg? = null,
     kartaStartu: Boolean = false,
-    poraRoku: Motyw.Scena? = null,
 ) {
     if (svg != null) return ScenaZSvg(svg, noc, modifier)
     val ruch = ValueAnimator.areAnimatorsEnabled()
@@ -355,12 +370,10 @@ fun ScenaStrony(
                 val stan0 = nc.save()
                 nc.scale(density, density)
                 plotno.nowaKlatka(nc)
-                val teraz = ZonedDateTime.now(Daty.strefa)
                 val rama = RamaSceny(
-                    plotno, size.width / g, size.height / g, czas, noc, stan, id, opcje, teraz, ruch, pamiec,
+                    plotno, size.width / g, size.height / g, czas, noc, stan, id, opcje, ZonedDateTime.now(Daty.strefa), ruch, pamiec,
                     ukryjGwiazdySceny = !specjalna && efekt != null && !NakladkaPogody.gwiazdy(efekt, noc),
                     kartaStartu = kartaStartu,
-                    poraRoku = poraRoku ?: Motyw.zwykly.scena(teraz.monthValue),
                 )
                 ScenyStrony.rysuj(rama)
                 nc.restoreToCount(stan0)
