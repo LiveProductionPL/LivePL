@@ -664,13 +664,20 @@ final class Magazyn: ObservableObject {
         await sprawdzNowaWersje()
     }
 
-    /// Najnowsza wersja TVML w App Store (wyszukiwarka Apple, bez żadnych danych o telefonie).
+    /// Najnowsza wersja TVML w App Store (wyszukiwarka Apple, bez żadnych danych o telefonie). Najpierw polski sklep,
+    /// a gdy go brak, brytyjski i amerykański: do zatwierdzenia DSA przez Apple TVML nie ma w sklepach UE i polski
+    /// zwracał pustą listę, więc baner „Nowa wersja” się nie pokazywał (Karol 25.11: „Tak, popraw”).
     func sprawdzNowaWersje() async {
-        guard let adres = URL(string: "https://itunes.apple.com/lookup?bundleId=com.LiveProduction.TVML&country=pl"),
-              let odp = try? await URLSession.shared.data(from: adres),
-              let j = (try? JSONSerialization.jsonObject(with: odp.0)) as? Slownik,
-              let w = j.lista("results").first?.s("version"), !w.isEmpty,
-              Wersja.starsza(Wersja.biezaca, niz: w) else { nowaWersja = nil; return }
+        var najnowsza: String?
+        for kraj in ["pl", "gb", "us"] {
+            guard let adres = URL(string: "https://itunes.apple.com/lookup?bundleId=com.LiveProduction.TVML&country=" + kraj),
+                  let odp = try? await URLSession.shared.data(from: adres),
+                  let j = (try? JSONSerialization.jsonObject(with: odp.0)) as? Slownik,
+                  let w = j.lista("results").first?.s("version"), !w.isEmpty else { continue }
+            najnowsza = w
+            break
+        }
+        guard let w = najnowsza, Wersja.starsza(Wersja.biezaca, niz: w) else { nowaWersja = nil; return }
         nowaWersja = Komunikat(["id": "aktualizacja-" + w, "title": Napisy.t("app.newVersion", "Nowa wersja TVML {v}").replacingOccurrences(of: "{v}", with: w),
                                 "text": Napisy.t("app.updateAvailable", "Zaktualizuj aplikację w App Store, żeby mieć najnowsze funkcje."), "level": "info",
                                 "link": "https://apps.apple.com/app/id1468277905", "linkLabel": Napisy.t("app.update", "Aktualizuj")])
