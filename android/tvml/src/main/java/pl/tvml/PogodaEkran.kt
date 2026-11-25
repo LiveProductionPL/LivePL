@@ -117,7 +117,8 @@ fun PogodaEkran(m: Magazyn) {
                     godziny.take(24).forEach { g ->
                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(g.czas, color = b.tekst, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                            IkonaPogody(g.ikona, Modifier.size(24.dp))
+                            // ikony 1:1 ze strony (Karol 25.11: „ikony pogody zawsze muszą być zjednolicone”), noc według godziny
+                            IkonaPogodyStrony(g.ikona, IkonyPogodyStrony.nocO(g.czas, p?.wschod, p?.zachod) ?: false, 28.dp, temp = g.temp)
                             Text(Pogoda.stopnie(g.temp), color = b.tekst, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             if (g.opad > 0) Text("${g.opad}%", color = b.link, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         }
@@ -131,7 +132,7 @@ fun PogodaEkran(m: Magazyn) {
                     dni.forEachIndexed { i, d ->
                         Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(d.nazwa, Modifier.width(36.dp), color = b.tekst, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                            IkonaPogody(d.ikona, Modifier.size(24.dp))
+                            IkonaPogodyStrony(d.ikona, false, 28.dp, opis = d.opis, temp = d.max)
                             Spacer(Modifier.width(8.dp))
                             Text(d.opis, Modifier.weight(1f), color = b.slaby, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             if (d.opad > 0) Text("${d.opad}%", Modifier.padding(start = 6.dp), color = b.link, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
@@ -159,92 +160,5 @@ fun Pomiar(nazwa: String, wartosc: String, modifier: Modifier = Modifier) {
             wartosc, style = TextStyle(color = b.tekst, fontSize = 14.sp, fontWeight = FontWeight.Black), maxLines = 1,
             autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = 14.sp, stepSize = 0.5.sp),
         )
-    }
-}
-
-/** Kolorowa ikonka pogody (jak symbole wielobarwne na iPhonie). bialy = biała, do banera. */
-@Composable
-fun IkonaPogody(ikona: String, modifier: Modifier = Modifier, bialy: Boolean = false) {
-    val i = ikona.lowercase()
-    val rodzaj = when {
-        "storm" in i || "thunder" in i -> "burza"
-        "snow" in i -> "snieg"
-        "rain" in i || "sleet" in i || "hail" in i || "shower" in i -> "deszcz"
-        "fog" in i -> "mgla"
-        "wind" in i -> "wiatr"
-        "night" in i && ("partly" in i || "cloud" in i) -> "chmuraNoc"
-        "night" in i -> "ksiezyc"
-        "cloud-sun" in i || "partly" in i -> "chmuraSlonce"
-        "sun" in i || "clear" in i -> "slonce"
-        else -> "chmura"
-    }
-    Canvas(modifier.clearAndSetSemantics { }) { rysujIkone(rodzaj, bialy) }
-}
-
-private fun DrawScope.rysujIkone(rodzaj: String, bialy: Boolean) {
-    val s = size.minDimension / 24
-    val sloneczny = if (bialy) Color.White else kolor(0xf5b301)
-    val chmurny = if (bialy) Color.White else kolor(0x9aa7ba)
-    val niebieski = if (bialy) Color.White else kolor(0x2f80ed)
-    val szary = if (bialy) Color.White else kolor(0x8b96a8)
-    fun slonce(cx: Float, cy: Float, r: Float) {
-        drawCircle(sloneczny, r * s, Offset(cx * s, cy * s))
-        for (k in 0 until 8) {
-            val a = k * Math.PI / 4
-            drawLine(
-                sloneczny, Offset((cx + kotlin.math.cos(a) * (r + 2)).toFloat() * s, (cy + kotlin.math.sin(a) * (r + 2)).toFloat() * s),
-                Offset((cx + kotlin.math.cos(a) * (r + 4)).toFloat() * s, (cy + kotlin.math.sin(a) * (r + 4)).toFloat() * s), 1.8f * s, StrokeCap.Round,
-            )
-        }
-    }
-    fun chmura(dx: Float, dy: Float, c: Color) {
-        val p = Path().apply {
-            addOval(Rect(Offset((3 + dx) * s, (9 + dy) * s), Size(9 * s, 8 * s)))
-            addOval(Rect(Offset((7 + dx) * s, (5 + dy) * s), Size(10 * s, 10 * s)))
-            addOval(Rect(Offset((12 + dx) * s, (8 + dy) * s), Size(9 * s, 9 * s)))
-            addRect(Rect(Offset((7 + dx) * s, (12 + dy) * s), Size(10 * s, 5 * s)))
-        }
-        drawPath(p, c)
-    }
-    fun ksiezyc(cx: Float, cy: Float, r: Float, c: Color) {
-        val p = Path().apply {
-            fillType = androidx.compose.ui.graphics.PathFillType.EvenOdd
-            addOval(Rect(Offset((cx - r) * s, (cy - r) * s), Size(2 * r * s, 2 * r * s)))
-            addOval(Rect(Offset((cx - r + r * 0.7f) * s, (cy - r - r * 0.35f) * s), Size(2 * r * s, 2 * r * s)))
-        }
-        drawPath(p, c)
-    }
-    when (rodzaj) {
-        "slonce" -> slonce(12f, 12f, 5f)
-        "ksiezyc" -> ksiezyc(11f, 12f, 8f, if (bialy) Color.White else kolor(0xf4d35e))
-        "chmuraSlonce" -> { slonce(8f, 8f, 3.5f); chmura(1f, 2f, chmurny) }
-        "chmuraNoc" -> { ksiezyc(8f, 7f, 4.5f, if (bialy) Color.White else kolor(0xf4d35e)); chmura(1f, 2f, chmurny) }
-        "deszcz" -> {
-            chmura(0f, -2f, szary)
-            for (x in listOf(8f, 12f, 16f)) drawLine(niebieski, Offset(x * s, 18 * s), Offset((x - 1.2f) * s, 22 * s), 1.8f * s, StrokeCap.Round)
-        }
-        "burza" -> {
-            chmura(0f, -2f, szary)
-            drawPath(Path().apply {
-                moveTo(13 * s, 14 * s); lineTo(9.5f * s, 19 * s); lineTo(12 * s, 19 * s); lineTo(10.5f * s, 23 * s); lineTo(15 * s, 17.5f * s); lineTo(12.5f * s, 17.5f * s); close()
-            }, sloneczny)
-        }
-        "snieg" -> {
-            chmura(0f, -2f, chmurny)
-            for (x in listOf(8f, 12f, 16f)) drawCircle(if (bialy) Color.White else kolor(0x7dd3fc), 1.4f * s, Offset(x * s, 20 * s))
-        }
-        "mgla" -> {
-            chmura(0f, -3f, chmurny)
-            for ((y, x0) in listOf(17f to 4f, 20f to 6f)) drawLine(szary, Offset(x0 * s, y * s), Offset((x0 + 14) * s, y * s), 1.8f * s, StrokeCap.Round)
-        }
-        "wiatr" -> {
-            val p = Path().apply {
-                moveTo(3 * s, 9 * s); lineTo(15 * s, 9 * s); quadraticTo(19 * s, 9 * s, 19 * s, 6 * s); quadraticTo(19 * s, 3 * s, 16 * s, 3.5f * s)
-                moveTo(3 * s, 14 * s); lineTo(19 * s, 14 * s); quadraticTo(22 * s, 14 * s, 22 * s, 17 * s); quadraticTo(22 * s, 20 * s, 19 * s, 19.5f * s)
-                moveTo(3 * s, 19 * s); lineTo(11 * s, 19 * s)
-            }
-            drawPath(p, if (bialy) Color.White else kolor(0x5b8bd0), style = Stroke(1.8f * s, cap = StrokeCap.Round))
-        }
-        else -> chmura(0f, 0f, chmurny)
     }
 }

@@ -124,7 +124,8 @@ fun Baner(m: Magazyn) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    IkonaPogody(m.pogoda?.ikona ?: "cloud", Modifier.size(20.dp), bialy = true)
+                    // ta sama ikona co na karcie i na stronie (wszędzie jeden zestaw z weather-icons.js)
+                    IkonaPogodyStrony(m.pogoda?.ikona ?: "cloud", m.pogoda?.dzien == false, 22.dp, opis = m.pogoda?.opis, temp = m.pogoda?.temperatura)
                     Text(m.pogoda?.let { Pogoda.stopnie(it.temperatura) + "C" } ?: "–", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
                 PrzyciskJezyka(m)

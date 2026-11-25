@@ -287,6 +287,34 @@ object IkonyPogodyStrony {
         return """<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><defs>$defs</defs><g>$g</g></svg>"""
     }
 
+    // Przybliżony wschód i zachód słońca w Lesznie (minuty, połowa miesiąca), SUN_LESZNO z weather-icons.js
+    private val SLONCE_LESZNO = listOf(475 to 980, 435 to 1035, 370 to 1075, 360 to 1185, 305 to 1235, 275 to 1270,
+        295 to 1260, 340 to 1215, 390 to 1150, 440 to 1085, 435 to 970, 475 to 950)
+
+    private val WZOR_GODZINY = Regex("(\\d{1,2}):(\\d{2})")
+
+    private fun minuty(v: String): Int? = WZOR_GODZINY.find(v)?.let { m ->
+        val g = m.groupValues[1].toInt()
+        val mi = m.groupValues[2].toInt()
+        if (g < 24 && mi < 60) g * 60 + mi else null
+    }
+
+    /**
+     * isNightAt ze strony: czy godzina [czas] („HH:MM” albo ISO) wypada przed wschodem albo od zachodu słońca;
+     * wschód i zachód z API, a gdy nierealne albo ich brak, przybliżenie dla Leszna według miesiąca.
+     */
+    fun nocO(czas: String, wschod: String?, zachod: String?, miesiac: Int = java.time.LocalDate.now(Daty.strefa).monthValue): Boolean? {
+        val t = minuty(czas) ?: return null
+        var r = wschod?.let(::minuty)
+        var z = zachod?.let(::minuty)
+        if (r == null || z == null || r < 180 || r > 600 || z < 840 || z > 1380 || r >= z) {
+            val p = SLONCE_LESZNO[(miesiac - 1).coerceIn(0, 11)]
+            r = p.first
+            z = p.second
+        }
+        return t < r || t >= z
+    }
+
     private val pamiec = LruCache<String, ImageBitmap>(48)
 
     /** Ikona jako obrazek [px]×[px] (pamięć według stanu, nocy i rozmiaru). */

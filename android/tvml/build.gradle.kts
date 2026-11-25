@@ -49,7 +49,7 @@ android {
         targetSdk = 36
         versionCode = numerBudowy
         // jak na iPhonie i w API (minAppVersion.android); pod ikoną i w Sklepie samo „TVML”
-        versionName = "2.2"
+        versionName = "2.3"
         // zasoby, z których FirebaseInitProvider sam uruchamia Firebase (jak z wtyczki google-services)
         firebase.forEach { (nazwa, wartosc) -> resValue("string", nazwa, wartosc) }
         buildConfigField("boolean", "PUSH", firebase.isNotEmpty().toString())
