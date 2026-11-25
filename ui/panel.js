@@ -62,7 +62,7 @@ function poz(nazwaIkony, tekst, opcje = {}) {
   return b;
 }
 
-function zaznaczenie(tekst, wlaczone, akcja, przelacz) {
+function zaznaczenie(tekst, wlaczone, akcja, przelacz, arg) {
   const b = el('button', 'poz');
   b.type = 'button';
   b.setAttribute('role', 'menuitemcheckbox');
@@ -70,7 +70,7 @@ function zaznaczenie(tekst, wlaczone, akcja, przelacz) {
   const pole = el('span', 'pole' + (wlaczone ? ' wl' : ''));
   pole.appendChild(ikonaEl('znacznik'));
   b.append(pole, el('span', 'tekst', tekst));
-  b.addEventListener('click', () => { przelacz(); P.akcja(akcja); rysuj(); });
+  b.addEventListener('click', () => { przelacz(); P.akcja(akcja, arg); rysuj(); });
   return b;
 }
 
@@ -166,7 +166,7 @@ function ekranUstawienia() {
   f.appendChild(poz('klodka', 'Certyfikat osobisty (YubiKey)', { dalej: true, klik: () => { ekran = 'cert-osobisty'; rysuj(); P.akcja('cert-osobisty-odswiez'); } }));
   f.appendChild(poz('znacznik', 'Urząd LivePL w Windows', { dalej: true, klik: () => { ekran = 'zaufanie'; rysuj(); P.akcja('zaufanie-odswiez'); } }));
   f.appendChild(poz('serwer', 'Urządzenie LivePL', { dalej: true, klik: () => { ekran = 'urzadzenie'; rysuj(); P.akcja('urzadzenie-sprawdz'); } }));
-  f.appendChild(poz('pinezka', 'Moje strony na pasku', { dalej: true, klik: () => { ekran = 'strony'; rysuj(); } }));
+  f.appendChild(poz('pinezka', 'Ikony na pasku', { dalej: true, klik: () => { ekran = 'strony'; rysuj(); } }));
   f.appendChild(poz('klucz', 'Hasła', { dalej: true, klik: () => { ekran = 'hasla'; rysuj(); P.akcja('hasla-odswiez'); } }));
   f.appendChild(poz('uwaga', 'Wyjątki certyfikatów', { dalej: true, klik: () => { ekran = 'wyjatki'; rysuj(); } }));
   f.appendChild(poz('tarcza', 'Bezpieczny DNS', { dalej: true, klik: () => { ekran = 'dns'; rysuj(); } }));
@@ -1231,7 +1231,9 @@ function ekranProgram() {
   if (p.wlasny) {
     f.appendChild(poz('odepnij', 'Odepnij z paska', { akcja: 'program-odepnij', arg: p.id, czerwona: true }));
   } else {
-    f.appendChild(poz('pinezka', 'Moje strony na pasku', { dalej: true, klik: () => { ekran = 'strony'; rysuj(); } }));
+    // nasze programy (Poczta, Live Production, TVML): można je schować i włączyć z powrotem w Ustawieniach
+    if (p.wbudowany) f.appendChild(poz('odepnij', 'Schowaj z paska', { akcja: 'program-schowaj', arg: p.id }));
+    f.appendChild(poz('pinezka', 'Ikony na pasku', { dalej: true, klik: () => { ekran = 'strony'; rysuj(); } }));
   }
   return f;
 }
@@ -1270,7 +1272,21 @@ function ekranPodpisIkony() {
 // własne strony na pasku: dowolny adres, zmiana nazwy, usuwanie
 function ekranStrony() {
   const f = document.createDocumentFragment();
-  f.appendChild(naglowek('Moje strony na pasku', 'ustawienia'));
+  f.appendChild(naglowek('Ikony na pasku', 'ustawienia'));
+  // programy LivePL: zaznaczone są na pasku; odznaczony znika z paska, ale zostaje kafelkiem na nowej karcie
+  const nasze = D.programyLivePL || [];
+  if (nasze.length) {
+    f.appendChild(el('div', 'opis', 'Programy LivePL na pasku. Odznacz te, których nie potrzebujesz. Dalej otworzysz je z nowej karty.'));
+    for (const pr of nasze) {
+      const tekst = pr.nazwa + (pr.tylkoZYubiKey ? ' (tylko z YubiKey)' : '');
+      f.appendChild(zaznaczenie(tekst, pr.naPasku, pr.naPasku ? 'program-schowaj' : 'program-pokaz', () => { pr.naPasku = !pr.naPasku; }, pr.id));
+    }
+    if (nasze.some(pr => pr.id === 'poczta' && !pr.naPasku)) {
+      f.appendChild(el('div', 'opis slaby-maly', 'Schowana Poczta nie działa w tle, więc nie powiadamia o nowych wiadomościach.'));
+    }
+    f.appendChild(kreska());
+    f.appendChild(el('div', 'opis', 'Moje strony'));
+  }
   const lista = D.wlasneStrony || [];
   if (!lista.length) {
     f.appendChild(el('div', 'opis', 'Dodaj dowolną stronę: wpisz jej adres poniżej albo otwórz ją i kliknij „Dodaj” u góry, obok adresu.'));

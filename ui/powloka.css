@@ -207,13 +207,34 @@ button {
 
 @keyframes puls { 50% { opacity: 0.45; } }
 
+/* kreska między zapisanymi stronami a kartami: można ją złapać i przesunąć w górę albo w dół */
 #kreska {
-  width: 32px;
+  position: relative;
+  width: 100%;
+  height: 15px;
+  flex: none;
+  cursor: row-resize;
+  outline: none;
+}
+#kreska::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 8px;
   height: 1px;
   background: var(--kreska);
-  margin: 8px 0 6px;
-  flex: none;
 }
+#kreska:hover::before, #kreska.ciagnie::before, #kreska:focus-visible::before {
+  left: 16px;
+  right: 16px;
+  top: 6px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--kanal);
+  opacity: 0.55;
+}
+body.ciagnie-kreske, body.ciagnie-kreske * { cursor: row-resize !important; }
 
 #karty {
   position: relative;
@@ -231,6 +252,8 @@ button {
 }
 
 #karty::-webkit-scrollbar { display: none; }
+/* w układzie automatycznym pod kreską zawsze mieści się co najmniej jedna cała karta */
+#karty:not(:empty) { min-height: 48px; }
 
 /* lista ucięta u góry albo u dołu: ostatnia widoczna ikona łagodnie znika zamiast być ucięta nożem */
 #programy.dalej-gora, #karty.dalej-gora { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22px); }
@@ -242,10 +265,11 @@ button {
 /* „jest więcej”: strzałka z liczbą ukrytych ikon; kliknięcie przewija, przy przeciąganiu wystarczy najechać */
 .wiecej {
   flex: none;
-  width: 44px;
-  height: 20px;
-  margin: 1px 0;
+  width: 52px;
+  height: 22px;
+  margin: 2px 0;
   border-radius: 6px;
+  background: var(--hover);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -257,8 +281,8 @@ button {
 }
 
 .wiecej[hidden] { display: none; }
-.wiecej:hover { background: var(--hover); color: var(--tekst); }
-.wiecej .ik { width: 13px; height: 13px; stroke-width: 2.4; }
+.wiecej:hover { background: var(--wcisniety); color: var(--tekst); }
+.wiecej .ik { width: 15px; height: 15px; stroke-width: 2.4; }
 
 /* przeciąganie ikon i kart */
 .program.przeciagana, .karta.przeciagana { opacity: 0.35; }

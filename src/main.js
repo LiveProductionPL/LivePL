@@ -205,6 +205,15 @@ function widoczny(p) {
   return !p.tylkoZYubiKey || yubikeyObecny || karty.has(p.id);
 }
 
+// Programy LivePL (Poczta, Live Production, TVML, Urząd), które ktoś schował z paska: w menu ikony
+// (prawy klik) albo w Ustawieniach → Ikony na pasku (Karol, 25.11: „jak ktoś ich nie chce, ma mieć opcję
+// wyłączenia”). Schowany program nie jest wtedy programem: nie ładuje się w tle, a jego adres otwiera się
+// jak zwykła strona w karcie. Włączenie z powrotem stawia go na dawnym miejscu.
+function schowaneProgramy() {
+  const l = ustawienia.schowaneProgramy;
+  return Array.isArray(l) ? l.filter(id => typeof id === 'string') : [];
+}
+
 // obrazek programu ze strony (np. logo TVML), w nocy wersja nocna; ścieżka względem folderu ui
 function obrazekProgramu(p) {
   if (!p.obrazek) return '';
@@ -212,8 +221,10 @@ function obrazekProgramu(p) {
 }
 
 function zbudujProgramy() {
+  const schowane = new Set(schowaneProgramy());
+  const podstawowe = programyPodstawowe.filter(p => !schowane.has(p.id));
   // strona dopisana przez użytkownika, która jest już naszym programem, nie dubluje się na pasku
-  const juzSa = new Set(programyPodstawowe.map(p => bezKoncowegoUkosnika(p.adres)));
+  const juzSa = new Set(podstawowe.map(p => bezKoncowegoUkosnika(p.adres)));
   const wlasne = listaWlasnych().filter(s => !juzSa.has(bezKoncowegoUkosnika(s.adres))).map(s => ({
     id: s.id,
     nazwa: String(s.nazwa || hostZ(s.adres)),
@@ -224,7 +235,7 @@ function zbudujProgramy() {
     wlasny: true,
     host: hostZ(s.adres)
   }));
-  programy = ulozWedlugKolejnosci([...programyPodstawowe, ...wlasne]);
+  programy = ulozWedlugKolejnosci([...podstawowe, ...wlasne]);
   // otwarte karty przypiętych stron wskazują na aktualne wpisy
   for (const p of wlasne) {
     const k = karty.get(p.id);
@@ -252,7 +263,12 @@ function ustawKolejnoscProgramow(ids) {
     return;
   }
   let j = 0;
-  ustawienia.kolejnoscProgramow = programy.map(p => (widoczny(p) ? ids[j++] : p.id));
+  const nowa = programy.map(p => (widoczny(p) ? ids[j++] : p.id));
+  // schowane z paska zostają w zapisanej kolejności, żeby po włączeniu wróciły na swoje miejsce
+  const schowane = new Set(schowaneProgramy());
+  const stara = Array.isArray(ustawienia.kolejnoscProgramow) ? ustawienia.kolejnoscProgramow : [];
+  stara.forEach((id, i) => { if (schowane.has(id) && !nowa.includes(id)) nowa.splice(Math.min(i, nowa.length), 0, id); });
+  ustawienia.kolejnoscProgramow = nowa;
   zapiszUstawienia();
   zbudujProgramy();
   wyslijStan();
@@ -341,6 +357,53 @@ function odepnijStrone(id) {
   wyslijStan();
 }
 
+// program LivePL znika z paska: jego karta się zamyka (Poczta przestaje działać w tle)
+function schowajProgram(id) {
+  const p = programyPodstawowe.find(x => x.id === id);
+  const schowane = schowaneProgramy();
+  if (!p || schowane.includes(id)) return;
+  // bez zapisanej kolejności zapisujemy obecną, żeby program po włączeniu wrócił na swoje miejsce
+  if (!Array.isArray(ustawienia.kolejnoscProgramow) || !ustawienia.kolejnoscProgramow.length) {
+    ustawienia.kolejnoscProgramow = programy.map(x => x.id);
+  }
+  ustawienia.schowaneProgramy = [...schowane, id];
+  if (ustawienia.ostatnia === id) ustawienia.ostatnia = null;
+  zapiszUstawienia();
+  zbudujProgramy();
+  zamknijKarteProgramu(id);
+  usunWiadomosci(w => w.kartaId === id);
+  dodajWiadomosc(`Schowano z paska: ${p.nazwa}. Wróci po zaznaczeniu w menu ⋮ → Ustawienia → Ikony na pasku`, {}, 20 * 1000);
+  wyslijStan();
+}
+
+function pokazProgram(id) {
+  const schowane = schowaneProgramy();
+  if (!schowane.includes(id)) return;
+  ustawienia.schowaneProgramy = schowane.filter(x => x !== id);
+  zapiszUstawienia();
+  zbudujProgramy();
+  const p = programy.find(x => x.id === id);
+  // Poczta znowu ładuje się w tle, żeby działały powiadomienia i licznik nieprzeczytanych
+  if (p && p.przyStarcie) kartaProgramu(p);
+  wyslijStan();
+}
+
+function zamknijKarteProgramu(id) {
+  const k = karty.get(id);
+  if (!k) return;
+  clearTimeout(k.spadekLicznika);
+  karty.delete(id);
+  if (pelnyEkran === id) pelnyEkran = null;
+  try { win.contentView.removeChildView(k.widok); } catch { /* okno już zamknięte */ }
+  try { k.wc.close(); } catch { /* już zamknięta */ }
+  if (aktywnaId === id) {
+    aktywnaId = null;
+    const nastepna = dodatkowe[0] || (programy.find(widoczny) || {}).id;
+    if (nastepna) przejdzDo(nastepna);
+    else nowaKarta(null);
+  }
+}
+
 // ikonka przypiętej strony zapamiętana na następny start
 function zapamietajIkonke(k) {
   if (!k.program || !k.program.wlasny) return;
@@ -374,6 +437,13 @@ function bezKoncowegoUkosnika(url) {
 function programStartowy(url) {
   const u = bezKoncowegoUkosnika(url);
   return programy.find(p => bezKoncowegoUkosnika(p.adres) === u) || null;
+}
+
+// Kreska między zapisanymi stronami (programami) a otwartymi kartami da się przesunąć myszą (Karol, 25.11).
+// Zapamiętujemy wysokość listy programów w pikselach; null = układ automatyczny, WSZYSTKIE = cała lista.
+const WSZYSTKIE_PROGRAMY = 9999;
+function poprawnaWysokoscProgramow(h) {
+  return Number.isInteger(h) && h >= 40 && h <= WSZYSTKIE_PROGRAMY ? h : null;
 }
 
 function licznikZTytulu(tytul) {
@@ -505,7 +575,10 @@ function otworzStroneNowejKarty(k) {
     nazwa: p.nazwa, opis: p.opis || '', ikona: p.ikona, adres: p.adres, wlasny: !!p.wlasny,
     obrazek: p.obrazek ? '../' + p.obrazek : '', obrazekNoc: p.obrazekNoc ? '../' + p.obrazekNoc : ''
   });
-  const dane = { naPasku: programy.filter(widoczny).map(opis), wiecej: programyUkryte.map(opis) };
+  // schowane z paska programy LivePL dalej są pod ręką jako kafelki (otwierają się jak zwykłe strony)
+  const schowane = new Set(schowaneProgramy());
+  const wiecej = [...programyPodstawowe.filter(p => schowane.has(p.id) && !p.tylkoZYubiKey), ...programyUkryte];
+  const dane = { naPasku: programy.filter(widoczny).map(opis), wiecej: wiecej.map(opis) };
   k.widok.setBackgroundColor(kolory().strona);
   k.wc.loadFile(path.join(UI, 'nowa.html'), { query: { programy: JSON.stringify(dane) } }).catch(() => {});
 }
@@ -1073,6 +1146,7 @@ function stan() {
     aktualizacjaGotowa: ['gotowa', 'dostepna'].includes(aktualizacje.stan().stan),
     motyw: ustawienia.motyw,
     motywNoc: nocMotywuTekst(),
+    wysokoscProgramow: poprawnaWysokoscProgramow(ustawienia.wysokoscProgramow),
     wiadomosci: wiadomosci.slice(0, 8).map(w => ({
       id: w.id,
       czas: w.czas,
@@ -1260,10 +1334,14 @@ ipcMain.handle('blad:wejdz', async (e, trwale) => {
 
 function napiszMail(mailto) {
   const p = programy.find(x => x.id === 'poczta');
-  if (!p) return;
-  const k = kartaProgramu(p);
+  const poczta = p || programyPodstawowe.find(x => x.id === 'poczta');
+  if (!poczta) return;
   // ten sam adres, który Afterlogic rejestruje jako obsługę linków mailto
-  laduj(k, bezKoncowegoUkosnika(p.adres) + '/#mail-compose/to/' + encodeURIComponent(mailto));
+  const adres = bezKoncowegoUkosnika(poczta.adres) + '/#mail-compose/to/' + encodeURIComponent(mailto);
+  // Poczta schowana z paska: wiadomość pisze się w zwykłej karcie
+  if (!p) { nowaKarta(adres); return; }
+  const k = kartaProgramu(p);
+  laduj(k, adres);
   aktywuj(k.id);
 }
 
@@ -1679,6 +1757,12 @@ function danePanelu() {
       id: p.id, nazwa: p.nazwa, adres: p.adres,
       ikonka: bezpiecznaIkonka((karty.get(p.id) || {}).ikonka) || p.ikonka || ''
     })),
+    programyLivePL: (() => {
+      const schowane = new Set(schowaneProgramy());
+      return programyPodstawowe.map(p => ({
+        id: p.id, nazwa: p.nazwa, opis: p.opis || '', naPasku: !schowane.has(p.id), tylkoZYubiKey: !!p.tylkoZYubiKey
+      }));
+    })(),
     bladStrony: panelStan.bladStrony || null,
     certyfikatyWindows: panelStan.rodzaj === 'menu' ? certWin.ostatnieListy() : null,
     urzadzenie: urzadzenie.ostatniStan(),
@@ -1691,7 +1775,10 @@ function danePanelu() {
       : null,
     programMenu: (() => {
       const p = panelStan.programId ? programy.find(x => x.id === panelStan.programId) : null;
-      return p ? { id: p.id, nazwa: p.nazwa, adres: p.adres, wlasny: !!p.wlasny, podpis: podpisIkony(p.id) } : null;
+      return p ? {
+        id: p.id, nazwa: p.nazwa, adres: p.adres, wlasny: !!p.wlasny, podpis: podpisIkony(p.id),
+        wbudowany: programyPodstawowe.some(x => x.id === p.id)
+      } : null;
     })(),
     podpis: panelStan.podpis || null,
     ssl: sslKarty(k),
@@ -1952,6 +2039,16 @@ function akcjaPanelu(nazwa, arg) {
     case 'program-odepnij':
     case 'strona-usun':
       if (typeof arg === 'string') odepnijStrone(arg);
+      if (panelStan) wyslijDoPanelu();
+      break;
+    // schowanie z menu ikony zamyka menu (ikony już nie ma); w Ustawieniach panel zostaje otwarty
+    case 'program-schowaj':
+      if (typeof arg === 'string') schowajProgram(arg);
+      if (panelStan && panelStan.rodzaj === 'program') schowajPanel(true);
+      else if (panelStan) wyslijDoPanelu();
+      break;
+    case 'program-pokaz':
+      if (typeof arg === 'string') pokazProgram(arg);
       if (panelStan) wyslijDoPanelu();
       break;
     case 'strona-dodaj':
@@ -2323,6 +2420,11 @@ ipcMain.on('powloka', (e, akcja, ...a) => {
     case 'menu-programu': pokazPanel('program', { lewo: a[1], gora: a[2] }, { programId: a[0] }); break;
     case 'przesun-karte': przesunKarte(a[0], a[1]); break;
     case 'kolejnosc-programow': ustawKolejnoscProgramow(a[0]); break;
+    case 'wysokosc-programow':
+      ustawienia.wysokoscProgramow = poprawnaWysokoscProgramow(a[0]);
+      zapiszUstawienia();
+      wyslijStan();
+      break;
     case 'pobrane': pokazPanel('pobrane', { prawo: a[0], gora: a[1] + 6 }); break;
     case 'ssl': pokazPanel('ssl', { lewo: a[0], dol: a[1] }); break;
     case 'ai': pokazPanel('ai', { prawo: a[0], dol: a[1] }); break;

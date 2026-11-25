@@ -206,21 +206,22 @@ function pokazAktywna(nav, selektor) {
   el.scrollIntoView({ block: 'nearest' });
 }
 
+// ikona liczy się jako schowana, gdy nie widać jej całej (Karol, 25.11: ucięta ikona też potrzebuje strzałki);
+// gdy wszystko się mieści, strzałek nie ma
 function ukryteIkony(nav) {
   const gora = nav.scrollTop;
   const dol = gora + nav.clientHeight;
   let nad = 0;
   let pod = 0;
   for (const el of nav.children) {
-    // ikona „schowana”, gdy widać mniej niż jej połowę
-    const srodek = el.offsetTop + el.offsetHeight / 2;
-    if (srodek < gora) nad++;
-    else if (srodek > dol) pod++;
+    if (el.offsetTop < gora - 1) nad++;
+    else if (el.offsetTop + el.offsetHeight > dol + 1) pod++;
   }
   return { nad, pod };
 }
 
 function odswiezWskazniki() {
+  ulozPasek();
   for (const l of LISTY) {
     const { nad, pod } = ukryteIkony(l.nav);
     const ustaw = (b, ile, kierunek) => {
@@ -250,6 +251,108 @@ for (const l of LISTY) {
   l.nav.addEventListener('scroll', odswiezWskazniki, { passive: true });
   new ResizeObserver(odswiezWskazniki).observe(l.nav);
 }
+
+// ---------------------------------------------------------------- kreska między zapisanymi a kartami
+// Kreskę można złapać myszą (albo strzałkami na klawiaturze) i przesunąć: w dół widać więcej zapisanych stron,
+// w górę więcej kart (Karol, 25.11). Wysokość listy programów jest zapamiętana w ustawieniach; pod kreską
+// zawsze zostaje miejsce na jedną kartę. Dwuklik wraca do układu automatycznego.
+
+const kreskaEl = $('#kreska');
+const NAJMNIEJ_PROGRAMOW = 46; // jedna ikona
+const NAJMNIEJ_KART = 48; // jedna karta
+const WSZYSTKIE_PROGRAMY = 9999; // „pokaż wszystkie zapisane”, ile zmieści okno
+let wysokoscProgramow = null; // null: automatycznie
+let ciagniecie = null;
+
+const wysokoscTresci = (nav) => {
+  const ost = nav.lastElementChild;
+  if (!ost) return 0;
+  return ost.offsetTop + ost.offsetHeight + parseFloat(getComputedStyle(nav).paddingBottom || 0);
+};
+
+// Dzieli miejsce między listę programów (zapisanych stron) a listę kart. Automatycznie karty dostają tyle,
+// ile potrzebują, ale najwyżej 30% miejsca (co najmniej jedną kartę), a programy resztę. Po przesunięciu
+// kreski programy mają zapamiętaną wysokość, a pod kreską zostaje miejsce na jedną kartę.
+// (Liczymy sami, bo flexbox przy ukrytych strzałkach potrafił wypchnąć przycisk nowej karty poza pasek.)
+function ulozPasek() {
+  const programy = $('#programy');
+  const karty = $('#karty');
+  // miejsce na obie listy: wysokość boku bez logo, strzałek, kreski i przycisku nowej karty
+  let inne = 0;
+  for (const el of $('#bok').children) {
+    if (el === programy || el === karty || el.hidden) continue;
+    const s = getComputedStyle(el);
+    if (s.display === 'none') continue;
+    inne += el.getBoundingClientRect().height + parseFloat(s.marginTop) + parseFloat(s.marginBottom);
+  }
+  const miejsce = $('#bok').clientHeight - inne;
+  if (miejsce <= 0) return;
+  const tresc = wysokoscTresci(programy);
+  const trescKart = wysokoscTresci(karty);
+  let h;
+  if (wysokoscProgramow && !$('#kreska').hidden) {
+    h = Math.min(wysokoscProgramow, tresc, miejsce - Math.min(NAJMNIEJ_KART, trescKart));
+  } else {
+    h = Math.min(tresc, miejsce - Math.min(trescKart, Math.max(NAJMNIEJ_KART, Math.round(miejsce * 0.3))));
+  }
+  h = Math.round(Math.max(Math.min(NAJMNIEJ_PROGRAMOW, tresc), h));
+  if (programy.style.height !== h + 'px') {
+    programy.style.flex = '0 0 auto';
+    programy.style.height = h + 'px';
+    // po zmianie wysokości aktywny program i aktywna karta zostają widoczne
+    for (const [nav, sel] of [[programy, '.program.aktywny'], [karty, '.karta.aktywna']]) {
+      const a = nav.querySelector(sel);
+      if (a) a.scrollIntoView({ block: 'nearest' });
+    }
+  }
+}
+
+function zapiszWysokosc() {
+  const programy = $('#programy');
+  const h = Math.round(programy.getBoundingClientRect().height);
+  // kreska pod ostatnią zapisaną stroną: wszystkie zapisane strony zostają widoczne, także po dodaniu nowych
+  wysokoscProgramow = h >= wysokoscTresci(programy) - 1 ? WSZYSTKIE_PROGRAMY : h;
+  api.wyslij('wysokosc-programow', wysokoscProgramow);
+}
+
+kreskaEl.title = 'Przeciągnij w dół, by widzieć więcej zapisanych stron, albo w górę, by widzieć więcej kart. Dwuklik: jak na początku';
+kreskaEl.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  kreskaEl.setPointerCapture(e.pointerId);
+  ciagniecie = { y: e.clientY, h: $('#programy').getBoundingClientRect().height };
+  kreskaEl.classList.add('ciagnie');
+  document.body.classList.add('ciagnie-kreske');
+});
+kreskaEl.addEventListener('pointermove', (e) => {
+  if (!ciagniecie) return;
+  wysokoscProgramow = Math.max(NAJMNIEJ_PROGRAMOW, Math.round(ciagniecie.h + e.clientY - ciagniecie.y));
+  odswiezWskazniki();
+});
+const puscKreske = () => {
+  if (!ciagniecie) return;
+  ciagniecie = null;
+  kreskaEl.classList.remove('ciagnie');
+  document.body.classList.remove('ciagnie-kreske');
+  zapiszWysokosc();
+};
+kreskaEl.addEventListener('pointerup', puscKreske);
+kreskaEl.addEventListener('pointercancel', puscKreske);
+kreskaEl.addEventListener('lostpointercapture', puscKreske);
+kreskaEl.addEventListener('dblclick', () => {
+  wysokoscProgramow = null;
+  odswiezWskazniki();
+  api.wyslij('wysokosc-programow', null);
+});
+kreskaEl.addEventListener('keydown', (e) => {
+  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+  e.preventDefault();
+  const teraz = $('#programy').getBoundingClientRect().height;
+  wysokoscProgramow = Math.max(NAJMNIEJ_PROGRAMOW, Math.round(teraz + (e.key === 'ArrowDown' ? 48 : -48)));
+  odswiezWskazniki();
+  zapiszWysokosc();
+});
+new ResizeObserver(() => odswiezWskazniki()).observe($('#bok'));
 
 // ---------------------------------------------------------------- przestawianie ikon przeciąganiem
 // Ikonę programu albo kartę można chwycić myszą i upuścić wyżej lub niżej. Programy zapamiętują
@@ -671,6 +774,7 @@ function rysujNakladke() {
 
 api.na('stan', (s) => {
   S = s;
+  if (!ciagniecie) wysokoscProgramow = S.wysokoscProgramow || null;
   rysujProgramy();
   rysujKarty();
   rysujDol();
