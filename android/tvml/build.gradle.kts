@@ -40,6 +40,9 @@ val firebase: Map<String, String> = run {
 android {
     namespace = "pl.tvml"
     compileSdk = 37
+    // NDK z obrazu GitHuba (ANDROID_NDK_LATEST_HOME): bez niego AGP nie umie wyciągnąć symboli kodu natywnego
+    // („Unable to strip … packaging them as they are”, budowa 27), a Google Play ostrzega o ich braku
+    providers.environmentVariable("ANDROID_NDK_LATEST_HOME").orNull?.takeIf { file(it).isDirectory }?.let { ndkPath = it }
 
     defaultConfig {
         // nazwa pakietu w Google Play (wybór Karola 19.11.2026; na iPhonie com.LiveProduction.TVML).
@@ -75,7 +78,7 @@ android {
             signingConfig = signingConfigs.findByName("wydanie")
             // tablica symboli kodu natywnego bibliotek (androidx.graphics.path, datastore) w AAB: Google Play przestaje
             // ostrzegać o braku symboli do debugowania, a raporty awarii są czytelniejsze (Karol 25.11: „Blad App
-            // Budle jakos naprawimy ?”). NDK do tego ma obraz GitHuba; lokalnie budujemy tylko debug.
+            // Budle jakos naprawimy ?”). Potrzebne NDK (llvm-objcopy): ścieżka ndkPath niżej; lokalnie budujemy tylko debug.
             ndk { debugSymbolLevel = "SYMBOL_TABLE" }
         }
         debug {
