@@ -73,6 +73,10 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("wydanie")
+            // tablica symboli kodu natywnego bibliotek (androidx.graphics.path, datastore) w AAB: Google Play przestaje
+            // ostrzegać o braku symboli do debugowania, a raporty awarii są czytelniejsze (Karol 25.11: „Blad App
+            // Budle jakos naprawimy ?”). NDK do tego ma obraz GitHuba; lokalnie budujemy tylko debug.
+            ndk { debugSymbolLevel = "SYMBOL_TABLE" }
         }
         debug {
             applicationIdSuffix = ".debug"
