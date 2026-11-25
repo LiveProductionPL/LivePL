@@ -600,6 +600,7 @@ function aktywuj(id) {
   }
   aktywnaId = id;
   k.ostatnio = Date.now();
+  k.miga = false;
   k.widok.setVisible(true);
   if (k.odlozona) {
     const u = k.odlozona;
@@ -611,9 +612,9 @@ function aktywuj(id) {
   if (k.program) {
     ustawienia.ostatnia = id;
     zapiszUstawienia();
-    // program otwarty: jego zapis „nieprzeczytane” na pasku już nic nie mówi
-    usunWiadomosci(w => w.licznik && w.kartaId === id);
   }
+  // karta otwarta: jej zapis „nieprzeczytane” na pasku już nic nie mówi
+  usunWiadomosci(w => w.licznik && w.kartaId === id);
   if (k.nowa) {
     win.webContents.focus();
     wyslij('fokus-adres', adresAktywnej());
@@ -782,33 +783,33 @@ async function zainstalujDodatek(sciezka) {
   try {
     p = dodatki.przygotuj(sciezka);
   } catch (e) {
-    await dialog.showMessageBox(win, { type: 'error', title: 'Dodatek LivePL', message: 'Nie da się zainstalować tego dodatku', detail: e.message || String(e), noLink: true });
+    await dialog.showMessageBox(win, { type: 'error', title: 'Wtyczka LivePL', message: 'Nie da się wgrać tej wtyczki', detail: e.message || String(e), noLink: true });
     return;
   }
   const { response } = await dialog.showMessageBox(win, {
     type: 'question',
-    title: 'Dodatek LivePL',
-    message: p.obecna ? `Zaktualizować dodatek „${p.nazwa}” z ${p.obecna} do ${p.wersja}?` : `Zainstalować dodatek „${p.nazwa}” ${p.wersja}?`,
-    detail: (p.opis ? p.opis + '\n\n' : '') + 'Dodatek jest podpisany przez Live Production i jest nieobowiązkowy. ' +
-      'Usuniesz go w każdej chwili w menu ⋮ → Ustawienia → Dodatki.',
-    buttons: ['Zainstaluj', 'Anuluj'], defaultId: 0, cancelId: 1, noLink: true
+    title: 'Wtyczka LivePL',
+    message: p.obecna ? `Zaktualizować wtyczkę „${p.nazwa}” z ${p.obecna} do ${p.wersja}?` : `Wgrać wtyczkę „${p.nazwa}” ${p.wersja}?`,
+    detail: (p.opis ? p.opis + '\n\n' : '') + 'Wtyczka jest podpisana przez Live Production i jest nieobowiązkowa. ' +
+      'Usuniesz ją w każdej chwili w menu ⋮ → Ustawienia → Wtyczki.',
+    buttons: ['Wgraj', 'Anuluj'], defaultId: 0, cancelId: 1, noLink: true
   });
   if (response !== 0) return;
   try {
     const r = await dodatki.zainstaluj(p);
     dodajWiadomosc(r.poRestarcie
-      ? `Dodatek ${r.nazwa} ${p.wersja} zadziała po ponownym uruchomieniu LivePL.`
-      : `Zainstalowano dodatek: ${r.nazwa}. Jest w menu ⋮ → Ustawienia.`);
+      ? `Wtyczka ${r.nazwa} ${p.wersja} zadziała po ponownym uruchomieniu LivePL.`
+      : `Wgrano wtyczkę: ${r.nazwa}. Jest w menu ⋮ → Ustawienia → Wtyczki.`);
   } catch (e) {
-    await dialog.showMessageBox(win, { type: 'error', title: 'Dodatek LivePL', message: 'Nie udało się zainstalować dodatku', detail: e.message || String(e), noLink: true });
+    await dialog.showMessageBox(win, { type: 'error', title: 'Wtyczka LivePL', message: 'Nie udało się wgrać wtyczki', detail: e.message || String(e), noLink: true });
   }
   if (panelStan) wyslijDoPanelu();
 }
 
 async function dodatekZPliku() {
   const w = await dialog.showOpenDialog(win, {
-    title: 'Plik dodatku LivePL', properties: ['openFile'],
-    filters: [{ name: 'Dodatki LivePL', extensions: [dodatki.ROZSZERZENIE.slice(1)] }]
+    title: 'Plik wtyczki LivePL', properties: ['openFile'],
+    filters: [{ name: 'Wtyczki LivePL', extensions: [dodatki.ROZSZERZENIE.slice(1)] }]
   });
   if (w.canceled || !w.filePaths || !w.filePaths[0]) return;
   await zainstalujDodatek(w.filePaths[0]);
@@ -818,15 +819,15 @@ async function usunDodatek(id) {
   const d = dodatki.stan().find(x => x.id === id);
   if (!d) return;
   const { response } = await dialog.showMessageBox(win, {
-    type: 'warning', title: 'Usunąć dodatek?', message: `Usunąć dodatek „${d.nazwa}”?`,
+    type: 'warning', title: 'Usunąć wtyczkę?', message: `Usunąć wtyczkę „${d.nazwa}”?`,
     detail: id === 'rozszerzenia-chrome'
-      ? 'Rozszerzenia Chrome przestaną działać. Ich pliki zostają w danych LivePL i wrócą, jeśli zainstalujesz dodatek ponownie.'
-      : 'Dodatek zniknie z LivePL. Możesz go zainstalować ponownie z pliku.',
+      ? 'Rozszerzenia Chrome przestaną działać. Ich pliki zostają w danych LivePL i wrócą, jeśli wgrasz wtyczkę ponownie.'
+      : 'Wtyczka zniknie z LivePL. Możesz ją wgrać ponownie z pliku.',
     buttons: ['Usuń', 'Anuluj'], defaultId: 1, cancelId: 1, noLink: true
   });
   if (response !== 0) return;
   dodatki.usun(id);
-  dodajWiadomosc(`Usunięto dodatek: ${d.nazwa}.`);
+  dodajWiadomosc(`Usunięto wtyczkę: ${d.nazwa}.`);
   if (panelStan) wyslijDoPanelu();
 }
 
@@ -1004,6 +1005,21 @@ function usunWiadomosci(pasuje) {
 // jako nowy komunikat. Na pasku jest najwyżej jeden taki komunikat na program, z najnowszą liczbą.
 const SPADEK_LICZNIKA_MS = 20 * 1000;
 
+// nazwa źródła na pasku wiadomości: program, krótki tytuł strony (np. „Facebook”) albo jej adres
+function nazwaZrodla(k) {
+  if (k.program) return k.program.nazwa;
+  const t = String(k.tytul || '').replace(/^\s*\(\d+\)\s*/, '').trim();
+  if (t && t.length <= 24 && !t.includes('@')) return t;
+  return hostZ(k.adres).replace(/^www\./, '') || 'Strona';
+}
+
+// ikona karty albo programu miga na pasku, aż ktoś ją otworzy; oglądana karta nie miga
+function migaj(k) {
+  if (aktywnaId === k.id && win && win.isVisible() && win.isFocused()) return;
+  k.miga = true;
+  wyslijStan();
+}
+
 function policzNieprzeczytane(k, tytul) {
   if (k.blad) return;
   const nowy = licznikZTytulu(tytul);
@@ -1028,7 +1044,8 @@ function policzNieprzeczytane(k, tytul) {
   // strona dała własne powiadomienie: drugi zapis na pasku byłby powtórzeniem
   if (Date.now() - (ostatniePowiadomienie.get(k.id) || 0) < 8000) return;
   usunWiadomosci(w => w.licznik && w.kartaId === k.id);
-  dodajWiadomosc(`${k.program.nazwa}: nieprzeczytane ${nowy}`, { kartaId: k.id, licznik: true });
+  dodajWiadomosc(`${nazwaZrodla(k)}: nieprzeczytane ${nowy}`, { kartaId: k.id, licznik: true });
+  migaj(k);
 }
 
 function kliknietoWiadomosc(id) {
@@ -1102,6 +1119,7 @@ function stan() {
       szeroki: !!p.szeroki,
       wlasny: !!p.wlasny,
       licznik: k ? k.licznik : 0,
+      miga: !!(k && k.miga),
       laduje: !!(k && k.laduje),
       blad: !!(k && k.blad),
       otwarty: !!k,
@@ -1132,7 +1150,10 @@ function stan() {
     programy: programyStan,
     karty: dodatkowe.map(id => {
       const k = karty.get(id);
-      return { id, tytul: k.tytul || k.adres || 'Nowa karta', ikonka: k.ikonka, laduje: k.laduje, adres: k.adres, odAI: !!k.odAI, uspiona: !!k.uspiona };
+      return {
+        id, tytul: k.tytul || k.adres || 'Nowa karta', ikonka: k.ikonka, laduje: k.laduje, adres: k.adres, odAI: !!k.odAI, uspiona: !!k.uspiona,
+        licznik: k.licznik || 0, miga: !!k.miga
+      };
     }),
     ai: dostepAI.stan(),
     aktywna,
@@ -1151,6 +1172,7 @@ function stan() {
       id: w.id,
       czas: w.czas,
       tekst: w.tekst,
+      zrodlo: w.kartaId || null,
       nowa: Date.now() - w.kiedy < 15 * 60 * 1000
     }))
   };
@@ -1163,7 +1185,8 @@ function podepnij(k) {
 
   wc.on('page-title-updated', (e, tytul) => {
     k.tytul = tytul;
-    if (k.program) policzNieprzeczytane(k, tytul);
+    // liczba nieprzeczytanych z tytułu, np. „(3) Facebook”: programy i zwykłe karty (Karol, 25.11)
+    if (!k.nowa) policzNieprzeczytane(k, tytul);
     wyslijStan();
   });
   wc.on('did-finish-load', () => {
@@ -1602,6 +1625,27 @@ const PYTAJ = {
   'clipboard-read': 'odczytywać schowek'
 };
 
+// Zgoda na powiadomienia strony (np. Facebook, WhatsApp) jest zapamiętana na stałe, żeby LivePL nie pytał
+// przy każdym uruchomieniu (Karol, 25.11: powiadomienia z każdej strony na pasku u góry).
+// Listę i „Zapomnij” ma menu ⋮ → Ustawienia → Powiadomienia stron. Inne uprawnienia: do zamknięcia programu.
+function zgodyPowiadomien() {
+  const z = ustawienia.powiadomieniaStron;
+  return z && typeof z === 'object' && !Array.isArray(z) ? z : {};
+}
+
+function zgodaNaPowiadomienia(host) {
+  const z = zgodyPowiadomien()[host];
+  return typeof z === 'boolean' ? z : undefined;
+}
+
+function ustawZgodeNaPowiadomienia(host, zgoda) {
+  if (!host || typeof host !== 'string') return;
+  const z = { ...zgodyPowiadomien() };
+  if (typeof zgoda === 'boolean') z[host] = zgoda; else delete z[host];
+  ustawienia.powiadomieniaStron = z;
+  zapiszUstawienia();
+}
+
 function uprawnienia(ses) {
   ses.setPermissionRequestHandler((wc, uprawnienie, cb, szczegoly) => {
     const url = (szczegoly && szczegoly.requestingUrl) || (wc && wc.getURL()) || '';
@@ -1610,20 +1654,25 @@ function uprawnienia(ses) {
     const opis = PYTAJ[uprawnienie];
     if (!opis) return cb(false);
     const host = hostZ(url);
+    const powiadomienia = uprawnienie === 'notifications';
+    if (powiadomienia && zgodaNaPowiadomienia(host) !== undefined) return cb(zgodaNaPowiadomienia(host));
     const klucz = host + '|' + uprawnienie;
     if (decyzje.has(klucz)) return cb(decyzje.get(klucz));
     dialog.showMessageBox(win, {
       type: 'question',
       title: 'LivePL',
       message: `Strona ${host} chce ${opis}.`,
-      detail: 'Decyzja obowiązuje do zamknięcia programu.',
+      detail: powiadomienia
+        ? 'Powiadomienia pokażą się na pasku u góry, a ikona strony po lewej zamiga. LivePL zapamięta tę decyzję. Zmienisz ją w menu ⋮ → Ustawienia → Powiadomienia stron.'
+        : 'Decyzja obowiązuje do zamknięcia programu.',
       buttons: ['Zezwól', 'Nie zezwalaj'],
       defaultId: 1,
       cancelId: 1,
       noLink: true
     }).then(r => {
       const zgoda = r.response === 0;
-      decyzje.set(klucz, zgoda);
+      if (powiadomienia) ustawZgodeNaPowiadomienia(host, zgoda);
+      else decyzje.set(klucz, zgoda);
       cb(zgoda);
     }).catch(() => cb(false));
   });
@@ -1631,6 +1680,7 @@ function uprawnienia(ses) {
   ses.setPermissionCheckHandler((wc, uprawnienie, origin) => {
     if (ZAWSZE.includes(uprawnienie)) return true;
     if (nasza(origin)) return !['hid', 'serial', 'usb'].includes(uprawnienie);
+    if (uprawnienie === 'notifications' && zgodaNaPowiadomienia(hostZ(origin)) !== undefined) return zgodaNaPowiadomienia(hostZ(origin));
     const klucz = hostZ(origin) + '|' + uprawnienie;
     if (decyzje.has(klucz)) return decyzje.get(klucz);
     return !['notifications', 'media', 'geolocation', 'clipboard-read', 'display-capture', 'hid', 'serial', 'usb', 'midi', 'midiSysex'].includes(uprawnienie);
@@ -1757,6 +1807,8 @@ function danePanelu() {
       id: p.id, nazwa: p.nazwa, adres: p.adres,
       ikonka: bezpiecznaIkonka((karty.get(p.id) || {}).ikonka) || p.ikonka || ''
     })),
+    powiadomieniaStron: Object.entries(zgodyPowiadomien()).map(([host, zgoda]) => ({ host, zgoda: zgoda === true }))
+      .sort((a, b) => a.host.localeCompare(b.host)),
     programyLivePL: (() => {
       const schowane = new Set(schowaneProgramy());
       return programyPodstawowe.map(p => ({
@@ -2046,6 +2098,14 @@ function akcjaPanelu(nazwa, arg) {
       if (typeof arg === 'string') schowajProgram(arg);
       if (panelStan && panelStan.rodzaj === 'program') schowajPanel(true);
       else if (panelStan) wyslijDoPanelu();
+      break;
+    case 'powiadomienia-zapomnij':
+      if (typeof arg === 'string') ustawZgodeNaPowiadomienia(arg, null);
+      if (panelStan) wyslijDoPanelu();
+      break;
+    case 'powiadomienia-zmien':
+      if (typeof arg === 'string' && zgodaNaPowiadomienia(arg) !== undefined) ustawZgodeNaPowiadomienia(arg, !zgodaNaPowiadomienia(arg));
+      if (panelStan) wyslijDoPanelu();
       break;
     case 'program-pokaz':
       if (typeof arg === 'string') pokazProgram(arg);
@@ -2360,6 +2420,7 @@ function utworzOkno() {
 
   win.on('focus', () => {
     const k = karty.get(aktywnaId);
+    if (k && k.miga) { k.miga = false; wyslijStan(); }
     if (k && !k.nowa && !win.webContents.isFocused()) k.wc.focus();
     pokazCzekajacaAktualizacje();
   });
@@ -2687,14 +2748,22 @@ ipcMain.handle('ca-admin:podpisz', async (e, wyzwanie, odcisk) => {
   }
 });
 
-// powiadomienie strony (np. nowa wiadomość w poczcie) trafia też na pasek wiadomości
+// powiadomienie strony (np. nowa wiadomość w poczcie, na Facebooku) trafia też na pasek wiadomości, a ikona
+// karty miga. Nasze strony zawsze, inne tylko ze zgodą na powiadomienia (bez niej strona nie może ich pokazać).
 ipcMain.on('strona:powiadomienie', (e, tytul, tresc) => {
   const k = kartaDla(e.sender);
-  if (!k || !nasza(k.wc.getURL())) return;
-  ostatniePowiadomienie.set(k.id, Date.now());
-  const zrodlo = k.program ? k.program.nazwa : hostZ(k.adres);
+  if (!k) return;
+  const url = k.wc.getURL();
+  if (!nasza(url) && zgodaNaPowiadomienia(hostZ(url)) !== true) return;
   const opis = [tytul, tresc].map(x => String(x || '').trim()).filter(Boolean).join(', ');
-  if (opis) dodajWiadomosc(`${zrodlo}: ${opis}`, { kartaId: k.id });
+  if (!opis) return;
+  // ta sama treść z tej samej karty w ciągu 10 s to powtórzenie (np. dwa okna tej samej rozmowy)
+  const teraz = Date.now();
+  if (k.ostatniaTresc === opis && teraz - (ostatniePowiadomienie.get(k.id) || 0) < 10 * 1000) return;
+  k.ostatniaTresc = opis;
+  ostatniePowiadomienie.set(k.id, teraz);
+  dodajWiadomosc(`${nazwaZrodla(k)}: ${opis}`, { kartaId: k.id });
+  migaj(k);
 });
 
 // strona startowa (nowa karta): „Dodaj stronę na pasek” bez otwierania menu

@@ -17,6 +17,8 @@
   --pole-fokus: #2a9fc2;
   --czerwony: #b0261f;
   --kropka: #d23a2f;
+  --miga-tlo: rgba(210, 58, 47, 0.16);
+  --miga-ramka: rgba(210, 58, 47, 0.55);
   --x: #8d99a6;
   --turkus: #2a9fc2;
   --ssl-ok: #1f8a4c;
@@ -41,6 +43,8 @@
     --pole-fokus: #3dbfe0;
     --czerwony: #c42b23;
     --kropka: #e3463a;
+    --miga-tlo: rgba(227, 70, 58, 0.22);
+    --miga-ramka: rgba(227, 70, 58, 0.7);
     --x: #33424f;
     --turkus: #3dbfe0;
     --ssl-ok: #45c486;
@@ -301,6 +305,11 @@ body.ciagnie-kreske, body.ciagnie-kreske * { cursor: row-resize !important; }
 }
 
 .karta:hover { background: var(--hover); }
+.karta .licznik { top: 0; left: 23px; min-width: 14px; height: 13px; padding: 0 3px; font-size: 9px; line-height: 13px; }
+
+/* nowa wiadomość albo powiadomienie: ikona miga, aż ktoś ją otworzy; strzałka też, gdy ikona jest za nią */
+.program.miga, .karta.miga, .wiecej.miga { animation: miganie 1.3s ease-in-out infinite; }
+@keyframes miganie { 50% { background: var(--miga-tlo); box-shadow: inset 0 0 0 1.5px var(--miga-ramka); } }
 .karta.aktywna { background: var(--kanal-aktywny-tlo); color: var(--tekst); }
 
 .karta img { width: 18px; height: 18px; border-radius: 3px; }
@@ -537,6 +546,8 @@ body.ciagnie-kreske, body.ciagnie-kreske * { cursor: row-resize !important; }
 
 @media (prefers-reduced-motion: reduce) {
   #ai.dziala .lampka, #ramka-strony.ai { animation: none; }
+  .program.miga, .karta.miga, .wiecej.miga { animation: none; background: var(--miga-tlo); box-shadow: inset 0 0 0 1.5px var(--miga-ramka); }
+  .wiad.wchodzi { animation: none; }
 }
 #ssl .ik { width: 16px; height: 16px; stroke-width: 2; }
 #ssl.ok { padding: 0 6px; }
@@ -621,6 +632,31 @@ body.ciagnie-kreske, body.ciagnie-kreske * { cursor: row-resize !important; }
 }
 
 .wiad:not(.nowa) .kropka-wiad { background: var(--bardzo-slaby); width: 6px; height: 6px; }
+
+/* ikona strony, z której przyszła wiadomość (Poczta, Facebook…) */
+.wiad .zrodlo-wiad { display: grid; place-items: center; width: 16px; height: 16px; flex: none; }
+.wiad .zrodlo-wiad.szerokie { width: 28px; }
+.wiad .zrodlo-wiad img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 3px; }
+.wiad .zrodlo-wiad .ik { width: 15px; height: 15px; }
+.wiad:not(.nowa) .zrodlo-wiad { opacity: 0.6; }
+.wiad .tekst-wiad { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#wiadomosci .wiad { flex: 0 1 auto; min-width: 0; max-width: 100%; }
+
+/* kilka wiadomości na zmianę: „2/3” przełącza na następną */
+.wiad .ktora-wiad {
+  flex: none;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--slaby);
+  background: var(--hover);
+}
+.wiad .ktora-wiad:hover { color: var(--tekst); background: var(--wcisniety); }
+
+/* następna wiadomość wjeżdża od dołu w to samo miejsce */
+.wiad.wchodzi { animation: wiad-wchodzi 0.35s ease-out; }
+@keyframes wiad-wchodzi { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .wiad .czas { font-variant-numeric: tabular-nums; }
 
 /* krzyżyk: widać go po najechaniu, usuwa komunikat z paska */

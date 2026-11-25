@@ -32,23 +32,23 @@ const plikDodatku = (id) => path.join(katalog(), id + ROZSZERZENIE);
 
 // Sprawdza podpis i budowę; zwraca opis dodatku z kodem albo rzuca błąd zrozumiały dla użytkownika.
 function odczytaj(bufor, klucz = KLUCZ_PUBLICZNY) {
-  if (bufor.length > MAKS) throw new Error('plik dodatku jest za duży');
+  if (bufor.length > MAKS) throw new Error('plik wtyczki jest za duży');
   let j;
-  try { j = JSON.parse(bufor.toString('utf8')); } catch { throw new Error('to nie jest plik dodatku LivePL'); }
-  if (!j || j.format !== 1 || typeof j.dodatek !== 'string' || typeof j.podpis !== 'string') throw new Error('to nie jest plik dodatku LivePL');
+  try { j = JSON.parse(bufor.toString('utf8')); } catch { throw new Error('to nie jest plik wtyczki LivePL'); }
+  if (!j || j.format !== 1 || typeof j.dodatek !== 'string' || typeof j.podpis !== 'string') throw new Error('to nie jest plik wtyczki LivePL');
   const dane = Buffer.concat([Buffer.from(PRZEDROSTEK, 'utf8'), Buffer.from(j.dodatek, 'utf8')]);
   if (!crypto.verify(null, dane, klucz, Buffer.from(j.podpis, 'base64'))) {
-    throw new Error('podpis dodatku się nie zgadza: plik nie pochodzi od Live Production albo jest uszkodzony');
+    throw new Error('podpis wtyczki się nie zgadza: plik nie pochodzi od Live Production albo jest uszkodzony');
   }
   const d = JSON.parse(j.dodatek);
   if (!d || !/^[a-z0-9-]{1,40}$/.test(d.id) || typeof d.nazwa !== 'string' || typeof d.wersja !== 'string' || typeof d.kod !== 'string') {
-    throw new Error('nieznany format dodatku');
+    throw new Error('nieznany format wtyczki');
   }
   return { id: d.id, nazwa: d.nazwa, wersja: d.wersja, opis: typeof d.opis === 'string' ? d.opis : '', minLivePL: String(d.minLivePL || '0.0.0'), kod: d.kod };
 }
 
 function zgodny(d) {
-  if (porownaj(app.getVersion(), d.minLivePL) < 0) throw new Error(`dodatek „${d.nazwa}” wymaga LivePL ${d.minLivePL} albo nowszego`);
+  if (porownaj(app.getVersion(), d.minLivePL) < 0) throw new Error(`wtyczka „${d.nazwa}” wymaga LivePL ${d.minLivePL} albo nowszego`);
 }
 
 async function uruchom(d) {
@@ -66,7 +66,7 @@ async function wczytaj(id) {
   let opis = null;
   try {
     opis = odczytaj(fs.readFileSync(plikDodatku(id)));
-    if (opis.id !== id) throw new Error('plik dodatku ma inną nazwę niż jego zawartość');
+    if (opis.id !== id) throw new Error('plik wtyczki ma inną nazwę niż jego zawartość');
     zgodny(opis);
     const modul = await uruchom(opis);
     zainstalowane.set(id, { opis, modul, blad: null, poRestarcie: false });

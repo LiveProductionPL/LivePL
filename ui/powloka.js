@@ -101,18 +101,9 @@ function rysujProgramy() {
     el.classList.toggle('otwarty', p.otwarty);
     el.classList.toggle('laduje', p.laduje && !p.licznik);
     el.classList.toggle('uspiony', !!p.uspiony);
+    el.classList.toggle('miga', !!p.miga && !(S.aktywna && S.aktywna.id === p.id));
 
-    let licznik = el.querySelector('.licznik');
-    if (p.licznik > 0) {
-      if (!licznik) {
-        licznik = document.createElement('span');
-        licznik.className = 'licznik';
-        el.appendChild(licznik);
-      }
-      licznik.textContent = p.licznik > 99 ? '99+' : String(p.licznik);
-    } else if (licznik) {
-      licznik.remove();
-    }
+    ustawLicznik(el, p.licznik);
 
     let kropka = el.querySelector('.kropka');
     if (p.blad && !kropka) {
@@ -126,6 +117,21 @@ function rysujProgramy() {
   });
   pokazAktywna(nav, '.program.aktywny');
   odswiezWskazniki();
+}
+
+// czerwona liczba nieprzeczytanych na ikonie (z tytułu strony, np. „(3) Facebook”)
+function ustawLicznik(el, ile) {
+  let licznik = el.querySelector('.licznik');
+  if (ile > 0) {
+    if (!licznik) {
+      licznik = document.createElement('span');
+      licznik.className = 'licznik';
+      el.appendChild(licznik);
+    }
+    licznik.textContent = ile > 99 ? '99+' : String(ile);
+  } else if (licznik) {
+    licznik.remove();
+  }
 }
 
 // ---------------------------------------------------------------- dodatkowe karty
@@ -166,6 +172,8 @@ function rysujKarty() {
     el.title = (k.odAI ? `${k.tytul} (otwarta przez AI)` : k.tytul) + (k.uspiona ? ' · uśpiona, otworzy się od nowa' : '');
     el.classList.toggle('od-ai', !!k.odAI);
     el.classList.toggle('uspiona', !!k.uspiona);
+    el.classList.toggle('miga', !!k.miga && !(S.aktywna && S.aktywna.id === k.id));
+    ustawLicznik(el, k.licznik);
     el.classList.toggle('aktywna', !!S.aktywna && S.aktywna.id === k.id);
     el.classList.toggle('laduje', k.laduje);
     const miejsce = el.querySelector('.ikonka');
@@ -213,17 +221,21 @@ function ukryteIkony(nav) {
   const dol = gora + nav.clientHeight;
   let nad = 0;
   let pod = 0;
+  let migaNad = false;
+  let migaPod = false;
   for (const el of nav.children) {
-    if (el.offsetTop < gora - 1) nad++;
-    else if (el.offsetTop + el.offsetHeight > dol + 1) pod++;
+    if (el.offsetTop < gora - 1) { nad++; migaNad = migaNad || el.classList.contains('miga'); }
+    else if (el.offsetTop + el.offsetHeight > dol + 1) { pod++; migaPod = migaPod || el.classList.contains('miga'); }
   }
-  return { nad, pod };
+  return { nad, pod, migaNad, migaPod };
 }
 
 function odswiezWskazniki() {
   ulozPasek();
   for (const l of LISTY) {
-    const { nad, pod } = ukryteIkony(l.nav);
+    const { nad, pod, migaNad, migaPod } = ukryteIkony(l.nav);
+    l.gora.classList.toggle('miga', migaNad);
+    l.dol.classList.toggle('miga', migaPod);
     const ustaw = (b, ile, kierunek) => {
       b.hidden = ile === 0;
       if (!ile) return;
@@ -520,46 +532,143 @@ function rysujSsl(ssl) {
   b.setAttribute('aria-label', klasa === 'ok' ? 'SSL aktywny' : tekst);
 }
 
+// Pasek wiadomości u góry pokazuje jedną wiadomość naraz. Gdy nowych (z ostatnich 15 minut) jest kilka, zmieniają
+// się w tym samym miejscu co kilka sekund, np. Poczta, potem Facebook (Karol, 25.11). Najnowsza wiadomość
+// pokazuje się od razu. Najechanie myszą zatrzymuje zmianę, a „2/3” przełącza na następną.
+const ROTACJA_MS = 4500;
+const SWIEZA_MS = 8000; // świeża wiadomość stoi dłużej
+const rotacja = { kolejka: [], id: null, widziane: new Set(), pauza: false, pierwszy: true, zegar: null };
+
+// każda pokazana wiadomość stoi pełny czas; najechanie myszą albo schowane okno wstrzymuje zmianę
+function zaplanujRotacje(ms) {
+  clearTimeout(rotacja.zegar);
+  if (rotacja.kolejka.length < 2) return;
+  rotacja.zegar = setTimeout(() => {
+    if (rotacja.pauza || document.hidden) return zaplanujRotacje(ROTACJA_MS);
+    nastepnaWiadomosc();
+  }, ms || ROTACJA_MS);
+}
+
+function zrodloWiadomosci(w) {
+  if (!w.zrodlo || !S) return null;
+  return (S.programy || []).find((p) => p.id === w.zrodlo) || (S.karty || []).find((k) => k.id === w.zrodlo) || null;
+}
+
+function przyciskWiadomosci(w, ktora, ile) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'wiad' + (w.nowa ? ' nowa' : '');
+  b.title = w.tekst;
+  // ikona strony, z której przyszła wiadomość; bez niej kropka jak dotąd
+  const zr = zrodloWiadomosci(w);
+  let znak;
+  if (zr && (zr.ikonka || zr.ikona)) {
+    znak = document.createElement('span');
+    znak.className = 'zrodlo-wiad' + (zr.szeroki ? ' szerokie' : '');
+    if (zr.ikonka) {
+      const img = new Image();
+      img.alt = '';
+      img.draggable = false;
+      img.onerror = () => { znak.innerHTML = window.ikona('strona'); };
+      img.src = zr.ikonka;
+      znak.appendChild(img);
+    } else {
+      znak.innerHTML = window.ikona(zr.ikona);
+    }
+  } else {
+    znak = document.createElement('span');
+    znak.className = 'kropka-wiad';
+  }
+  const czas = document.createElement('span');
+  czas.className = 'czas';
+  czas.textContent = w.czas;
+  const t = document.createElement('span');
+  t.className = 'tekst-wiad';
+  t.textContent = w.tekst;
+  b.append(znak, czas, t);
+  if (ile > 1) {
+    const nr = document.createElement('span');
+    nr.className = 'ktora-wiad';
+    nr.setAttribute('role', 'button');
+    nr.title = 'Następna wiadomość';
+    nr.textContent = `${ktora + 1}/${ile}`;
+    b.appendChild(nr);
+  }
+  const x = document.createElement('span');
+  x.className = 'usun-wiad';
+  x.setAttribute('role', 'button');
+  x.setAttribute('aria-label', 'Usuń z paska');
+  x.title = 'Usuń z paska';
+  x.innerHTML = window.ikona('zamknij');
+  b.appendChild(x);
+  b.addEventListener('click', (e) => {
+    if (e.target.closest('.usun-wiad')) api.wyslij('wiadomosc-usun', w.id);
+    else if (e.target.closest('.ktora-wiad')) nastepnaWiadomosc();
+    else api.wyslij('wiadomosc', w.id);
+  });
+  return b;
+}
+
+function pokazWiadomosc(animuj) {
+  const box = $('#wiadomosci');
+  const lista = S.wiadomosci || [];
+  const i = rotacja.kolejka.indexOf(rotacja.id);
+  const w = lista.find((x) => x.id === rotacja.id);
+  if (!w) return;
+  const b = przyciskWiadomosci(w, Math.max(0, i), rotacja.kolejka.length);
+  if (animuj) b.classList.add('wchodzi');
+  box.replaceChildren(b);
+}
+
+function nastepnaWiadomosc() {
+  const k = rotacja.kolejka;
+  if (k.length < 2) return;
+  rotacja.id = k[(k.indexOf(rotacja.id) + 1) % k.length];
+  pokazWiadomosc(true);
+  zaplanujRotacje(ROTACJA_MS);
+}
+
 function rysujWiadomosci() {
   const box = $('#wiadomosci');
   const lista = S.wiadomosci || [];
-  const klucz = JSON.stringify(lista) + '|' + (S.aktywna ? S.aktywna.tytul : '');
+  // ikony źródeł też w kluczu: ikonka karty dochodzi zwykle chwilę po wiadomości
+  const ikony = lista.map((w) => { const z = zrodloWiadomosci(w); return z ? (z.ikonka || z.ikona || '') : ''; });
+  const klucz = JSON.stringify(lista) + '|' + ikony.join(',') + '|' + (S.aktywna ? S.aktywna.tytul : '');
   if (box.dataset.klucz === klucz) return;
   box.dataset.klucz = klucz;
-  box.replaceChildren();
   if (!lista.length) {
+    rotacja.kolejka = [];
+    rotacja.id = null;
+    box.replaceChildren();
     const c = document.createElement('span');
     c.className = 'cisza';
     c.textContent = S.aktywna && S.aktywna.tytul ? S.aktywna.tytul : '';
     box.appendChild(c);
     return;
   }
-  for (const w of lista) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'wiad' + (w.nowa ? ' nowa' : '');
-    b.title = w.tekst;
-    const kropka = document.createElement('span');
-    kropka.className = 'kropka-wiad';
-    const czas = document.createElement('span');
-    czas.className = 'czas';
-    czas.textContent = w.czas;
-    const t = document.createElement('span');
-    t.textContent = w.tekst;
-    const x = document.createElement('span');
-    x.className = 'usun-wiad';
-    x.setAttribute('role', 'button');
-    x.setAttribute('aria-label', 'Usuń z paska');
-    x.title = 'Usuń z paska';
-    x.innerHTML = window.ikona('zamknij');
-    b.append(kropka, czas, t, x);
-    b.addEventListener('click', (e) => {
-      if (e.target.closest('.usun-wiad')) api.wyslij('wiadomosc-usun', w.id);
-      else api.wyslij('wiadomosc', w.id);
-    });
-    box.appendChild(b);
+  const nowe = lista.filter((w) => w.nowa).map((w) => w.id);
+  rotacja.kolejka = nowe.length ? nowe : [lista[0].id];
+  // świeża wiadomość (której pasek jeszcze nie pokazał) wchodzi od razu; przy starcie bez animacji
+  const swieza = lista.find((w) => !rotacja.widziane.has(w.id));
+  for (const w of lista) rotacja.widziane.add(w.id);
+  let animuj = false;
+  let czas = 0;
+  if (swieza && rotacja.kolejka.includes(swieza.id)) {
+    animuj = !rotacja.pierwszy && rotacja.id !== swieza.id;
+    rotacja.id = swieza.id;
+    czas = SWIEZA_MS;
+  } else if (!rotacja.kolejka.includes(rotacja.id)) {
+    rotacja.id = rotacja.kolejka[0];
+    czas = ROTACJA_MS;
   }
+  rotacja.pierwszy = false;
+  pokazWiadomosc(animuj);
+  // zmiana kolejki bez nowej wiadomości (np. usunięta) nie skraca czasu pokazywanej
+  if (czas || !rotacja.zegar) zaplanujRotacje(czas || ROTACJA_MS);
 }
+
+$('#wiadomosci').addEventListener('mouseenter', () => { rotacja.pauza = true; });
+$('#wiadomosci').addEventListener('mouseleave', () => { rotacja.pauza = false; });
 
 // pole adresu
 forma.addEventListener('submit', (e) => {

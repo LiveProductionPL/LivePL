@@ -24,6 +24,7 @@ window.IKONY = {
   tarcza: '<path d="M12 3.2 5 6v5.4c0 4.3 2.9 7.9 7 9.4 4.1-1.5 7-5.1 7-9.4V6z"/><path d="m9 12 2.2 2.2L15.3 10"/>',
   klodka: '<rect x="5.8" y="10.6" width="12.4" height="9" rx="2"/><path d="M8.6 10.6V8.2a3.4 3.4 0 0 1 6.8 0v2.4"/>',
   uwaga: '<path d="M12 4.2 2.9 19.5h18.2z"/><path d="M12 10v4.2M12 16.9h.01"/>',
+  dzwonek: '<path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z"/><path d="M10.2 20.3a2 2 0 0 0 3.6 0"/>',
   szukaj: '<circle cx="10.8" cy="10.8" r="6"/><path d="m15.3 15.3 4.4 4.4"/>',
   drukuj: '<path d="M7 9V4.5h10V9"/><rect x="4" y="9" width="16" height="7.5" rx="1.8"/><path d="M7 14h10v5.5H7z"/>',
   zewnetrzna: '<path d="M14 4.5h5.5V10"/><path d="M19.5 4.5 11 13"/><path d="M17.5 13.5v4.2c0 1-.8 1.8-1.8 1.8H6.3c-1 0-1.8-.8-1.8-1.8V8.3c0-1 .8-1.8 1.8-1.8h4.2"/>',

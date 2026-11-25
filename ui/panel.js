@@ -173,7 +173,7 @@ function ekranUstawienia() {
   f.appendChild(poz('ai', 'Dostęp dla AI (Claude i inne)', { dalej: true, klik: () => { ekran = 'ai'; rysuj(); } }));
   f.appendChild(poz('tlumacz', 'Tłumacz stron', { dalej: true, klik: () => { ekran = 'tlumacz-ustawienia'; rysuj(); } }));
   f.appendChild(poz('kod', 'Wtyczki', { dalej: true, klik: () => { ekran = 'wtyczki'; rysuj(); P.akcja('wtyczki-sprawdz'); } }));
-  f.appendChild(poz('pobrane', 'Dodatki', { dalej: true, klik: () => { ekran = 'dodatki'; rysuj(); } }));
+  f.appendChild(poz('dzwonek', 'Powiadomienia stron', { dalej: true, klik: () => { ekran = 'powiadomienia'; rysuj(); } }));
   // tylko z zainstalowanym dodatkiem Rozszerzenia Chrome (domyślny LivePL go nie ma)
   if (D.rozszerzenia) f.appendChild(poz('plus', 'Rozszerzenia Chrome', { dalej: true, klik: () => { ekran = 'rozszerzenia'; rysuj(); } }));
   f.appendChild(poz('przywroc', 'Uruchom LivePL ponownie', { akcja: 'restart' }));
@@ -187,10 +187,15 @@ function ekranUstawienia() {
 function ekranWtyczki() {
   const f = document.createDocumentFragment();
   f.appendChild(naglowek('Wtyczki', 'ustawienia'));
+  // jeden ekran na wtyczki z serwera (src/wtyczki.js) i wgrane z pliku .livepl-dodatek (src/dodatki.js)
+  // (Karol, 25.11: „W ustawieniach wtyczki i dodatki ujednolicić i dać możliwość wgrywania naszych”)
+  f.appendChild(el('div', 'opis', 'Dodatki i poprawki stron od Live Production. LivePL przyjmuje tylko wtyczki podpisane kluczem Live Production.'));
   const W = D.wtyczki || { wtyczki: [] };
-  f.appendChild(el('div', 'opis', 'Dodatki i poprawki stron od Live Production, podpisane kluczem LivePL. Przychodzą same, bez nowej wersji przeglądarki. Włączona wtyczka działa od razu, wyłączona znika po odświeżeniu strony.'));
+  const zPliku = D.dodatki || [];
+
+  f.appendChild(el('div', 'opis slaby-maly', 'Przychodzą same, bez nowej wersji LivePL. Włączona działa od razu, wyłączona znika po odświeżeniu strony.'));
   if (!W.wtyczki.length) {
-    f.appendChild(el('div', 'opis' + (W.blad ? ' zly' : ''), W.blad ? 'Nie udało się pobrać listy wtyczek: ' + W.blad : 'Na razie nie ma żadnych wtyczek.'));
+    f.appendChild(el('div', 'opis' + (W.blad ? ' zly' : ''), W.blad ? 'Nie udało się pobrać listy wtyczek: ' + W.blad : 'Na razie nie ma żadnych wtyczek do włączenia.'));
   }
   for (const w of W.wtyczki) {
     const b = el('button', 'poz');
@@ -204,20 +209,11 @@ function ekranWtyczki() {
     f.appendChild(b);
     f.appendChild(el('div', 'opis slaby-maly', [w.opis, 'Strony: ' + w.strony].filter(Boolean).join(' · ')));
   }
-  f.appendChild(kreska());
-  f.appendChild(poz('przywroc', 'Sprawdź teraz', { akcja: 'wtyczki-sprawdz' }));
-  if (W.sprawdzono) f.appendChild(el('div', 'opis slaby-maly', 'Sprawdzono: ' + new Date(W.sprawdzono).toLocaleString('pl-PL')));
-  return f;
-}
 
-// ustawienia → Dodatki: nieobowiązkowe pliki .livepl-dodatek od Live Production (src/dodatki.js)
-function ekranDodatki() {
-  const f = document.createDocumentFragment();
-  f.appendChild(naglowek('Dodatki', 'ustawienia'));
-  const lista = D.dodatki || [];
-  f.appendChild(el('div', 'opis', 'Nieobowiązkowe części LivePL w osobnych plikach od Live Production. Instaluje je tylko ten, kto chce, i można je w każdej chwili usunąć.'));
-  if (!lista.length) f.appendChild(el('div', 'opis', 'Nie masz zainstalowanych dodatków.'));
-  for (const d of lista) {
+  f.appendChild(kreska());
+  f.appendChild(el('div', 'opis', 'Wgrane z pliku'));
+  if (!zPliku.length) f.appendChild(el('div', 'opis slaby-maly', 'Nie masz wtyczek wgranych z pliku. Plik wtyczki (.livepl-dodatek) dostaniesz od Live Production albo pobierzesz z app.livepl.eu.'));
+  for (const d of zPliku) {
     f.appendChild(el('div', 'opis', d.nazwa + (d.wersja ? ` (${d.wersja})` : '')));
     if (d.opis) f.appendChild(el('div', 'opis slaby-maly', d.opis));
     if (d.blad) f.appendChild(el('div', 'opis zly', 'Nie działa: ' + d.blad));
@@ -225,20 +221,48 @@ function ekranDodatki() {
     if (d.id === 'rozszerzenia-chrome' && D.rozszerzenia) {
       f.appendChild(poz('plus', 'Rozszerzenia Chrome', { dalej: true, klik: () => { ekran = 'rozszerzenia'; rysuj(); } }));
     }
-    f.appendChild(poz('kosz', 'Usuń dodatek „' + d.nazwa + '”', { akcja: 'dodatek-usun', arg: d.id, czerwona: true }));
+    f.appendChild(poz('kosz', 'Usuń wtyczkę „' + d.nazwa + '”', { akcja: 'dodatek-usun', arg: d.id, czerwona: true }));
   }
+  f.appendChild(poz('plus', 'Wgraj wtyczkę z pliku…', { akcja: 'dodatek-z-pliku' }));
+  f.appendChild(poz('pobrane', 'Wtyczki do pobrania (app.livepl.eu)', { akcja: 'dodatki-strona' }));
+
   f.appendChild(kreska());
-  if (!lista.some(d => d.id === 'rozszerzenia-chrome')) {
-    f.appendChild(el('div', 'opis slaby-maly', 'Do pobrania: Rozszerzenia Chrome, czyli dodawanie rozszerzeń Chrome z pliku albo z folderu. Po pobraniu LivePL sam zapyta, czy zainstalować.'));
+  f.appendChild(poz('przywroc', 'Sprawdź nowe wtyczki', { akcja: 'wtyczki-sprawdz' }));
+  if (W.sprawdzono) f.appendChild(el('div', 'opis slaby-maly', 'Sprawdzono: ' + new Date(W.sprawdzono).toLocaleString('pl-PL')));
+  return f;
+}
+
+// dawny ekran „Dodatki” jest teraz częścią „Wtyczek”
+const ekranDodatki = () => { ekran = 'wtyczki'; return ekranWtyczki(); };
+
+// ustawienia → Powiadomienia stron: zapamiętane zgody (np. Facebook, WhatsApp); nasze strony zawsze mogą
+function ekranPowiadomienia() {
+  const f = document.createDocumentFragment();
+  f.appendChild(naglowek('Powiadomienia stron', 'ustawienia'));
+  f.appendChild(el('div', 'opis', 'Strony, którym pozwolisz, pokazują powiadomienia na pasku u góry, a ich ikona po lewej miga, aż ją otworzysz. Liczba nieprzeczytanych z tytułu strony, np. „(3) Facebook”, pokazuje się zawsze. Programy Live Production mają zgodę od razu.'));
+  const lista = D.powiadomieniaStron || [];
+  if (!lista.length) f.appendChild(el('div', 'opis slaby-maly', 'Żadna strona jeszcze nie pytała. Gdy zapyta, LivePL zapamięta Twoją odpowiedź i pokaże ją tutaj.'));
+  for (const s of lista) {
+    const w = el('div', 'wiersz strona-wiersz');
+    const opis = el('div', 'strona-opis');
+    opis.append(el('div', 'pole-nazwa-tekst', s.host), el('div', 'strona-adres', s.zgoda ? 'Może pokazywać powiadomienia' : 'Nie może pokazywać powiadomień'));
+    const zmien = el('button', 'maly'); zmien.type = 'button';
+    zmien.title = s.zgoda ? 'Nie zezwalaj' : 'Zezwól';
+    zmien.appendChild(ikonaEl(s.zgoda ? 'zamknij' : 'znacznik'));
+    zmien.addEventListener('click', () => P.akcja('powiadomienia-zmien', s.host));
+    const usun = el('button', 'maly'); usun.type = 'button';
+    usun.title = 'Zapomnij (strona zapyta ponownie)';
+    usun.appendChild(ikonaEl('kosz'));
+    usun.addEventListener('click', () => P.akcja('powiadomienia-zapomnij', s.host));
+    w.append(opis, zmien, usun);
+    f.appendChild(w);
   }
-  f.appendChild(poz('pobrane', 'Dodatki do pobrania (app.livepl.eu)', { akcja: 'dodatki-strona' }));
-  f.appendChild(poz('plus', 'Zainstaluj z pliku…', { akcja: 'dodatek-z-pliku' }));
   return f;
 }
 
 // ustawienia → Rozszerzenia Chrome: z pliku .crx / .zip albo z folderu (dodatek dodatki/rozszerzenia-chrome)
 function ekranRozszerzenia() {
-  if (!D.rozszerzenia) { ekran = 'dodatki'; return ekranDodatki(); } // dodatek usunięty albo jeszcze niezainstalowany
+  if (!D.rozszerzenia) { ekran = 'wtyczki'; return ekranWtyczki(); } // wtyczka usunięta albo jeszcze niewgrana
   const f = document.createDocumentFragment();
   f.appendChild(naglowek('Rozszerzenia Chrome', 'ustawienia'));
   const R = D.rozszerzenia;
@@ -1343,6 +1367,7 @@ function rysuj() {
     menu: ekranMenu,
     ustawienia: ekranUstawienia,
     wtyczki: ekranWtyczki,
+    powiadomienia: ekranPowiadomienia,
     rozszerzenia: ekranRozszerzenia,
     dodatki: ekranDodatki,
     wyloguj: ekranWyloguj,

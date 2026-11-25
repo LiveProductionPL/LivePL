@@ -21,7 +21,9 @@ Układ nazywa się **Reżyserka**: strona jest jak monitor w ramce, programy są
 - **Kanały po lewej.** Same ikony (logo Poczty, Live Production, TVML); nazwa jest w podpowiedzi. Pod dowolną ikoną można dodać krótki podpis (do 14 znaków): prawy klik na ikonie → „Dodaj podpis pod ikoną”. Liczba przy Poczcie to nieprzeczytane wiadomości. Ta sama liczba pojawia się na ikonie na pasku zadań.
 - **Strona się nie wczytała?** Zamiast suchego komunikatu jest telewizorek z „przerwą w nadawaniu”, prosty opis, co się stało (brak internetu, zerwane połączenie, zły certyfikat…), rady i odliczanie do kolejnej próby. Szczegóły techniczne są pod „Szczegóły techniczne”.
 - **Dostęp dla AI.** Claude i inne AI mogą korzystać z LivePL jak z dodatku w Chrome. Opis niżej.
-- **Pasek wiadomości na dole.** Pokazuje powiadomienia z naszych programów (np. nowa wiadomość w poczcie), wzrost liczby nieprzeczytanych i pobrane pliki, każde z godziną. Kliknięcie przenosi do programu albo otwiera plik.
+- **Pasek wiadomości.** Pokazuje powiadomienia z naszych programów i z każdej strony, której na to pozwolisz (np. Facebook, WhatsApp), wzrost liczby nieprzeczytanych z tytułu strony (np. „(3) Facebook”, także przy zwykłych kartach) i pobrane pliki, każde z godziną i ikoną strony. Wiadomości pokazują się jedna naraz w tym samym miejscu: kilka nowych (z ostatnich 15 minut) zmienia się co kilka sekund, a „2/3” przełącza na następną. Najechanie myszą zatrzymuje zmianę. Kliknięcie przenosi do strony albo otwiera plik.
+- **Migająca ikona.** Ikona programu albo karty, z której przyszło powiadomienie albo nowe nieprzeczytane, miga, aż ją otworzysz. Gdy jest schowana poza paskiem, miga strzałka. Liczba nieprzeczytanych jest też czerwonym znaczkiem na ikonie karty.
+- **Zgoda na powiadomienia** jest zapamiętana na stałe: strona pyta raz. Listę, „Nie zezwalaj” i „Zapomnij” ma menu ⋮ → Ustawienia → Powiadomienia stron. Nasze programy mają zgodę od razu. Inne uprawnienia (kamera, położenie…) obowiązują do zamknięcia programu.
 - **Adres albo szukaj (Ctrl+K)** w prawym dolnym rogu. Pole rozwija się na cały pasek, gdy coś wpisujesz.
 - **Inne strony otwierają się jako karty** pod kanałami. Linki z poczty trafiają do nowej karty, a poczta zostaje na miejscu.
 - **Dużo ikon na pasku.** Gdy kanały albo karty się nie mieszczą, przewijasz je kółkiem myszy. Gdy choć jedna ikona jest schowana albo ucięta, nad listą lub pod nią pojawia się strzałka z liczbą takich ikon. Kliknięcie strzałki przewija listę. Gdy wszystko się mieści, strzałek nie ma. Aktywna karta jest zawsze widoczna.
@@ -212,6 +214,8 @@ Aktualizacje obejmują kod programu (`src`, `ui`, `assets`, `programy.json`). No
 
 ## Wtyczki
 
+Jeden ekran w menu ⋮ → Ustawienia → Wtyczki (od 0.1.23; wcześniej osobno „Wtyczki” i „Dodatki”): wtyczki, które przychodzą same z serwera, i wtyczki wgrane z pliku (`.livepl-dodatek`, opis niżej), z przyciskiem „Wgraj wtyczkę z pliku…”. LivePL przyjmuje tylko pliki podpisane kluczem Live Production.
+
 Małe dodatki i poprawki stron bez nowej wersji przeglądarki: style CSS i skrypty dla wybranych stron. LivePL pobiera listę z `aktualizacje.livepl.eu/livepl/wtyczki/` przy starcie i co 4 godziny, sprawdza jej podpis (ten sam klucz co aktualizacje), zapisuje ją u siebie i dokłada włączone wtyczki do pasujących stron po wczytaniu. Skrypt wtyczki działa w izolowanym świecie: widzi DOM strony, ale nie jej zmienne. Starszej listy niż zapisana LivePL nie przyjmie. Użytkownik włącza i wyłącza wtyczki w menu ⋮ → Ustawienia → Wtyczki.
 
 Nowa wtyczka to folder `wtyczki/<id>/` (małe litery, cyfry, myślniki) z plikiem `wtyczka.json` i co najmniej jednym z `styl.css`, `skrypt.js` (każdy do 200 kB):
@@ -228,9 +232,9 @@ npm run wtyczki
 
 Polecenie składa i podpisuje `wydanie-wtyczki/lista.json` i `lista.json.sig` i dokłada `wgraj-livepl-wtyczki.sh`. Na serwerze: `sudo bash wgraj-livepl-wtyczki.sh <folder> <sha lista.json> <sha lista.json.sig>`.
 
-## Dodatki
+## Wtyczki z pliku (dodatki)
 
-Nieobowiązkowe części LivePL w osobnych plikach `.livepl-dodatek`. Domyślny LivePL ich nie ma (ma wtyczki); dodatek instaluje tylko ten, kto chce. Plik leży na app.livepl.eu w wierszu „Dodatek” karty LivePL (kotwica `#dodatki`). Po pobraniu w LivePL przeglądarka sama pyta, czy go zainstalować; da się go też wskazać w menu ⋮ → Ustawienia → Dodatki → „Zainstaluj z pliku…”. Tam też dodatek się usuwa.
+Nieobowiązkowe części LivePL w osobnych plikach `.livepl-dodatek` (w programie i na stronie nazywane „wtyczka z pliku”; w kodzie nadal „dodatek”). Domyślny LivePL ich nie ma; wgrywa je tylko ten, kto chce. Plik leży na app.livepl.eu w wierszu „Wtyczka” karty LivePL (kotwica `#dodatki`). Po pobraniu w LivePL przeglądarka sama pyta, czy go wgrać; da się go też wskazać w menu ⋮ → Ustawienia → Wtyczki → „Wgraj wtyczkę z pliku…”. Tam też wtyczkę się usuwa.
 
 Plik to JSON `{ format: 1, dodatek, podpis }`: podpis Ed25519 kluczem aktualizacji obejmuje przedrostek `LivePL-dodatek-1\n` i tekst dodatku, więc ani podrobiony plik, ani inny podpisany plik (manifest, lista wtyczek) nie przejdzie. Dodatek to jeden moduł Node z `start(sesja)` i `zatrzymaj()`, ładowany w `src/dodatki.js` z tego samego, sprawdzonego bufora. Zainstalowane leżą w `%APPDATA%\LivePL\dodatki`.
 
