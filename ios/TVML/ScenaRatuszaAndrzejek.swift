@@ -473,9 +473,9 @@ enum ScenaRatusza {
 
     // Nocne smugi reflektorów i biało-czerwona łuna za Ratuszem.
     fileprivate static func reflektory(_ ctx: inout GraphicsContext, t: Double, u: UkladRatusza, codzienny: Bool) {
-        // prawy snop i łuna: 11 Listopada czerwone, w Panoramie ciepłe (iluRgb na stronie)
-        let ilu: (Double, Double, Double) = codzienny ? (255, 196, 120) : (220, 20, 60)
-        let iluLuny: (Double, Double, Double) = codzienny ? (255, 196, 120) : (220, 25, 60)
+        // prawy snop i łuna: 11 Listopada czerwone, w Panoramie ciepłe (iluRgb na stronie, w obu miejscach 220,24,60)
+        let ilu: (Double, Double, Double) = codzienny ? (255, 196, 120) : (220, 24, 60)
+        let iluLuny: (Double, Double, Double) = ilu
         let s: CGFloat = u.s
         let sway: CGFloat = CGFloat(sin(t * 0.55)) * 9 * s
         let y20: CGFloat = u.y(20)
