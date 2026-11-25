@@ -47,6 +47,11 @@ struct WideoWidok: View {
                     }
                     .buttonStyle(.plain)
                 }
+                // koniec listy: doczytanie kolejnych filmów z archiwum
+                if m.filmyKursor != nil && !m.filmy.isEmpty {
+                    ProgressView().tint(.white).frame(maxWidth: .infinity, minHeight: 60)
+                        .task(id: m.filmy.count) { await m.wiecejFilmow() }
+                }
             }
             .padding(16)
         }

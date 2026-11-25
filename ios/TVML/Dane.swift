@@ -558,6 +558,9 @@ final class Magazyn: ObservableObject {
     @Published var najczytniejsze: [Artykul] = []
     @Published var pasek: [Artykul] = []
     @Published var filmy: [Film] = []
+    /// Następna strona filmów (/api/v1/videos, nextCursor); nil = to już wszystkie.
+    @Published var filmyKursor: String?
+    private var ladujeFilmy = false
     @Published var pogoda: Pogoda?
     @Published var motyw = Motyw.zwykly
     @Published var wKategorii: [String: [Artykul]] = [:]
@@ -811,7 +814,10 @@ final class Magazyn: ObservableObject {
         let minimalna = konf.slownik("minAppVersion").s("ios")
         wymaganaAktualizacja = !minimalna.isEmpty && Wersja.starsza(Wersja.biezaca, niz: minimalna)
         if let j = (try? await b) as? Slownik { najczytniejsze = j.lista("items").compactMap(Artykul.widoczny) }
-        if let j = (try? await d) as? Slownik { filmy = j.lista("items").map(Film.init) }
+        if let j = (try? await d) as? Slownik {
+            filmy = j.lista("items").map(Film.init)
+            filmyKursor = j.s("nextCursor").isEmpty ? nil : j.s("nextCursor")
+        }
         if let j = (try? await e) as? Slownik, j["current"] != nil { pogoda = Pogoda(j) }
         // listy bloków Start z kategorią albo flagą i fotorelacje, odświeżane razem z resztą
         for b in bloki where b.typ == "posts" { await wpisy(b) }
@@ -829,6 +835,19 @@ final class Magazyn: ObservableObject {
         }
         for b in bloki where b.typ == "poll" { await wczytajSpotlight(b) }
         return true
+    }
+
+    /// Kolejne filmy w zakładce Wideo przy przewijaniu (cursor=nextCursor). Archiwum na serwerze ma od 25.11 także
+    /// filmy z artykułów, ok. 140 (Karol: w aplikacji było tylko 15 filmów).
+    func wiecejFilmow() async {
+        guard let kursor = filmyKursor, !ladujeFilmy else { return }
+        ladujeFilmy = true
+        defer { ladujeFilmy = false }
+        guard let j = (try? await Siec.v1("videos", ["limit": "15", "cursor": kursor])) as? Slownik,
+              filmyKursor == kursor else { return }
+        let znane = Set(filmy.map(\.id))
+        filmy += j.lista("items").map(Film.init).filter { !znane.contains($0.id) }
+        filmyKursor = j.s("nextCursor").isEmpty ? nil : j.s("nextCursor")
     }
 
     /// Wpisy bloku posts z kategorią albo flagą z panelu.
