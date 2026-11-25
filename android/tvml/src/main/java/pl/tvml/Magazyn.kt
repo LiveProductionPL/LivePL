@@ -46,6 +46,12 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
     var etykietaPaska by mutableStateOf(tl("app.latest", "Najnowsze").uppercase())
     var pasekNaZywo by mutableStateOf(false)
     var filmy by mutableStateOf<List<Film>>(emptyList())
+    /** Następna strona filmów (/api/v1/videos, nextCursor); null = to już wszystkie. */
+    var filmyKursor by mutableStateOf<String?>(null)
+        private set
+    /** Trwa wczytywanie starszych filmów (przycisk „Starsze filmy” pokazuje wtedy kółko). */
+    var ladujeFilmy by mutableStateOf(false)
+        private set
     var pogoda by mutableStateOf<Pogoda?>(null)
     var motyw by mutableStateOf(Motyw.zwykly)
     /** Motyw z argumentu (zrzuty ekranu); wtedy panel go nie zmienia. */
@@ -442,7 +448,7 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
         val k = zakres.async { pobierzKonfiguracje() }
         val a = zakres.async { Siec.v1Obiekt("articles", mapOf("limit" to "20")) }
         val b = zakres.async { Siec.v1Obiekt("articles/most-read", mapOf("limit" to "10")) }
-        val d = zakres.async { Siec.v1Obiekt("videos", mapOf("limit" to "12")) }
+        val d = zakres.async { Siec.v1Obiekt("videos", mapOf("limit" to "15")) }
         val e = zakres.async { Siec.v1Obiekt("weather") }
         val lista = a.await() ?: return false
         // podgląd bez sieci albo z błędem serwera: zostaje to, co widać (bez przechodzenia na stare API)
@@ -457,7 +463,10 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
             return true
         }
         b.await()?.let { najczytniejsze = Artykul.widoczne(it.lista("items")) }
-        d.await()?.let { filmy = it.lista("items").map(::Film) }
+        d.await()?.let {
+            filmy = it.lista("items").map(::Film)
+            filmyKursor = it.s("nextCursor").ifEmpty { null }
+        }
         e.await()?.let { if (it.ma("current")) pogoda = Pogoda(it) }
         // listy bloków Startu z kategorii z panelu
         bloki.mapNotNull { it.kategoria }.distinct().forEach { slug -> zakres.launch { kategoria(slug) } }
@@ -569,8 +578,32 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
         }
         b.await().takeIf { it.isNotEmpty() }?.let { najczytniejsze = Artykul.widoczne(it) }
         c.await().takeIf { it.isNotEmpty() }?.let { pasek = Artykul.widoczne(it) }
-        d.await()?.let { filmy = it.lista("items").map(::Film) }
+        d.await()?.let {
+            filmy = it.lista("items").map(::Film)
+            filmyKursor = null
+        }
         e.await()?.let { if (it.ma("current")) pogoda = Pogoda(it) }
+    }
+
+    /**
+     * Kolejne 15 filmów w zakładce Wideo po stuknięciu „Starsze filmy” (cursor=nextCursor). Archiwum na serwerze ma od
+     * 25.11 także filmy z artykułów, ok. 140 (Karol: „w aplikacji nadal jest tylko 15 filmów”, potem „miało wczytywac
+     * filmy po 15 i dac opcje wczytania kolejnych a nie od razu wszytskie”). Bez powtórek po id.
+     */
+    suspend fun wiecejFilmow() {
+        val kursor = filmyKursor ?: return
+        if (ladujeFilmy) return
+        ladujeFilmy = true
+        try {
+            val j = Siec.v1Obiekt("videos", mapOf("limit" to "15", "cursor" to kursor)) ?: return
+            // w międzyczasie odświeżenie listy: ta strona już nieaktualna
+            if (filmyKursor != kursor) return
+            val znane = filmy.map { it.id }.toSet()
+            filmy = filmy + j.lista("items").map(::Film).filter { it.id !in znane }
+            filmyKursor = j.s("nextCursor").ifEmpty { null }
+        } finally {
+            ladujeFilmy = false
+        }
     }
 
     /** Lista działu: subportal (Sport, Muzyka, Na sygnale…) przez jego kategorię z panelu albo zwykła kategoria. */

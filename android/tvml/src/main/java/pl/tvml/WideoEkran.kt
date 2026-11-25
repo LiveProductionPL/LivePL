@@ -139,6 +139,23 @@ fun WideoEkran(m: Magazyn) {
                     }
                 }
             }
+            // na końcu listy przycisk „Starsze filmy” (app.videoMore): kolejne 15 po stuknięciu, nie wszystkie od razu
+            // (Karol 25.11: „miało wczytywac filmy po 15 i dac opcje wczytania kolejnych”)
+            if (m.filmyKursor != null && m.filmy.isNotEmpty()) item(key = "starsze") {
+                Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+                    if (m.ladujeFilmy) {
+                        Postep()
+                    } else {
+                        Text(
+                            tl("app.videoMore", "Starsze filmy"),
+                            Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.12f))
+                                .clickable(role = Role.Button) { zakres.launch { m.wiecejFilmow() } }
+                                .padding(horizontal = 22.dp, vertical = 12.dp),
+                            color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
         }
     }
     odtwarzany?.let { Odtwarzacz(it) { odtwarzany = null } }
