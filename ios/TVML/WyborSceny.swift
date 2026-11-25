@@ -180,7 +180,10 @@ extension WarunkiSceny {
     /// z danych pogody aplikacji i ustawień sceny z panelu (config.weatherAnimation[stan]).
     static func z(stan: String, efekt: EfektPogody?, dzien: Bool, ustawienia: Slownik?, karta: Bool, bezRuchu: Bool) -> WarunkiSceny {
         let s = stan.lowercased()
-        let noc = efekt.map { $0.faza == "night" } ?? !dzien
+        // noc sceny jak na stronie: isNight z serwera (weather-effects.js this.isNight); faza efektu (day, dusk, night)
+        // zmienia tylko barwy nakładki pogody. Wcześniej zmierzch (±45 min od zachodu) dawał dzienną scenę, choć
+        // strona pokazywała już noc (zrzut Karola z 25.11, 16:30).
+        let noc = !dzien
         var w = WarunkiSceny(noc: noc)
         w.burzowo = s.contains("stormy") || s == "rainy-heavy" || efekt?.rodzaj == "storm" || efekt?.rodzaj == "rain-heavy"
         w.deszczowo = s.hasPrefix("rainy") || s == "cloudy"
