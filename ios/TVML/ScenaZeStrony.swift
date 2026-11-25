@@ -23,19 +23,31 @@ enum AdresSceny {
 
 /// Wbudowana scena pod spodem i scena ze strony na wierzchu, gdy jest gotowa. Wbudowana stoi wtedy w miejscu
 /// (jedna klatka), żeby nie zużywać baterii na dwie animacje naraz.
+/// Po powrocie do aplikacji strona wczytuje się od nowa, gdy sceny ze strony jeszcze nie było (np. bez internetu
+/// albo zanim TVML Connect wgrał stronę) albo minęło ponad 30 minut (nowy etap motywu, nowa pogoda).
 struct ScenaZZapasem<Zapas: View>: View {
     let adres: URL?
     @ViewBuilder var zapas: (_ stoi: Bool) -> Zapas
+    @Environment(\.scenePhase) private var faza
     @State private var gotowa = false
+    @State private var wersja = 0
+    @State private var wczytano = Date()
 
     var body: some View {
         ZStack {
             zapas(gotowa)
             if let adres {
-                ScenaZeStrony(adres: adres, gotowa: $gotowa)
+                ScenaZeStrony(adres: adres, wersja: wersja, gotowa: $gotowa)
                     .opacity(gotowa ? 1 : 0)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
+            }
+        }
+        .onChange(of: faza) { _, nowa in
+            guard nowa == .active, adres != nil else { return }
+            if !gotowa || Date().timeIntervalSince(wczytano) > 30 * 60 {
+                wczytano = Date()
+                wersja += 1
             }
         }
     }
@@ -43,6 +55,8 @@ struct ScenaZZapasem<Zapas: View>: View {
 
 struct ScenaZeStrony: UIViewRepresentable {
     let adres: URL
+    /// zmiana wczytuje stronę od nowa
+    var wersja = 0
     @Binding var gotowa: Bool
 
     func makeCoordinator() -> Koordynator { Koordynator(gotowa: $gotowa) }
@@ -62,13 +76,17 @@ struct ScenaZeStrony: UIViewRepresentable {
         w.scrollView.contentInsetAdjustmentBehavior = .never
         w.isUserInteractionEnabled = false
         w.navigationDelegate = context.coordinator
+        context.coordinator.wersja = wersja
         context.coordinator.wczytaj(w, adres)
         return w
     }
 
     func updateUIView(_ w: WKWebView, context: Context) {
         context.coordinator.gotowa = $gotowa
-        if context.coordinator.adres != adres { context.coordinator.wczytaj(w, adres) }
+        if context.coordinator.adres != adres || context.coordinator.wersja != wersja {
+            context.coordinator.wersja = wersja
+            context.coordinator.wczytaj(w, adres)
+        }
     }
 
     static func dismantleUIView(_ w: WKWebView, coordinator: Koordynator) {
@@ -79,6 +97,7 @@ struct ScenaZeStrony: UIViewRepresentable {
     @MainActor final class Koordynator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         var gotowa: Binding<Bool>
         var adres: URL?
+        var wersja = 0
 
         init(gotowa: Binding<Bool>) { self.gotowa = gotowa }
 
