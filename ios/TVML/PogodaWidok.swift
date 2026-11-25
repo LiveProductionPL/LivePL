@@ -7,18 +7,22 @@ struct PogodaWidok: View {
     @Environment(\.dynamicTypeSize) private var rozmiarTekstu
     @Environment(\.accessibilityReduceMotion) private var bezRuchu
 
-    @ViewBuilder private func scena(_ p: Pogoda?) -> some View {
+    /// Scena prosto ze strony (ScenaZeStrony, tryb zakładki), pod nią wbudowana jako zapas.
+    private func scena(_ p: Pogoda?) -> some View {
         let s = m.aktywnaScena
         let warunki = WarunkiSceny.z(stan: p?.ikona ?? "", efekt: p?.efekt, dzien: p?.dzien ?? true,
                                      ustawienia: m.ustawieniaScen[p?.ikona ?? ""], karta: false, bezRuchu: bezRuchu)
-        if let svg = s.svg {
-            TloSVG(adres: warunki.noc ? (s.svgNoc ?? svg) : svg, przyciemnij: warunki.noc && s.svgNoc == nil)
-        } else {
-            ScenaPogody(stan: StanPogody.z(ikony: p?.ikona ?? "cloud"),
-                        pora: PoraDnia.teraz(dzien: p?.dzien ?? true),
-                        scena: m.motyw.scena(miesiac: Calendar.current.component(.month, from: .now)),
-                        efekt: p?.efekt, okolicznosciowy: m.motyw.rodzaj != .zwykly,
-                        scenaStrony: s.doRysowania, warunki: warunki)
+        let zeStrony: URL? = m.podgladDnia == nil ? AdresSceny.url(tryb: "zakladka", bezRuchu: bezRuchu, podglad: m.podglad?.token) : nil
+        return ScenaZZapasem(adres: zeStrony) { stoi in
+            if let svg = s.svg {
+                TloSVG(adres: warunki.noc ? (s.svgNoc ?? svg) : svg, przyciemnij: warunki.noc && s.svgNoc == nil)
+            } else {
+                ScenaPogody(stan: StanPogody.z(ikony: p?.ikona ?? "cloud"),
+                            pora: PoraDnia.teraz(dzien: p?.dzien ?? true),
+                            scena: m.motyw.scena(miesiac: Calendar.current.component(.month, from: .now)),
+                            efekt: p?.efekt, okolicznosciowy: m.motyw.rodzaj != .zwykly,
+                            czas: stoi ? 2.2 : nil, scenaStrony: s.doRysowania, warunki: warunki)
+            }
         }
     }
 

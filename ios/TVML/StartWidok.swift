@@ -34,6 +34,15 @@ struct StartWidok: View {
                 if let blad = m.blad {
                     Text(blad).czcionka(14).foregroundStyle(Barwy.slaby)
                 }
+                if let kiedy = m.daneZPamieci {
+                    // bez internetu: ostatnie wiadomości i pogoda z pamięci telefonu, z godziną (dawniej też z datą)
+                    let czas = Calendar.current.isDateInToday(kiedy)
+                        ? kiedy.formatted(.dateTime.hour().minute().locale(Jezyk.locale()))
+                        : kiedy.formatted(.dateTime.day().month(.wide).hour().minute().locale(Jezyk.locale()))
+                    Label(Napisy.t("app.offlineData", "Bez internetu. Widzisz dane z {time}.").replacingOccurrences(of: "{time}", with: czas),
+                          systemImage: "wifi.slash")
+                        .czcionka(13, .semibold).foregroundStyle(Barwy.slaby)
+                }
                 if m.najnowsze.isEmpty && m.laduje {
                     SzkieletKaruzeli()
                 }
@@ -646,6 +655,8 @@ struct KafelPogody: View {
         let scena = m.aktywnaScena
         let linie = m.podgladDnia.map { PaletaBelki.linie(scena, swieto: nil, imieniny: nil, dzisiaj: $0) }
             ?? PaletaBelki.linie(scena, swieto: m.dzisiaj?.swieto, imieniny: imieniny)
+        // scena prosto ze strony; w podglądzie dnia (Xcode) zostaje wbudowana, bo strona pokazuje dzisiejszy dzień
+        let zeStrony: URL? = m.podgladDnia == nil ? AdresSceny.url(tryb: "karta", bezRuchu: bezRuchu, podglad: m.podglad?.token) : nil
         Button { m.pokaz(.pogoda) } label: {
             KartaPogody(temperatura: m.pogoda.map { Pogoda.stopnie($0.temperatura) + "C" } ?? "–",
                         opis: m.pogoda?.opis ?? "",
@@ -658,7 +669,8 @@ struct KafelPogody: View {
                         efekt: m.pogoda?.efekt, okolicznosciowy: m.motyw.rodzaj != .zwykly,
                         scenaKarty: scena,
                         warunki: WarunkiSceny.z(stan: m.pogoda?.ikona ?? "", efekt: m.pogoda?.efekt, dzien: m.pogoda?.dzien ?? true,
-                                                ustawienia: m.ustawieniaScen[m.pogoda?.ikona ?? ""], karta: true, bezRuchu: bezRuchu))
+                                                ustawienia: m.ustawieniaScen[m.pogoda?.ikona ?? ""], karta: true, bezRuchu: bezRuchu),
+                        zeStrony: zeStrony)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(opisDostepnosci(linie))
@@ -719,6 +731,8 @@ struct KartaPogody: View {
     var czas: Double? = nil
     /// galeria: sama scena (z przyciemnieniem, tekst niewidoczny, ale zajmuje miejsce) albo sam tekst na przezroczystym tle
     var warstwa: Warstwa = .calosc
+    /// strona tvml.pl z samą sceną (ScenaZeStrony); nil = tylko wbudowana scena (galeria, podgląd dnia)
+    var zeStrony: URL? = nil
     @Environment(\.dynamicTypeSize) private var rozmiarTekstu
 
     private var noc: Bool {
@@ -777,13 +791,16 @@ struct KartaPogody: View {
         }
     }
 
-    @ViewBuilder private var tlo: some View {
-        if let s = scenaKarty, let svg = s.svg {
-            TloSVG(adres: noc ? (s.svgNoc ?? svg) : svg, przyciemnij: noc && s.svgNoc == nil)
-        } else {
-            ScenaPogody(stan: stan, pora: pora, scena: scena, efekt: efekt,
-                        okolicznosciowy: okolicznosciowy, kafel: true, czas: czas,
-                        scenaStrony: scenaKarty?.doRysowania, warunki: warunki)
+    /// Scena ze strony (gdy gotowa), pod nią wbudowana jako zapas: bez internetu, przy błędzie i przy wczytywaniu.
+    private var tlo: some View {
+        ScenaZZapasem(adres: zeStrony) { stoi in
+            if let s = scenaKarty, let svg = s.svg {
+                TloSVG(adres: noc ? (s.svgNoc ?? svg) : svg, przyciemnij: noc && s.svgNoc == nil)
+            } else {
+                ScenaPogody(stan: stan, pora: pora, scena: scena, efekt: efekt,
+                            okolicznosciowy: okolicznosciowy, kafel: true, czas: stoi ? (czas ?? 2.2) : czas,
+                            scenaStrony: scenaKarty?.doRysowania, warunki: warunki)
+            }
         }
     }
 

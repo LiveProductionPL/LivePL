@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import CoreText
+import CryptoKit
 
 /// Dane z tvml.pl. Do czasu nowego API (/api/v1, robi je TVML Connect) aplikacja czyta te same akcje co strona:
 /// tvml-db.php (artykuły) i tvml-portal.php (konfiguracja portalu, pogoda, wideo).
@@ -183,6 +184,9 @@ enum Siec {
             .map { "\($0.key)=\($0.value.addingPercentEncoding(withAllowedCharacters: znaki) ?? "")" }
             .joined(separator: "&")
         let kolejnosc = dzialajacaBaza.map { d in [d] + bazyApi.filter { $0 != d } } ?? bazyApi
+        // podgląd z kodu QR nie trafia do pamięci: to szkic, nie opublikowane ustawienia
+        let klucz = trasa + "?" + zapytanie
+        let doPamieci = parametry["preview"] == nil
         var ostatni: Error = URLError(.badURL)
         for baza in kolejnosc {
             let laczenie = baza.hasSuffix("route=") ? "&" : "?"
@@ -190,12 +194,48 @@ enum Siec {
             do {
                 let j = try await json(sciezka, swiezy: swiezy)
                 dzialajacaBaza = baza
+                if doPamieci { Pamiec.zapisz(j, klucz: klucz) }
                 return j
             } catch {
                 ostatni = error
             }
         }
+        // bez internetu albo przy awarii serwera: ostatnia odpowiedź z telefonu (błąd 4xx to prawdziwa odmowa, nie brak sieci)
+        let odmowa = (ostatni as? BladHttp).map { (400..<500).contains($0.kod) } ?? false
+        if doPamieci, !odmowa, let zapis = Pamiec.wczytaj(klucz) {
+            zPamieciOd = min(zPamieciOd ?? zapis.kiedy, zapis.kiedy)
+            return zapis.json
+        }
         throw ostatni
+    }
+
+    /// Najstarsza odpowiedź wzięta z pamięci telefonu w bieżącym odświeżeniu; nil = wszystko prosto z sieci.
+    static var zPamieciOd: Date?
+
+    /// Ostatnie odpowiedzi API w pamięci podręcznej telefonu (Caches/tvml-api), żeby bez internetu było widać
+    /// ostatnie wiadomości, pogodę i ustawienia z panelu (Karol 25.11: „Aplikacja może pokazywać wczytuje pogodę
+    /// itp jak nie ma Internetu prawda ?”). System może je usunąć przy braku miejsca; wtedy jak dotąd komunikat o błędzie.
+    enum Pamiec {
+        static let katalog: URL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("tvml-api", isDirectory: true)
+
+        static func plik(_ klucz: String) -> URL {
+            let skrot = SHA256.hash(data: Data(klucz.utf8)).map { String(format: "%02x", $0) }.joined()
+            return katalog.appendingPathComponent(skrot + ".json")
+        }
+
+        static func zapisz(_ j: Any, klucz: String) {
+            guard JSONSerialization.isValidJSONObject(j), let dane = try? JSONSerialization.data(withJSONObject: j) else { return }
+            try? FileManager.default.createDirectory(at: katalog, withIntermediateDirectories: true)
+            try? dane.write(to: plik(klucz), options: .atomic)
+        }
+
+        static func wczytaj(_ klucz: String) -> (json: Any, kiedy: Date)? {
+            let p = plik(klucz)
+            guard let dane = try? Data(contentsOf: p), let j = try? JSONSerialization.jsonObject(with: dane) else { return nil }
+            let kiedy = (try? p.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date()
+            return (j, kiedy)
+        }
     }
 
     /// POST z JSON-em do API (np. głos w sondzie). Zwraca kod HTTP i odpowiedź; bez identyfikatorów urządzenia.
@@ -619,6 +659,8 @@ final class Magazyn: ObservableObject {
         didSet { UserDefaults.standard.set(glosy, forKey: "tvml-glosy") }
     }
     @Published var wymaganaAktualizacja = false
+    /// Bez internetu: z kiedy są pokazywane dane z pamięci telefonu (nil = świeże z sieci).
+    @Published var daneZPamieci: Date?
     /// Nowsza wersja w App Store: łagodna prośba o aktualizację pod paskiem „NA ŻYWO” (do zamknięcia).
     @Published var nowaWersja: Komunikat?
     @Published var zamknieteKomunikaty: [String] = UserDefaults.standard.stringArray(forKey: "tvml-zamkniete-komunikaty") ?? [] {
@@ -654,9 +696,12 @@ final class Magazyn: ObservableObject {
         if !wymus, podglad == nil, let ostatnio, Date().timeIntervalSince(ostatnio) < 120 { return }
         laduje = true
         defer { laduje = false }
+        Siec.zPamieciOd = nil
         if await odswiezV1() {
             blad = nil
-            ostatnio = Date()
+            // dane z pamięci telefonu: napis „Bez internetu” na Starcie i bez przerwy 2 minut przed kolejną próbą
+            daneZPamieci = Siec.zPamieciOd
+            if daneZPamieci == nil { ostatnio = Date() }
             await sprawdzNowaWersje()
             return
         }
