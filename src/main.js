@@ -998,12 +998,18 @@ function usunWiadomosci(pasuje) {
   if (zmiana) { wyslijStan(); zaplanujSprzatanie(); }
 }
 
-// Licznik nieprzeczytanych z tytułu strony programu; zapis na pasku tylko wtedy, gdy naprawdę przybyło.
-// k.znany to liczba, o której użytkownik już wie. Strona „nie wczytała się” nie zmienia licznika,
-// a spadek (przeładowanie, chwilowy tytuł bez liczby, ponowne wczytanie po powrocie sieci) obniża
-// k.znany dopiero, gdy trzyma się 20 s. Dlatego po wybudzeniu komputera ta sama liczba nie wraca
-// jako nowy komunikat. Na pasku jest najwyżej jeden taki komunikat na program, z najnowszą liczbą.
+// Licznik nieprzeczytanych z tytułu strony (np. „(3) Facebook”); zapis na pasku i miganie tylko wtedy,
+// gdy naprawdę coś przyszło (Karol, 25.11: „Facebook świeci nawet jak nie ma nowej wiadomości”).
+// k.znany to liczba, o której użytkownik już wie:
+// - przez 30 s po wczytaniu strony liczba z tytułu jest stanem wyjściowym, nie nowością (Facebook dopisuje
+//   „(3)” kilka sekund po wczytaniu, więc stare powiadomienia wyglądały jak nowe);
+// - niższa liczba obniża k.znany, gdy trzyma się 20 s, a tytuł bez liczby dopiero po 2 minutach
+//   (przeczytane gdzie indziej), bo strony chwilowo zmieniają tytuł (np. „Anna napisała…”, wznawianie
+//   połączenia po wybudzeniu komputera). Do tego czasu ikona pokazuje znaną liczbę.
+// Strona „nie wczytała się” nie zmienia licznika. Na pasku jest najwyżej jeden taki komunikat na kartę.
 const SPADEK_LICZNIKA_MS = 20 * 1000;
+const ZERO_LICZNIKA_MS = (Number(process.env.LIVEPL_ZERO_LICZNIKA_S) || 120) * 1000;
+const START_LICZNIKA_MS = (Number(process.env.LIVEPL_START_LICZNIKA_S) || 30) * 1000;
 
 // nazwa źródła na pasku wiadomości: program, krótki tytuł strony (np. „Facebook”) albo jej adres
 function nazwaZrodla(k) {
@@ -1023,22 +1029,35 @@ function migaj(k) {
 function policzNieprzeczytane(k, tytul) {
   if (k.blad) return;
   const nowy = licznikZTytulu(tytul);
-  k.licznik = nowy;
-  if (!k.zaladowanaRaz || k.znany == null) {
+  k.surowy = nowy;
+  if (k.znany == null || Date.now() - (k.wczytanaO || 0) < START_LICZNIKA_MS) {
+    clearTimeout(k.spadekLicznika);
+    k.spadekLicznika = null;
     k.znany = nowy;
+    k.licznik = nowy;
     return;
   }
   if (nowy < k.znany) {
+    k.licznik = nowy || k.znany;
     if (!k.spadekLicznika) {
       k.spadekLicznika = setTimeout(() => {
         k.spadekLicznika = null;
-        if (!k.blad && k.licznik < k.znany) k.znany = k.licznik;
-      }, SPADEK_LICZNIKA_MS);
+        if (k.blad || k.surowy >= k.znany) return;
+        k.znany = k.surowy;
+        k.licznik = k.surowy;
+        // przeczytane gdzie indziej (np. na telefonie): koniec migania i zapisu „nieprzeczytane”
+        if (!k.surowy) {
+          k.miga = false;
+          usunWiadomosci(w => w.licznik && w.kartaId === k.id);
+        }
+        wyslijStan();
+      }, nowy ? SPADEK_LICZNIKA_MS : ZERO_LICZNIKA_MS);
     }
     return;
   }
   clearTimeout(k.spadekLicznika);
   k.spadekLicznika = null;
+  k.licznik = nowy;
   if (nowy === k.znany) return;
   k.znany = nowy;
   // strona dała własne powiadomienie: drugi zapis na pasku byłby powtórzeniem
@@ -1190,7 +1209,7 @@ function podepnij(k) {
     wyslijStan();
   });
   wc.on('did-finish-load', () => {
-    setTimeout(() => { k.zaladowanaRaz = true; }, 4000);
+    k.wczytanaO = Date.now(); // liczba z tytułu w pierwszych 30 s to stan wyjściowy (policzNieprzeczytane)
     if (!k.program && !k.nowa && /^https?:/i.test(k.adres || '') && !ustawienia.podpowiedzPrzypinania) {
       ustawienia.podpowiedzPrzypinania = true;
       zapiszUstawienia();
@@ -1224,6 +1243,7 @@ function podepnij(k) {
     wyslijStan();
   };
   wc.on('did-navigate', (e, url) => {
+    k.wczytanaO = Date.now(); // nowa strona: jej liczba nieprzeczytanych to najpierw stan wyjściowy
     tlumacz.poNawigacji(k); // nowa strona: tłumacz zaczyna od rozpoznania języka
     poNawigacji(url);
   });
