@@ -42,7 +42,7 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           sudo apt-get update -qq
-          sudo apt-get install -y -qq squashfs-tools xvfb fuse3 > /dev/null
+          sudo apt-get install -y -qq squashfs-tools xvfb fuse3 imagemagick dbus-x11 > /dev/null
 
       - name: Test aktualizacji (nakładka w ~/.config/LivePL/program)
         run: node narzedzia/linux/test-nakladka.mjs
@@ -94,6 +94,8 @@ jobs:
 
           Xvfb :99 -screen 0 1440x900x24 -nolisten tcp &
           export DISPLAY=:99
+          # magistrala D-Bus sesji jak na pulpicie (powiadomienia, pęk kluczy)
+          eval "$(dbus-launch --sh-syntax)"
           sleep 2
 
           # 1. pakiet .deb
