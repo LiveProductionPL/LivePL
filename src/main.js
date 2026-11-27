@@ -6,7 +6,7 @@
 
 const {
   app, BrowserWindow, WebContentsView, ipcMain, Menu, Tray, nativeImage,
-  nativeTheme, session, shell, dialog, clipboard, desktopCapturer
+  nativeTheme, session, shell, dialog, clipboard, desktopCapturer, webContents
 } = require('electron');
 const path = require('path');
 const { execFile, execFileSync } = require('child_process');
@@ -1201,6 +1201,7 @@ function stan() {
 
 function podepnij(k) {
   const wc = k.wc;
+  bluetoothKarty(k);
 
   wc.on('page-title-updated', (e, tytul) => {
     k.tytul = tytul;
@@ -1244,6 +1245,8 @@ function podepnij(k) {
   };
   wc.on('did-navigate', (e, url) => {
     k.wczytanaO = Date.now(); // nowa strona: jej liczba nieprzeczytanych to najpierw stan wyjściowy
+    // zgody „Tylko teraz” działają do wyjścia z tej strony
+    if (k.hostZgod !== hostZ(url)) { k.zgodyTeraz = null; k.hostZgod = hostZ(url); }
     tlumacz.poNawigacji(k); // nowa strona: tłumacz zaczyna od rozpoznania języka
     poNawigacji(url);
   });
@@ -1634,36 +1637,244 @@ function obslugaPobierania(ses) {
 }
 
 // ---------------------------------------------------------------- uprawnienia
+// Strona prosi o kamerę, mikrofon, powiadomienia, położenie, schowek albo MIDI: LivePL pyta w okienku przy stronie
+// (Karol, 27.11: „niech przeglądarka da komunikat, że strona chce połączenia do kamery, mikrofonu”,
+// „można dodać jednorazowo lub na stałe”):
+// - „Zezwól zawsze”: zapisane w ustawieniach (ustawienia.uprawnieniaStron), lista w Ustawieniach → Uprawnienia stron;
+// - „Tylko teraz”: do wyjścia z tej strony (karta przechodzi na inną stronę albo się zamyka);
+// - „Nie zezwalaj”: do zamknięcia LivePL, a przy powiadomieniach na stałe (żeby strona nie pytała co chwilę).
+// Kamera i mikrofon to osobne zgody. Nasze programy mają zgodę od razu (DLA_NASZYCH).
 
-const decyzje = new Map();
+const decyzje = new Map(); // host|klucz → true/false do zamknięcia LivePL
 const ZAWSZE = ['clipboard-sanitized-write', 'fullscreen', 'pointerLock', 'speaker-selection', 'background-sync', 'storage-access', 'top-level-storage-access'];
-const DLA_NASZYCH = ['notifications', 'media', 'clipboard-read', 'display-capture', 'fileSystem', 'idle-detection', 'keyboardLock', 'window-management', 'openExternal'];
-const PYTAJ = {
-  notifications: 'wyświetlać powiadomienia',
-  media: 'używać kamery lub mikrofonu',
-  geolocation: 'znać położenie tego komputera',
-  'clipboard-read': 'odczytywać schowek'
-};
+const DLA_NASZYCH = ['notifications', 'media', 'clipboard-read', 'display-capture', 'fileSystem', 'idle-detection', 'keyboardLock', 'window-management', 'openExternal', 'midi', 'midiSysex'];
+const KLUCZE_ZGOD = ['kamera', 'mikrofon', 'powiadomienia', 'polozenie', 'schowek', 'midi'];
 
-// Zgoda na powiadomienia strony (np. Facebook, WhatsApp) jest zapamiętana na stałe, żeby LivePL nie pytał
-// przy każdym uruchomieniu (Karol, 25.11: powiadomienia z każdej strony na pasku u góry).
-// Listę i „Zapomnij” ma menu ⋮ → Ustawienia → Powiadomienia stron. Inne uprawnienia: do zamknięcia programu.
-function zgodyPowiadomien() {
-  const z = ustawienia.powiadomieniaStron;
+// klucze zgód dla prośby strony; null: LivePL nie pyta i odmawia
+function kluczeZgody(uprawnienie, szczegoly) {
+  if (uprawnienie === 'media') {
+    const t = [...new Set(((szczegoly && szczegoly.mediaTypes) || []).filter(x => x === 'audio' || x === 'video'))];
+    return (t.length ? t : ['video', 'audio']).map(x => (x === 'video' ? 'kamera' : 'mikrofon'));
+  }
+  const k = { notifications: 'powiadomienia', geolocation: 'polozenie', 'clipboard-read': 'schowek', midi: 'midi', midiSysex: 'midi' }[uprawnienie];
+  return k ? [k] : null;
+}
+
+// zapisane zgody { host: { kamera: true, powiadomienia: false, … } }; z 0.1.23–0.1.25 przenosi powiadomieniaStron
+function zapisaneZgody() {
+  let z = ustawienia.uprawnieniaStron;
+  if (!z || typeof z !== 'object' || Array.isArray(z)) z = {};
+  const stare = ustawienia.powiadomieniaStron;
+  if (stare && typeof stare === 'object' && !Array.isArray(stare)) {
+    for (const [host, v] of Object.entries(stare)) {
+      if (typeof v !== 'boolean') continue;
+      z[host] = { ...(z[host] || {}) };
+      if (typeof z[host].powiadomienia !== 'boolean') z[host].powiadomienia = v;
+    }
+    delete ustawienia.powiadomieniaStron;
+    ustawienia.uprawnieniaStron = z;
+    zapiszUstawienia();
+  }
+  return z;
+}
+
+// true / false / undefined (nie pytano): zapisane, potem do zamknięcia LivePL, potem „tylko teraz” w tej karcie
+function zgoda(host, klucz, k) {
+  const s = zapisaneZgody()[host];
+  if (s && typeof s[klucz] === 'boolean') return s[klucz];
+  const d = decyzje.get(host + '|' + klucz);
+  if (typeof d === 'boolean') return d;
+  if (k && k.zgodyTeraz && k.zgodyTeraz.has(host + '|' + klucz)) return true;
+  return undefined;
+}
+
+// wartosc: true / false, albo null = zapomnij (strona zapyta ponownie)
+function zapiszZgode(host, klucz, wartosc) {
+  if (!host || typeof host !== 'string' || !KLUCZE_ZGOD.includes(klucz)) return;
+  const z = { ...zapisaneZgody() };
+  const h = { ...(z[host] || {}) };
+  if (typeof wartosc === 'boolean') h[klucz] = wartosc; else delete h[klucz];
+  if (Object.keys(h).length) z[host] = h; else delete z[host];
+  ustawienia.uprawnieniaStron = z;
+  if (wartosc === null) decyzje.delete(host + '|' + klucz);
+  zapiszUstawienia();
+}
+
+// Pytanie o zgodę w okienku LivePL przy stronie (jak przy zapisie hasła), po kolei, tylko dla oglądanej karty.
+const kolejkaZgod = [];
+let biezacaZgoda = null;
+
+function zapytajOZgode(z) {
+  return new Promise((rozstrzygnij) => {
+    z.rozstrzygnij = rozstrzygnij;
+    kolejkaZgod.push(z);
+    nastepnaZgoda();
+  });
+}
+
+function nastepnaZgoda() {
+  if (biezacaZgoda) return;
+  const z = kolejkaZgod.shift();
+  if (!z) return;
+  const k = z.wc && !z.wc.isDestroyed() ? kartaDla(z.wc) : null;
+  // karta w tle albo schowane okno: bez pytania i bez zapamiętania (strona może zapytać, gdy ją otworzysz)
+  if (!k || aktywnaId !== k.id || !win || win.isDestroyed() || !win.isVisible()) {
+    z.rozstrzygnij(null);
+    nastepnaZgoda();
+    return;
+  }
+  biezacaZgoda = z;
+  const b = k.widok.getBounds();
+  const { rozstrzygnij, wc, odbierz, ...dane } = z;
+  pokazPanel(z.typ ? 'urzadzenie' : 'zgoda', { lewo: b.x + 12, gora: b.y + 12 }, { zgoda: dane });
+}
+
+// odpowiedź: 'zawsze' | 'teraz' | 'nie' | null (okienko zamknięte bez wyboru) albo dla urządzeń { urzadzenie, na }
+function rozstrzygnijZgode(odpowiedz) {
+  const z = biezacaZgoda;
+  if (!z) return;
+  biezacaZgoda = null;
+  z.rozstrzygnij(odpowiedz);
+  setTimeout(nastepnaZgoda, 0);
+}
+
+// ---------------------------------------------------------------- urządzenia stron (USB, HID, port COM, Bluetooth)
+// Strona prosi o urządzenie (navigator.usb / hid / serial / bluetooth.requestDevice): LivePL pokazuje listę
+// podłączonych urządzeń, a strona dostaje tylko wybrane (Karol, 27.11: „tak samo jak inne urządzenia”).
+// „Połącz zawsze”: zapamiętane w ustawienia.urzadzeniaStron (Ustawienia → Uprawnienia stron);
+// „Tylko teraz”: do zamknięcia LivePL. Bez wyboru strona nie dostaje żadnego urządzenia.
+const TYPY_URZADZEN = { usb: 'USB', hid: 'HID', serial: 'port COM', bluetooth: 'Bluetooth' };
+const urzadzeniaTeraz = new Map(); // host → [opis urządzenia]
+
+const hex4 = (n) => (typeof n === 'number' ? n.toString(16).padStart(4, '0') : String(n || ''));
+
+// opis urządzenia do listy i do zapamiętania (deviceId zmienia się po podłączeniu, więc pamiętamy producenta i model)
+function opisUrzadzenia(typ, d) {
+  if (typ === 'serial') {
+    return { id: d.portId, nazwa: d.displayName || d.portName || 'Port COM', opis: [d.portName, d.vendorId && d.productId ? `${d.vendorId}:${d.productId}` : ''].filter(Boolean).join(' · '),
+      klucz: { typ, vendorId: d.vendorId || '', productId: d.productId || '', serialNumber: d.serialNumber || '', portName: d.vendorId ? '' : (d.portName || '') } };
+  }
+  if (typ === 'bluetooth') return { id: d.deviceId, nazwa: d.deviceName || 'Urządzenie bez nazwy', opis: '', klucz: null };
+  const nazwa = typ === 'usb' ? (d.productName || 'Urządzenie USB') : (d.name || 'Urządzenie HID');
+  return { id: d.deviceId, nazwa, opis: [typ === 'usb' ? d.manufacturerName : '', `${hex4(d.vendorId)}:${hex4(d.productId)}`].filter(Boolean).join(' · '),
+    klucz: { typ, vendorId: hex4(d.vendorId), productId: hex4(d.productId), serialNumber: d.serialNumber || '', portName: '' } };
+}
+
+const toSamo = (a, b) => a && b && a.typ === b.typ && a.vendorId === b.vendorId && a.productId === b.productId &&
+  (a.serialNumber || '') === (b.serialNumber || '') && (a.portName || '') === (b.portName || '');
+
+function zapisaneUrzadzenia() {
+  const z = ustawienia.urzadzeniaStron;
   return z && typeof z === 'object' && !Array.isArray(z) ? z : {};
 }
 
-function zgodaNaPowiadomienia(host) {
-  const z = zgodyPowiadomien()[host];
-  return typeof z === 'boolean' ? z : undefined;
+function zapamietajUrzadzenie(host, u, naStale) {
+  if (!u.klucz) return;
+  if (naStale) {
+    const z = { ...zapisaneUrzadzenia() };
+    const lista = (z[host] || []).filter(x => !toSamo(x, u.klucz));
+    z[host] = [...lista, { ...u.klucz, nazwa: u.nazwa }];
+    ustawienia.urzadzeniaStron = z;
+    zapiszUstawienia();
+  } else {
+    urzadzeniaTeraz.set(host, [...(urzadzeniaTeraz.get(host) || []).filter(x => !toSamo(x, u.klucz)), u.klucz]);
+  }
 }
 
-function ustawZgodeNaPowiadomienia(host, zgoda) {
-  if (!host || typeof host !== 'string') return;
-  const z = { ...zgodyPowiadomien() };
-  if (typeof zgoda === 'boolean') z[host] = zgoda; else delete z[host];
-  ustawienia.powiadomieniaStron = z;
+function zapomnijUrzadzenie(host, nr) {
+  const z = { ...zapisaneUrzadzenia() };
+  if (!Array.isArray(z[host]) || !z[host][nr]) return;
+  const u = z[host][nr];
+  z[host] = z[host].filter((x, i) => i !== nr);
+  if (!z[host].length) delete z[host];
+  ustawienia.urzadzeniaStron = z;
+  urzadzeniaTeraz.set(host, (urzadzeniaTeraz.get(host) || []).filter(x => !toSamo(x, u)));
   zapiszUstawienia();
+}
+
+// wybór urządzenia: lista na żywo (podłączanie, wyszukiwanie Bluetooth), odpowiedź przez callback Chromium
+function wybierzUrzadzenie(typ, wc, lista, odpowiedz) {
+  if (!wc || wc.isDestroyed()) { odpowiedz(null); return; }
+  const host = hostZ(wc.getURL());
+  const z = { wc, host, typ, nazwaTypu: TYPY_URZADZEN[typ], urzadzenia: lista.map(d => opisUrzadzenia(typ, d)) };
+  zapytajOZgode(z).then(odp => {
+    const u = odp && z.urzadzenia.find(x => x.id === odp.id);
+    if (!u) { odpowiedz(null); return; }
+    zapamietajUrzadzenie(host, u, odp.na === 'zawsze');
+    dodajWiadomosc(`${host}: połączono z ${u.nazwa}` + (odp.na === 'zawsze' ? ' (zapamiętane)' : ''));
+    odpowiedz(u.id);
+  });
+}
+
+// nowa lista urządzeń w otwartym wyborze (dla tej samej karty i rodzaju)
+function odswiezUrzadzenia(typ, wc, lista) {
+  const z = biezacaZgoda || kolejkaZgod.find(x => x.typ === typ && x.wc === wc);
+  if (!z || z.typ !== typ || z.wc !== wc) return;
+  z.urzadzenia = lista.map(d => opisUrzadzenia(typ, d));
+  if (z === biezacaZgoda && panelStan && panelStan.rodzaj === 'urzadzenie') {
+    panelStan.zgoda = { ...panelStan.zgoda, urzadzenia: z.urzadzenia };
+    wyslijDoPanelu();
+  }
+}
+
+function urzadzeniaStron(ses) {
+  const kartaZRamki = (frame) => { try { return frame ? webContents.fromFrame(frame) : null; } catch { return null; } };
+  ses.on('select-usb-device', (e, d, cb) => {
+    e.preventDefault();
+    const wc = kartaZRamki(d.frame);
+    wybierzUrzadzenie('usb', wc, d.deviceList, (id) => (id ? cb(id) : cb()));
+  });
+  ses.on('select-hid-device', (e, d, cb) => {
+    e.preventDefault();
+    const wc = kartaZRamki(d.frame);
+    wybierzUrzadzenie('hid', wc, d.deviceList, (id) => cb(id || null));
+  });
+  ses.on('select-serial-port', (e, lista, wc, cb) => {
+    e.preventDefault();
+    wybierzUrzadzenie('serial', wc, lista, (id) => cb(id || ''));
+  });
+  // podłączenie albo odłączenie w czasie wyboru: lista się odświeża
+  const zmiana = (typ, wc) => {
+    const z = biezacaZgoda;
+    if (!z || z.typ !== typ || (wc && z.wc !== wc)) return;
+    const lista = { usb: listyUrzadzen.usb, hid: listyUrzadzen.hid, serial: listyUrzadzen.serial }[typ];
+    if (lista) odswiezUrzadzenia(typ, z.wc, [...lista.values()]);
+  };
+  const listyUrzadzen = { usb: new Map(), hid: new Map(), serial: new Map() };
+  ses.on('select-usb-device', (e, d) => { listyUrzadzen.usb = new Map(d.deviceList.map(x => [x.deviceId, x])); });
+  ses.on('select-hid-device', (e, d) => { listyUrzadzen.hid = new Map(d.deviceList.map(x => [x.deviceId, x])); });
+  ses.on('select-serial-port', (e, l) => { listyUrzadzen.serial = new Map(l.map(x => [x.portId, x])); });
+  ses.on('usb-device-added', (e, d, wc) => { listyUrzadzen.usb.set(d.deviceId, d); zmiana('usb', wc); });
+  ses.on('usb-device-removed', (e, d, wc) => { listyUrzadzen.usb.delete(d.deviceId); zmiana('usb', wc); });
+  ses.on('hid-device-added', (e, d) => { listyUrzadzen.hid.set(d.device.deviceId, d.device); zmiana('hid', kartaZRamki(d.frame)); });
+  ses.on('hid-device-removed', (e, d) => { listyUrzadzen.hid.delete(d.device.deviceId); zmiana('hid', kartaZRamki(d.frame)); });
+  ses.on('serial-port-added', (e, p, wc) => { listyUrzadzen.serial.set(p.portId, p); zmiana('serial', wc); });
+  ses.on('serial-port-removed', (e, p, wc) => { listyUrzadzen.serial.delete(p.portId); zmiana('serial', wc); });
+
+  // urządzenie wybrane wcześniej („zawsze” albo „tylko teraz”): strona dostaje je bez pytania (getDevices)
+  ses.setDevicePermissionHandler((d) => {
+    const host = hostZ(d.origin);
+    const typ = d.deviceType;
+    const u = opisUrzadzenia(typ, d.device || {});
+    if (!u.klucz) return false;
+    const pasuje = (x) => toSamo(x, u.klucz);
+    return (zapisaneUrzadzenia()[host] || []).some(pasuje) || (urzadzeniaTeraz.get(host) || []).some(pasuje);
+  });
+}
+
+// Bluetooth: Chromium podaje kolejne znalezione urządzenia; wybór pokazuje się od razu i dopisuje nowe
+function bluetoothKarty(k) {
+  let czeka = null;
+  k.wc.on('select-bluetooth-device', (e, lista, cb) => {
+    e.preventDefault();
+    if (czeka) {
+      odswiezUrzadzenia('bluetooth', k.wc, lista);
+      czeka.cb = cb;
+      return;
+    }
+    czeka = { cb };
+    wybierzUrzadzenie('bluetooth', k.wc, lista, (id) => { const c = czeka; czeka = null; c.cb(id || ''); });
+  });
 }
 
 function uprawnienia(ses) {
@@ -1671,39 +1882,45 @@ function uprawnienia(ses) {
     const url = (szczegoly && szczegoly.requestingUrl) || (wc && wc.getURL()) || '';
     if (ZAWSZE.includes(uprawnienie)) return cb(true);
     if (nasza(url)) return cb(DLA_NASZYCH.includes(uprawnienie));
-    const opis = PYTAJ[uprawnienie];
-    if (!opis) return cb(false);
+    const klucze = kluczeZgody(uprawnienie, szczegoly);
+    if (!klucze) return cb(false);
     const host = hostZ(url);
-    const powiadomienia = uprawnienie === 'notifications';
-    if (powiadomienia && zgodaNaPowiadomienia(host) !== undefined) return cb(zgodaNaPowiadomienia(host));
-    const klucz = host + '|' + uprawnienie;
-    if (decyzje.has(klucz)) return cb(decyzje.get(klucz));
-    dialog.showMessageBox(win, {
-      type: 'question',
-      title: 'LivePL',
-      message: `Strona ${host} chce ${opis}.`,
-      detail: powiadomienia
-        ? 'Powiadomienia pokażą się na pasku u góry, a ikona strony po lewej zamiga. LivePL zapamięta tę decyzję. Zmienisz ją w menu ⋮ → Ustawienia → Powiadomienia stron.'
-        : 'Decyzja obowiązuje do zamknięcia programu.',
-      buttons: ['Zezwól', 'Nie zezwalaj'],
-      defaultId: 1,
-      cancelId: 1,
-      noLink: true
-    }).then(r => {
-      const zgoda = r.response === 0;
-      if (powiadomienia) ustawZgodeNaPowiadomienia(host, zgoda);
-      else decyzje.set(klucz, zgoda);
-      cb(zgoda);
-    }).catch(() => cb(false));
+    const k = wc && !wc.isDestroyed() ? kartaDla(wc) : null;
+    const stan = klucze.map(x => zgoda(host, x, k));
+    if (stan.some(x => x === false)) return cb(false);
+    if (stan.every(x => x === true)) return cb(true);
+    zapytajOZgode({ wc, host, klucze }).then(odp => {
+      if (odp === 'zawsze') {
+        for (const x of klucze) zapiszZgode(host, x, true);
+      } else if (odp === 'teraz' && k && karty.has(k.id)) {
+        k.zgodyTeraz = k.zgodyTeraz || new Set();
+        for (const x of klucze) k.zgodyTeraz.add(host + '|' + x);
+      } else if (odp === 'nie') {
+        for (const x of klucze) {
+          if (x === 'powiadomienia') zapiszZgode(host, x, false);
+          else decyzje.set(host + '|' + x, false);
+        }
+      }
+      cb(odp === 'zawsze' || odp === 'teraz');
+    });
   });
 
-  ses.setPermissionCheckHandler((wc, uprawnienie, origin) => {
+  ses.setPermissionCheckHandler((wc, uprawnienie, origin, szczegoly) => {
     if (ZAWSZE.includes(uprawnienie)) return true;
-    if (nasza(origin)) return !['hid', 'serial', 'usb'].includes(uprawnienie);
-    if (uprawnienie === 'notifications' && zgodaNaPowiadomienia(hostZ(origin)) !== undefined) return zgodaNaPowiadomienia(hostZ(origin));
-    const klucz = hostZ(origin) + '|' + uprawnienie;
+    if (['hid', 'serial', 'usb'].includes(uprawnienie)) return true;
+    if (nasza(origin)) return true;
+    const host = hostZ(origin);
+    const k = wc && !wc.isDestroyed() ? kartaDla(wc) : null;
+    if (uprawnienie === 'media') {
+      const typ = szczegoly && szczegoly.mediaType;
+      const klucze = typ === 'video' ? ['kamera'] : typ === 'audio' ? ['mikrofon'] : ['kamera', 'mikrofon'];
+      return klucze.some(x => zgoda(host, x, k) === true);
+    }
+    const klucze = kluczeZgody(uprawnienie, szczegoly);
+    if (klucze) return zgoda(host, klucze[0], k) === true;
+    const klucz = host + '|' + uprawnienie;
     if (decyzje.has(klucz)) return decyzje.get(klucz);
-    return !['notifications', 'media', 'geolocation', 'clipboard-read', 'display-capture', 'hid', 'serial', 'usb', 'midi', 'midiSysex'].includes(uprawnienie);
+    return uprawnienie !== 'display-capture';
   });
 
   ses.setDisplayMediaRequestHandler(wybierzEkran);
@@ -1827,7 +2044,16 @@ function danePanelu() {
       id: p.id, nazwa: p.nazwa, adres: p.adres,
       ikonka: bezpiecznaIkonka((karty.get(p.id) || {}).ikonka) || p.ikonka || ''
     })),
-    powiadomieniaStron: Object.entries(zgodyPowiadomien()).map(([host, zgoda]) => ({ host, zgoda: zgoda === true }))
+    uprawnieniaStron: [...new Set([...Object.keys(zapisaneZgody()), ...Object.keys(zapisaneUrzadzenia())])]
+      .map(host => {
+        const z = zapisaneZgody()[host] || {};
+        return {
+          host,
+          zgody: KLUCZE_ZGOD.filter(x => typeof z[x] === 'boolean').map(x => ({ klucz: x, zgoda: z[x] })),
+          urzadzenia: (zapisaneUrzadzenia()[host] || []).map(u => ({ typ: u.typ, nazwa: String(u.nazwa || TYPY_URZADZEN[u.typ] || '') }))
+        };
+      })
+      .filter(s => s.zgody.length || s.urzadzenia.length)
       .sort((a, b) => a.host.localeCompare(b.host)),
     programyLivePL: (() => {
       const schowane = new Set(schowaneProgramy());
@@ -1841,6 +2067,7 @@ function danePanelu() {
     urzadzenieTrwa: trwaRejestracja,
     zaufanieTrwa: trwaZaufanie,
     haslo: panelStan.haslo || null,
+    zgoda: panelStan.zgoda || null,
     haslaWybor: panelStan.haslaWybor || null,
     hasla: panelStan.rodzaj === 'menu' || panelStan.rodzaj === 'hasla'
       ? { wlaczone: ustawienia.hasla !== false, dostepne: hasla.dostepne(), ...(() => { try { return hasla.lista(); } catch { return { wpisy: [], nigdy: [] }; } })() }
@@ -1875,8 +2102,11 @@ function wyslijDoPanelu() {
 }
 
 function pokazPanel(rodzaj, kotwica, dodatki = {}) {
+  // inny panel w miejsce pytania o zgodę: strona dostaje „nie teraz” i może zapytać ponownie
+  const pytanie = rodzaj === 'zgoda' || rodzaj === 'urzadzenie';
+  if (biezacaZgoda && !pytanie) rozstrzygnijZgode(null);
   // drugie kliknięcie w ten sam przycisk zamyka panel
-  if (panelOstatni === rodzaj && Date.now() - panelZamkniety < 350 && !dodatki.kartaId) return;
+  if (!pytanie && panelOstatni === rodzaj && Date.now() - panelZamkniety < 350 && !dodatki.kartaId) return;
   if (!panel) utworzPanel();
   if (rodzaj === 'aktualizacja') aktualizacjaCzeka = false;
   panelStan = { rodzaj, kotwica, wys: 0, nr: ++panelNr, otwartyO: Date.now(), ...dodatki };
@@ -1915,6 +2145,7 @@ function ulozPanel() {
 
 function schowajPanel(oddajFokus) {
   if (!panel || !panelStan) return;
+  if ((panelStan.rodzaj === 'zgoda' || panelStan.rodzaj === 'urzadzenie') && biezacaZgoda) rozstrzygnijZgode(null);
   if (oczekujacyPodpis) {
     const p = oczekujacyPodpis;
     oczekujacyPodpis = null;
@@ -1980,6 +2211,17 @@ const ZOSTAW_OTWARTY = ['cert-osobisty-odswiez', 'zaufanie-odswiez', 'strona-dod
   'ai-poziom', 'ai-claude', 'ai-kopiuj-code', 'ai-kopiuj-mcp', 'wyjatek-usun', 'dns'];
 
 function akcjaPanelu(nazwa, arg) {
+  if (nazwa === 'zgoda-zawsze' || nazwa === 'zgoda-teraz' || nazwa === 'zgoda-nie') {
+    rozstrzygnijZgode(nazwa.slice(6));
+    schowajPanel(true);
+    return;
+  }
+  if (nazwa === 'urzadzenie-zawsze' || nazwa === 'urzadzenie-teraz' || nazwa === 'urzadzenie-anuluj') {
+    const id = arg && typeof arg.id === 'string' ? arg.id : '';
+    rozstrzygnijZgode(nazwa === 'urzadzenie-anuluj' || !id ? null : { na: nazwa.slice(11), id });
+    schowajPanel(true);
+    return;
+  }
   if (nazwa === 'podpis-tak' || nazwa === 'podpis-nie') {
     const p = oczekujacyPodpis;
     oczekujacyPodpis = null;
@@ -2119,12 +2361,19 @@ function akcjaPanelu(nazwa, arg) {
       if (panelStan && panelStan.rodzaj === 'program') schowajPanel(true);
       else if (panelStan) wyslijDoPanelu();
       break;
-    case 'powiadomienia-zapomnij':
-      if (typeof arg === 'string') ustawZgodeNaPowiadomienia(arg, null);
+    case 'uprawnienie-zapomnij':
+      if (arg && typeof arg.host === 'string' && typeof arg.klucz === 'string') zapiszZgode(arg.host, arg.klucz, null);
       if (panelStan) wyslijDoPanelu();
       break;
-    case 'powiadomienia-zmien':
-      if (typeof arg === 'string' && zgodaNaPowiadomienia(arg) !== undefined) ustawZgodeNaPowiadomienia(arg, !zgodaNaPowiadomienia(arg));
+    case 'urzadzenie-zapomnij':
+      if (arg && typeof arg.host === 'string' && Number.isInteger(arg.nr)) zapomnijUrzadzenie(arg.host, arg.nr);
+      if (panelStan) wyslijDoPanelu();
+      break;
+    case 'uprawnienie-zmien':
+      if (arg && typeof arg.host === 'string' && typeof arg.klucz === 'string') {
+        const z = zapisaneZgody()[arg.host];
+        if (z && typeof z[arg.klucz] === 'boolean') zapiszZgode(arg.host, arg.klucz, !z[arg.klucz]);
+      }
       if (panelStan) wyslijDoPanelu();
       break;
     case 'program-pokaz':
@@ -2768,13 +3017,21 @@ ipcMain.handle('ca-admin:podpisz', async (e, wyzwanie, odcisk) => {
   }
 });
 
+// strona pyta (preload-strona.js), czy ma zgodę na kamerę i mikrofon: bez niej nie wylicza urządzeń
+ipcMain.handle('strona:media-zgoda', (e) => {
+  const url = (e.senderFrame && e.senderFrame.url) || e.sender.getURL();
+  const host = hostZ(url);
+  const k = kartaDla(e.sender);
+  return nasza(url) || zgoda(host, 'kamera', k) === true || zgoda(host, 'mikrofon', k) === true;
+});
+
 // powiadomienie strony (np. nowa wiadomość w poczcie, na Facebooku) trafia też na pasek wiadomości, a ikona
 // karty miga. Nasze strony zawsze, inne tylko ze zgodą na powiadomienia (bez niej strona nie może ich pokazać).
 ipcMain.on('strona:powiadomienie', (e, tytul, tresc) => {
   const k = kartaDla(e.sender);
   if (!k) return;
   const url = k.wc.getURL();
-  if (!nasza(url) && zgodaNaPowiadomienia(hostZ(url)) !== true) return;
+  if (!nasza(url) && zgoda(hostZ(url), 'powiadomienia', k) !== true) return;
   const opis = [tytul, tresc].map(x => String(x || '').trim()).filter(Boolean).join(', ');
   if (!opis) return;
   // ta sama treść z tej samej karty w ciągu 10 s to powtórzenie (np. dwa okna tej samej rozmowy)
@@ -2854,6 +3111,7 @@ app.on('web-contents-created', (e, wc) => {
 
 app.whenReady().then(() => {
   wczytajUstawienia();
+  zapisaneZgody(); // zgody na powiadomienia z 0.1.23–0.1.25 przechodzą do Uprawnień stron
   zastosujMotyw();
   // po uśpieniu komputera od razu sprawdzamy, czy nie minął wschód albo zachód słońca
   require('electron').powerMonitor.on('resume', odswiezMotyw);
@@ -2878,6 +3136,7 @@ app.whenReady().then(() => {
   // tłumacz stron: osobny skrypt w odizolowanym świecie każdej strony (obok preload-strona.js)
   ses.registerPreloadScript({ type: 'frame', id: 'livepl-tlumacz', filePath: path.join(__dirname, 'preload-tlumacz.js') });
   uprawnienia(ses);
+  urzadzeniaStron(ses);
   // zainstalowane dodatki LivePL (np. Rozszerzenia Chrome): tylko te, które ktoś sam dograł, z poprawnym podpisem
   dodatki.start({ sesja: ses }).then(() => { if (panelStan) wyslijDoPanelu(); });
   obslugaPobierania(ses);

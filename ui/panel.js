@@ -173,7 +173,7 @@ function ekranUstawienia() {
   f.appendChild(poz('ai', 'Dostęp dla AI (Claude i inne)', { dalej: true, klik: () => { ekran = 'ai'; rysuj(); } }));
   f.appendChild(poz('tlumacz', 'Tłumacz stron', { dalej: true, klik: () => { ekran = 'tlumacz-ustawienia'; rysuj(); } }));
   f.appendChild(poz('kod', 'Wtyczki', { dalej: true, klik: () => { ekran = 'wtyczki'; rysuj(); P.akcja('wtyczki-sprawdz'); } }));
-  f.appendChild(poz('dzwonek', 'Powiadomienia stron', { dalej: true, klik: () => { ekran = 'powiadomienia'; rysuj(); } }));
+  f.appendChild(poz('kamera', 'Uprawnienia stron', { dalej: true, klik: () => { ekran = 'uprawnienia'; rysuj(); } }));
   // tylko z zainstalowanym dodatkiem Rozszerzenia Chrome (domyślny LivePL go nie ma)
   if (D.rozszerzenia) f.appendChild(poz('plus', 'Rozszerzenia Chrome', { dalej: true, klik: () => { ekran = 'rozszerzenia'; rysuj(); } }));
   f.appendChild(poz('przywroc', 'Uruchom LivePL ponownie', { akcja: 'restart' }));
@@ -235,27 +235,43 @@ function ekranWtyczki() {
 // dawny ekran „Dodatki” jest teraz częścią „Wtyczek”
 const ekranDodatki = () => { ekran = 'wtyczki'; return ekranWtyczki(); };
 
-// ustawienia → Powiadomienia stron: zapamiętane zgody (np. Facebook, WhatsApp); nasze strony zawsze mogą
-function ekranPowiadomienia() {
+// ustawienia → Uprawnienia stron: zgody „Zezwól zawsze” i zablokowane powiadomienia
+function ekranUprawnienia() {
   const f = document.createDocumentFragment();
-  f.appendChild(naglowek('Powiadomienia stron', 'ustawienia'));
-  f.appendChild(el('div', 'opis', 'Strony, którym pozwolisz, pokazują powiadomienia na pasku u góry, a ich ikona po lewej miga, aż ją otworzysz. Liczba nieprzeczytanych z tytułu strony, np. „(3) Facebook”, pokazuje się zawsze. Programy Live Production mają zgodę od razu.'));
-  const lista = D.powiadomieniaStron || [];
-  if (!lista.length) f.appendChild(el('div', 'opis slaby-maly', 'Żadna strona jeszcze nie pytała. Gdy zapyta, LivePL zapamięta Twoją odpowiedź i pokaże ją tutaj.'));
+  f.appendChild(naglowek('Uprawnienia stron', 'ustawienia'));
+  f.appendChild(el('div', 'opis', 'Strony, którym pozwoliłeś na stałe (kamera, mikrofon, powiadomienia, położenie, urządzenia USB…). Zgody „Tylko teraz” działają do wyjścia ze strony i tu ich nie ma. Programy Live Production mają zgodę od razu.'));
+  const lista = D.uprawnieniaStron || [];
+  if (!lista.length) f.appendChild(el('div', 'opis slaby-maly', 'Nie ma jeszcze zapisanych zgód. Gdy strona zapyta, a wybierzesz „Zezwól zawsze”, pokaże się tutaj.'));
   for (const s of lista) {
-    const w = el('div', 'wiersz strona-wiersz');
-    const opis = el('div', 'strona-opis');
-    opis.append(el('div', 'pole-nazwa-tekst', s.host), el('div', 'strona-adres', s.zgoda ? 'Może pokazywać powiadomienia' : 'Nie może pokazywać powiadomień'));
-    const zmien = el('button', 'maly'); zmien.type = 'button';
-    zmien.title = s.zgoda ? 'Nie zezwalaj' : 'Zezwól';
-    zmien.appendChild(ikonaEl(s.zgoda ? 'zamknij' : 'znacznik'));
-    zmien.addEventListener('click', () => P.akcja('powiadomienia-zmien', s.host));
-    const usun = el('button', 'maly'); usun.type = 'button';
-    usun.title = 'Zapomnij (strona zapyta ponownie)';
-    usun.appendChild(ikonaEl('kosz'));
-    usun.addEventListener('click', () => P.akcja('powiadomienia-zapomnij', s.host));
-    w.append(opis, zmien, usun);
-    f.appendChild(w);
+    f.appendChild(kreska());
+    f.appendChild(el('div', 'opis pole-nazwa-tekst', s.host));
+    for (const z of s.zgody) {
+      const [ik, nazwa] = ZGODY[z.klucz] || ['uwaga', z.klucz];
+      const w = el('div', 'wiersz strona-wiersz');
+      const opis = el('div', 'strona-opis');
+      opis.append(el('div', 'pole-nazwa-tekst', nazwa), el('div', 'strona-adres', z.zgoda ? 'Zezwolono' : 'Zablokowano'));
+      const zmien = el('button', 'maly'); zmien.type = 'button';
+      zmien.title = z.zgoda ? 'Zablokuj' : 'Zezwól';
+      zmien.appendChild(ikonaEl(z.zgoda ? 'zamknij' : 'znacznik'));
+      zmien.addEventListener('click', () => P.akcja('uprawnienie-zmien', { host: s.host, klucz: z.klucz }));
+      const usun = el('button', 'maly'); usun.type = 'button';
+      usun.title = 'Zapomnij (strona zapyta ponownie)';
+      usun.appendChild(ikonaEl('kosz'));
+      usun.addEventListener('click', () => P.akcja('uprawnienie-zapomnij', { host: s.host, klucz: z.klucz }));
+      w.append(ikonaEl(ik), opis, zmien, usun);
+      f.appendChild(w);
+    }
+    (s.urzadzenia || []).forEach((u, nr) => {
+      const w = el('div', 'wiersz strona-wiersz');
+      const opis = el('div', 'strona-opis');
+      opis.append(el('div', 'pole-nazwa-tekst', u.nazwa), el('div', 'strona-adres', 'Urządzenie ' + ({ usb: 'USB', hid: 'HID', serial: 'na porcie COM' }[u.typ] || '') + ', połączenie zawsze'));
+      const usun = el('button', 'maly'); usun.type = 'button';
+      usun.title = 'Zapomnij urządzenie (strona zapyta ponownie)';
+      usun.appendChild(ikonaEl('kosz'));
+      usun.addEventListener('click', () => P.akcja('urzadzenie-zapomnij', { host: s.host, nr }));
+      w.append(ikonaEl('usb'), opis, usun);
+      f.appendChild(w);
+    });
   }
   return f;
 }
@@ -913,6 +929,102 @@ function ekranCertyfikatWin() {
   return f;
 }
 
+// zgody stron: ikona, nazwa w Ustawieniach i treść prośby w okienku
+const ZGODY = {
+  kamera: ['kamera', 'Kamera', 'Używać kamery'],
+  mikrofon: ['mikrofon', 'Mikrofon', 'Używać mikrofonu'],
+  powiadomienia: ['dzwonek', 'Powiadomienia', 'Pokazywać powiadomienia'],
+  polozenie: ['miejsce', 'Położenie', 'Znać położenie tego komputera'],
+  schowek: ['kopiuj', 'Schowek', 'Odczytywać schowek'],
+  midi: ['muzyka', 'Urządzenia MIDI', 'Używać urządzeń MIDI (instrumenty, kontrolery)']
+};
+
+// strona prosi o zgodę (src/main.js, zapytajOZgode): „Zezwól zawsze”, „Tylko teraz”, „Nie zezwalaj”
+function ekranZgoda() {
+  const f = document.createDocumentFragment();
+  const z = D.zgoda;
+  if (!z) return f;
+  const n = el('div', 'ssl-naglowek');
+  n.append(ikonaEl('tarcza'), el('span', '', z.host + ' chce:'));
+  f.appendChild(n);
+  for (const klucz of z.klucze || []) {
+    const [ik, , prosba] = ZGODY[klucz] || ['uwaga', klucz, klucz];
+    const w = el('div', 'wiersz zgoda-wiersz');
+    w.append(ikonaEl(ik), el('span', 'tekst', prosba));
+    f.appendChild(w);
+  }
+  const media = (z.klucze || []).some((x) => x === 'kamera' || x === 'mikrofon');
+  const tylkoPowiadomienia = (z.klucze || []).every((x) => x === 'powiadomienia');
+  if (media) {
+    f.appendChild(el('div', 'opis', 'Strona dostanie obraz albo dźwięk tylko po Twojej zgodzie.'));
+    f.appendChild(el('div', 'opis slaby-maly', 'Po zgodzie antywirus (np. Norton) może jeszcze zapytać, czy LivePL.exe może używać kamery lub mikrofonu. Wtedy też wybierz „Zezwól”.'));
+  } else if (tylkoPowiadomienia) {
+    f.appendChild(el('div', 'opis', 'Powiadomienia pokażą się na pasku u góry, a ikona strony zamiga.'));
+  }
+  f.appendChild(el('div', 'opis slaby-maly', tylkoPowiadomienia
+    ? 'LivePL zapamięta wybór. Zmienisz go w menu ⋮ → Ustawienia → Uprawnienia stron.'
+    : '„Tylko teraz” działa do wyjścia z tej strony. „Zezwól zawsze” zmienisz w menu ⋮ → Ustawienia → Uprawnienia stron.'));
+  const p = el('div', 'przyciski');
+  const zawsze = el('button', 'przycisk czerwony', tylkoPowiadomienia ? 'Zezwól' : 'Zezwól zawsze'); zawsze.type = 'button';
+  zawsze.addEventListener('click', () => P.akcja('zgoda-zawsze'));
+  p.appendChild(zawsze);
+  if (!tylkoPowiadomienia) {
+    const teraz = el('button', 'przycisk', 'Tylko teraz'); teraz.type = 'button';
+    teraz.addEventListener('click', () => P.akcja('zgoda-teraz'));
+    p.appendChild(teraz);
+  }
+  const nie = el('button', 'przycisk tekstowy', 'Nie zezwalaj'); nie.type = 'button';
+  nie.addEventListener('click', () => P.akcja('zgoda-nie'));
+  p.appendChild(nie);
+  f.appendChild(p);
+  // Enter przez przypadek nie daje zgody
+  setTimeout(() => nie.focus(), 50);
+  return f;
+}
+
+// strona chce połączyć się z urządzeniem (USB, HID, port COM, Bluetooth): wybór z listy
+let wybraneUrzadzenie = '';
+function ekranUrzadzenie() {
+  const f = document.createDocumentFragment();
+  const z = D.zgoda;
+  if (!z) return f;
+  const n = el('div', 'ssl-naglowek');
+  n.append(ikonaEl('tarcza'), el('span', '', z.host + ' chce połączyć się z urządzeniem ' + z.nazwaTypu + ':'));
+  f.appendChild(n);
+  const lista = z.urzadzenia || [];
+  if (!lista.some((u) => u.id === wybraneUrzadzenie)) wybraneUrzadzenie = lista.length === 1 ? lista[0].id : '';
+  if (!lista.length) {
+    f.appendChild(el('div', 'opis', z.typ === 'bluetooth' ? 'Szukam urządzeń Bluetooth… Włącz urządzenie i ustaw je blisko komputera.' : 'Nie widzę żadnego pasującego urządzenia. Podłącz je, a pojawi się tutaj.'));
+  }
+  for (const u of lista) {
+    const b = el('button', 'poz urzadzenie-wiersz' + (u.id === wybraneUrzadzenie ? ' wybrane' : ''));
+    b.type = 'button';
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-checked', String(u.id === wybraneUrzadzenie));
+    const t = el('span', 'tekst');
+    t.append(el('b', '', u.nazwa), el('small', '', u.opis || ''));
+    b.append(ikonaEl(z.typ === 'bluetooth' ? 'bluetooth' : 'usb'), t);
+    b.addEventListener('click', () => { wybraneUrzadzenie = u.id; rysuj(); });
+    f.appendChild(b);
+  }
+  f.appendChild(el('div', 'opis slaby-maly', z.typ === 'bluetooth'
+    ? 'Strona dostanie tylko wybrane urządzenie, do zamknięcia LivePL.'
+    : 'Strona dostanie tylko wybrane urządzenie. „Tylko teraz” działa do zamknięcia LivePL. „Połącz zawsze” zmienisz w menu ⋮ → Ustawienia → Uprawnienia stron.'));
+  const p = el('div', 'przyciski');
+  const zawsze = el('button', 'przycisk czerwony', 'Połącz zawsze'); zawsze.type = 'button';
+  zawsze.disabled = !wybraneUrzadzenie || z.typ === 'bluetooth';
+  zawsze.addEventListener('click', () => P.akcja('urzadzenie-zawsze', { id: wybraneUrzadzenie }));
+  const teraz = el('button', 'przycisk', z.typ === 'bluetooth' ? 'Połącz' : 'Tylko teraz'); teraz.type = 'button';
+  teraz.disabled = !wybraneUrzadzenie;
+  teraz.addEventListener('click', () => P.akcja('urzadzenie-teraz', { id: wybraneUrzadzenie }));
+  const nie = el('button', 'przycisk tekstowy', 'Anuluj'); nie.type = 'button';
+  nie.addEventListener('click', () => P.akcja('urzadzenie-anuluj'));
+  if (z.typ !== 'bluetooth') p.append(zawsze);
+  p.append(teraz, nie);
+  f.appendChild(p);
+  return f;
+}
+
 // po zalogowaniu na stronie: zapamiętać hasło?
 function ekranHaslo() {
   const f = document.createDocumentFragment();
@@ -1367,7 +1479,10 @@ function rysuj() {
     menu: ekranMenu,
     ustawienia: ekranUstawienia,
     wtyczki: ekranWtyczki,
-    powiadomienia: ekranPowiadomienia,
+    zgoda: ekranZgoda,
+    urzadzenie: ekranUrzadzenie,
+    uprawnienia: ekranUprawnienia,
+    powiadomienia: ekranUprawnienia,
     rozszerzenia: ekranRozszerzenia,
     dodatki: ekranDodatki,
     wyloguj: ekranWyloguj,

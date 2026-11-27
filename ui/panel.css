@@ -318,6 +318,14 @@ button {
 .strona-opis { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .strona-opis .pole-nazwa { height: 26px; border-color: transparent; padding: 0 6px; margin-left: -6px; font-weight: 600; }
 .strona-opis .pole-nazwa:hover { border-color: var(--ramka); }
+.zgoda-wiersz { height: 30px; }
+.urzadzenie-wiersz { height: auto; min-height: 40px; padding-top: 4px; padding-bottom: 4px; border-radius: 6px; }
+.urzadzenie-wiersz .tekst { display: flex; flex-direction: column; gap: 1px; }
+.urzadzenie-wiersz .tekst small { color: var(--slaby); font-size: 11px; }
+.urzadzenie-wiersz.wybrane { background: var(--hover); box-shadow: inset 0 0 0 1.5px var(--czerwony); }
+.przycisk:disabled { opacity: 0.45; cursor: default; }
+.zgoda-wiersz .ik { width: 18px; height: 18px; color: var(--tekst); }
+.zgoda-wiersz .tekst { color: var(--tekst); font-weight: 500; }
 .pole-nazwa-tekst { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .strona-adres { color: var(--slaby); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .usun-strone { flex: none; }

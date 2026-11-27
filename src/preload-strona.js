@@ -5,7 +5,8 @@ const { contextBridge, ipcRenderer, webFrame } = require('electron');
 
 contextBridge.exposeInMainWorld('__livepl', {
   pokaz: () => ipcRenderer.send('strona:pokaz'),
-  powiadomienie: (tytul, tresc) => ipcRenderer.send('strona:powiadomienie', String(tytul || '').slice(0, 200), String(tresc || '').slice(0, 300))
+  powiadomienie: (tytul, tresc) => ipcRenderer.send('strona:powiadomienie', String(tytul || '').slice(0, 200), String(tresc || '').slice(0, 300)),
+  mediaZgoda: () => ipcRenderer.invoke('strona:media-zgoda')
 });
 
 // strona nowej karty LivePL (plik ui/nowa.html): dodawanie strony na pasek
@@ -130,4 +131,58 @@ webFrame.executeJavaScript(`(() => {
   Powiadomienie.requestPermission = (...a) => N.requestPermission(...a);
   Powiadomienie.__livepl = true;
   window.Notification = Powiadomienie;
+})();`).catch(() => {});
+
+// Kamera i mikrofon: strona bez zgody nie wylicza urządzeń. Skrypty zabezpieczające banków i czaty (Messenger)
+// wołają enumerateDevices() i nasłuchują 'devicechange' już przy wejściu na stronę, a wtedy LivePL sięga po
+// sterowniki kamery i mikrofonu i Norton pyta, czy LivePL.exe może ich używać (klient Karola, 27.11).
+// Bez zgody strona dostaje listę zastępczą (po jednym urządzeniu każdego rodzaju, bez nazw, jak Safari
+// i Firefox), więc dalej widzi, że może poprosić o kamerę. Prośba (getUserMedia) idzie jak dotąd przez okienko
+// LivePL; po zgodzie lista i 'devicechange' działają normalnie. Działa w głównej ramce strony.
+webFrame.executeJavaScript(`(() => {
+  const md = navigator.mediaDevices;
+  if (!md || md.__livepl) return;
+  Object.defineProperty(md, '__livepl', { value: true });
+  const lista = md.enumerateDevices.bind(md);
+  const dodaj = md.addEventListener.bind(md);
+  const usun = md.removeEventListener.bind(md);
+  const gum = md.getUserMedia ? md.getUserMedia.bind(md) : null;
+  let zgoda = false;
+  const maZgode = async () => {
+    if (!zgoda) { try { zgoda = (await window.__livepl.mediaZgoda()) === true; } catch (e) { zgoda = false; } }
+    return zgoda;
+  };
+  const zastepcza = () => ['audioinput', 'videoinput', 'audiooutput'].map((kind) => {
+    const d = { deviceId: '', kind, label: '', groupId: '' };
+    return Object.assign({ toJSON: () => d }, d);
+  });
+  const czekajace = [];
+  const wypusc = () => { for (const a of czekajace.splice(0)) dodaj(...a); };
+  md.enumerateDevices = async function () { return (await maZgode()) ? lista() : zastepcza(); };
+  md.addEventListener = function (typ, fn, opcje) {
+    if (typ !== 'devicechange') return dodaj(typ, fn, opcje);
+    maZgode().then((z) => { if (z) dodaj(typ, fn, opcje); else czekajace.push([typ, fn, opcje]); });
+  };
+  md.removeEventListener = function (typ, fn, opcje) {
+    if (typ === 'devicechange') {
+      const i = czekajace.findIndex((a) => a[1] === fn);
+      if (i >= 0) czekajace.splice(i, 1);
+    }
+    return usun(typ, fn, opcje);
+  };
+  let naZmiane = null;
+  const posrednik = (e) => { if (typeof naZmiane === 'function') naZmiane.call(md, e); };
+  Object.defineProperty(md, 'ondevicechange', {
+    configurable: true,
+    get: () => naZmiane,
+    set: (fn) => { const bylo = naZmiane; naZmiane = fn; if (!bylo && fn) md.addEventListener('devicechange', posrednik); }
+  });
+  if (gum) {
+    md.getUserMedia = async function (...a) {
+      const s = await gum(...a);
+      zgoda = true;
+      wypusc();
+      return s;
+    };
+  }
 })();`).catch(() => {});
