@@ -17,8 +17,11 @@ function wersja(katalog) {
   try { return JSON.parse(fs.readFileSync(path.join(katalog, 'package.json'), 'utf8')).version || null; } catch { return null; }
 }
 
+// Nakładka musi mieć cały program i kod dla Linuxa: paczka zbudowana ze starszego kodu (bez Linuxa)
+// nie zostanie wczytana, LivePL zostaje wtedy przy wbudowanych plikach.
 function kompletna(katalog) {
-  return !!wersja(katalog) && fs.existsSync(path.join(katalog, 'src', 'main.js')) && fs.existsSync(path.join(katalog, 'ui'));
+  return !!wersja(katalog) && ['src/main.js', 'src/start.js', 'src/linux.js', 'src/nakladka-linux.js', 'ui']
+    .every((p) => fs.existsSync(path.join(katalog, p)));
 }
 
 function skopiuj(zrodlo, cel) {

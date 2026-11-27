@@ -23,6 +23,7 @@ function program(katalog, v, tekst) {
   mkdirSync(join(katalog, 'assets'), { recursive: true });
   writeFileSync(join(katalog, 'package.json'), JSON.stringify({ name: 'przegladarka-livepl', version: v }));
   writeFileSync(join(katalog, 'src', 'main.js'), `// ${tekst}\n`);
+  for (const f of ['start.js', 'linux.js', 'nakladka-linux.js']) writeFileSync(join(katalog, 'src', f), '// ' + f);
   writeFileSync(join(katalog, 'ui', 'powloka.html'), tekst);
   writeFileSync(join(katalog, 'assets', 'ikona.txt'), 'ikona ' + v);
 }
@@ -101,6 +102,14 @@ pobrana(dane, '0.1.32', 'zła 0.1.32');
 writeFileSync(join(dane, 'aktualizacja', 'gotowa', 'gotowa.json'), JSON.stringify({ wersja: '0.1.32', pliki: ['../../../.bashrc'] }));
 s = start(wbud, dane);
 ok('zła paczka: odrzucona', !s.podmieniono && s.katalog === wbud && !existsSync(nakl));
+
+// 10. paczka ze starszego kodu (bez Linuxa): nie wczytujemy jej, zostają wbudowane pliki
+// (paczka podmienia cały folder src, więc w nakładce zniknąłby kod dla Linuxa)
+pobrana(dane, '0.1.33', 'bez linuxa 0.1.33');
+rmSync(join(dane, 'aktualizacja', 'gotowa', 'pliki', 'src', 'linux.js'));
+rmSync(join(dane, 'aktualizacja', 'gotowa', 'pliki', 'src', 'nakladka-linux.js'));
+s = start(wbud, dane);
+ok('paczka bez Linuxa: wbudowane pliki', s.katalog === wbud && !existsSync(nakl), s.katalog);
 
 rmSync(tmp, { recursive: true, force: true });
 console.log(bledy ? `\n${bledy} BŁĘDÓW` : '\nWszystko OK');
