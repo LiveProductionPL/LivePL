@@ -33,6 +33,9 @@ const ID_APLIKACJI = 'pl.livepl.przegladarka';
 // macOS: Dock zamiast zasobnika, menu Maca, przyciski okna po lewej; część funkcji jest tylko w Windows
 const MAC = process.platform === 'darwin';
 const WIN = process.platform === 'win32';
+// Linux: zasobnik i przyciski okna jak w Windows; autostart, ikony i aktualizacje po swojemu (linux.js, nakladka-linux.js)
+const LINUX = process.platform === 'linux';
+const linux = require('./linux');
 // przyciski okna Maca (zamknij, minimalizuj, pełny ekran) w lewym górnym rogu, nad logo w pasku bocznym
 const PRZYCISKI_MACA = { x: 10, y: 14 };
 // Układ „Reżyserka”: kanały po lewej, strona jak monitor w ramce, pasek wiadomości na dole.
@@ -46,8 +49,10 @@ const ZAOKRAGLENIE = 10;
 const KATALOG = path.join(__dirname, '..');
 const UI = path.join(KATALOG, 'ui');
 // czerwona wstęga na jasne tła, biała wstęga z czerwonymi falami na ciemne
-const IKONA_JASNA = path.join(KATALOG, 'assets', 'wstega-jasna.ico');
-const IKONA_CIEMNA = path.join(KATALOG, 'assets', 'wstega-ciemna.ico');
+// (Linux nie czyta plików .ico: tam PNG, a oknu ikona programu jak w menu programów)
+const IKONA_JASNA = LINUX ? path.join(KATALOG, 'assets', 'linux', 'zasobnik-jasna.png') : path.join(KATALOG, 'assets', 'wstega-jasna.ico');
+const IKONA_CIEMNA = LINUX ? path.join(KATALOG, 'assets', 'linux', 'zasobnik-ciemna.png') : path.join(KATALOG, 'assets', 'wstega-ciemna.ico');
+const IKONA_OKNA_LINUX = path.join(KATALOG, 'assets', 'linux', 'livepl-256.png');
 let IKONA = IKONA_JASNA;
 const PARTYCJA = 'persist:livepl';
 const KOLORY = {
@@ -1296,7 +1301,7 @@ function podepnij(k) {
       return {
         action: 'allow',
         overrideBrowserWindowOptions: {
-          icon: IKONA,
+          icon: LINUX ? IKONA_OKNA_LINUX : IKONA,
           autoHideMenuBar: true,
           backgroundColor: TLO_WWW, // okienko strony (wydruk, logowanie): jak karta WWW
           webPreferences: { partition: PARTYCJA, sandbox: true, contextIsolation: true, plugins: true }
@@ -1952,7 +1957,7 @@ async function wybierzEkran(zadanie, callback) {
     minimizable: false,
     maximizable: false,
     title: 'Udostępnij ekran',
-    icon: IKONA,
+    icon: LINUX ? IKONA_OKNA_LINUX : IKONA,
     autoHideMenuBar: true,
     backgroundColor: kolory().tlo,
     show: false,
@@ -2193,7 +2198,7 @@ function otworzOknoLicencji() {
     minWidth: 460,
     minHeight: 320,
     title: 'Licencje i podziękowania',
-    icon: IKONA,
+    icon: LINUX ? IKONA_OKNA_LINUX : IKONA,
     autoHideMenuBar: true,
     minimizable: false,
     backgroundColor: kolory().strona,
@@ -2493,6 +2498,7 @@ function argumentyAutostartu() {
 
 function czyAutostart() {
   try {
+    if (LINUX) return linux.czyAutostart();
     if (MAC) return app.getLoginItemSettings().openAtLogin;
     return app.getLoginItemSettings({ path: process.execPath, args: argumentyAutostartu() }).openAtLogin;
   } catch {
@@ -2501,6 +2507,7 @@ function czyAutostart() {
 }
 
 function ustawAutostart(wl) {
+  if (LINUX) return linux.ustawAutostart(wl, ['--w-tle']);
   if (MAC) app.setLoginItemSettings({ openAtLogin: wl });
   else app.setLoginItemSettings({ openAtLogin: wl, path: process.execPath, args: argumentyAutostartu() });
 }
@@ -2551,7 +2558,8 @@ function pokazCzekajacaAktualizacje() {
 // po „Uruchom ponownie” startował schowany przy zegarze (zgłoszenie Karola 24.11, 0.1.20).
 // Podmiana plików w start.js zostawia argumenty: start z logowania Windows dalej zostaje w tle.
 function uruchomPonownie() {
-  app.relaunch({ args: process.argv.slice(1).filter(a => a !== '--w-tle') });
+  // AppImage: pliki programu znikają razem z procesem, więc uruchamiamy sam plik AppImage
+  app.relaunch({ ...(process.env.APPIMAGE ? { execPath: process.env.APPIMAGE } : {}), args: process.argv.slice(1).filter(a => a !== '--w-tle') });
   wychodzimy = true;
   app.quit();
 }
@@ -2562,12 +2570,18 @@ function zakoncz() {
 }
 
 let ostatniTooltip = '';
+let ostatniaLiczbaLinux = -1;
 let ostatnieMenuZasobnika = '';
 
 function odswiezZasobnik() {
   if (MAC) return odswiezDock();
   if (!tray) return;
   const suma = programy.reduce((s, p) => s + ((karty.get(p.id) || {}).licznik || 0), 0);
+  // Linux: liczba na ikonie w doku (Ubuntu, KDE; działa przez wpis livepl.desktop)
+  if (LINUX && suma !== ostatniaLiczbaLinux) {
+    ostatniaLiczbaLinux = suma;
+    try { app.setBadgeCount(suma); } catch { /* dok bez liczników */ }
+  }
   const tooltip = suma ? `LivePL – nieprzeczytane: ${suma}` : 'LivePL';
   if (tooltip !== ostatniTooltip) {
     tray.setToolTip(tooltip);
@@ -2638,7 +2652,16 @@ function odswiezSkrot() {
   } catch { /* skrót przeniesiony albo bez dostępu */ }
 }
 
+// Linux: pasek GNOME (Ubuntu) jest zawsze ciemny; w innych pulpitach idziemy za trybem systemu
+function pasekLinuxaCiemny() {
+  return /GNOME|ubuntu|Unity|Pantheon/i.test(process.env.XDG_CURRENT_DESKTOP || '') || nativeTheme.shouldUseDarkColors;
+}
+
 function ikonyWedlugTrybuOdRazu() {
+  if (LINUX) {
+    IKONA = pasekLinuxaCiemny() ? IKONA_CIEMNA : IKONA_JASNA;
+    return;
+  }
   if (!WIN) return;
   try {
     const wynik = execFileSync('reg', ['query', KLUCZ_MOTYWU, '/v', 'SystemUsesLightTheme'], { windowsHide: true, encoding: 'utf8' });
@@ -2649,6 +2672,14 @@ function ikonyWedlugTrybuOdRazu() {
 }
 
 function ikonyWedlugTrybu() {
+  if (LINUX) {
+    const nowa = pasekLinuxaCiemny() ? IKONA_CIEMNA : IKONA_JASNA;
+    if (nowa !== IKONA) {
+      IKONA = nowa;
+      if (tray) tray.setImage(nativeImage.createFromPath(IKONA));
+    }
+    return;
+  }
   if (!WIN) return;
   execFile('reg', ['query', KLUCZ_MOTYWU, '/v', 'SystemUsesLightTheme'], { windowsHide: true }, (blad, wynik) => {
     ustawIkony(blad ? nativeTheme.shouldUseDarkColors : czyPasekCiemny(wynik));
@@ -2691,7 +2722,7 @@ function utworzOkno() {
     minHeight: 480,
     show: false,
     title: 'LivePL',
-    icon: IKONA,
+    icon: LINUX ? IKONA_OKNA_LINUX : IKONA,
     backgroundColor: kol.tlo,
     titleBarStyle: 'hidden',
     ...(MAC
@@ -2748,7 +2779,15 @@ function utworzOkno() {
     if (!wychodzimy && ustawienia.chowajDoZasobnika) {
       e.preventDefault();
       win.hide();
-      if (!ustawienia.dymekZasobnika && tray) {
+      if (!ustawienia.dymekZasobnika && tray && LINUX) {
+        // Linux nie ma dymków przy ikonie: zwykłe powiadomienie systemu
+        const { Notification } = require('electron');
+        if (Notification.isSupported()) {
+          new Notification({ title: 'LivePL działa dalej', body: 'Poczta sprawdza nowe wiadomości w tle. Okno otworzysz ikoną LivePL na górnym pasku albo w menu programów.', icon: IKONA_OKNA_LINUX }).show();
+        }
+        ustawienia.dymekZasobnika = true;
+        zapiszUstawienia();
+      } else if (!ustawienia.dymekZasobnika && tray) {
         tray.displayBalloon({
           iconType: 'info',
           title: 'LivePL działa dalej',
@@ -3295,6 +3334,9 @@ app.whenReady().then(() => {
   programyUkryte = wszystkieProgramy.filter(p => p.ukryty);
   zaufaneHosty = [...new Set(wszystkieProgramy.map(p => p.host))];
   zbudujProgramy();
+
+  // Linux z pliku AppImage: wpis w menu programów i typ pliku wtyczki (pakiet .deb ma je z instalacji)
+  linux.integrujAppImage();
 
   // YubiKey włożony: na pasku pojawia się Urząd (cert.livepl.eu); wyjęty: znika (chyba że karta jest otwarta)
   yubikey.obserwuj((jest) => {

@@ -6,6 +6,8 @@
 const api = window.livepl;
 // macOS: skróty z ⌘ zamiast Ctrl (LivePL na Macu przyjmuje oba, a pokazuje te z Maca)
 const NA_MACU = /Mac/.test(navigator.platform);
+// „w dzień jak Windows” / „jak macOS” / „jak Linux” w opisie trybu automatycznego
+const SYSTEM = NA_MACU ? 'macOS' : /Linux/.test(navigator.platform) ? 'Linux' : 'Windows';
 const klaw = (t) => (NA_MACU ? String(t)
   .replace(/Ctrl\+Shift\+/g, '⇧⌘').replace(/Ctrl\s?\+\s?/g, '⌘').replace(/Ctrl /g, '⌘ ')
   .replace(/\(F5\)/g, '(⌘R)').replace(/Alt\+/g, '⌥').replace(/^F12$/, '⇧⌘I') : t);
@@ -850,8 +852,8 @@ function rysujMotyw() {
   const noc = S && S.motywNoc;
   let opis = MOTYWY[m].nazwa;
   if (m === 'auto') {
-    opis += noc ? `, noc od zachodu do wschodu słońca (${noc.od}–${noc.do}), w dzień jak Windows`
-      : ', noc od zachodu do wschodu słońca, w dzień jak Windows';
+    opis += noc ? `, noc od zachodu do wschodu słońca (${noc.od}–${noc.do}), w dzień jak ${SYSTEM}`
+      : `, noc od zachodu do wschodu słońca, w dzień jak ${SYSTEM}`;
   }
   const tytul = 'Tryb: ' + opis + '. Kliknij: ' + MOTYWY[MOTYWY[m].dalej].nazwa;
   if (m + tytul === narysowanyMotyw) return;

@@ -1,0 +1,10 @@
+# LivePL (pakiet .deb): pozwala piaskownicy Chromium tworzyć przestrzenie nazw użytkownika na Ubuntu 23.10+.
+# Tak samo robią Chrome, Firefox i VS Code. Profil nie ogranicza programu (unconfined), tylko dodaje „userns”.
+abi <abi/4.0>,
+include <tunables/global>
+
+profile livepl /opt/LivePL/livepl flags=(unconfined) {
+  userns,
+
+  include if exists <local/livepl>
+}

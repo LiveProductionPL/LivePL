@@ -302,6 +302,32 @@ Buduje go Mac na GitHubie (`.github/workflows/mac.yml`, gałąź `mac`): `npm ru
   nic nie proponuje.
 - Ikona: `python narzedzia/mac/ikona.py` robi `assets/mac/LivePL.icns` z `assets/mac/wstega-1024.png`.
 
+## LivePL na Linuxa
+
+Ten sam program na 64-bitowe komputery z Linuxem (Intel/AMD) w dwóch postaciach:
+- `livepl_<wersja>_amd64.deb`: pakiet dla Ubuntu, Debiana i Minta. Program w `/opt/LivePL`, polecenie `livepl`, wpis w menu
+  programów, typ pliku `.livepl-dodatek` i profil AppArmor (bez niego Ubuntu 23.10+ nie pozwala włączyć piaskownicy Chromium).
+- `LivePL-<wersja>-x86_64.AppImage`: jeden plik dla każdego Linuxa (nadaj prawo uruchamiania i kliknij). Przy pierwszym
+  starcie dopisuje się do menu programów w `~/.local/share`. Na Ubuntu 23.10+ AppImage nie może mieć profilu AppArmor,
+  więc zamiast przeglądarki bez piaskownicy pokazuje tylko okienko z prośbą o pakiet `.deb`.
+
+Buduje go Ubuntu na GitHubie (`.github/workflows/linux.yml`, gałąź `linux`): `npm run linux` (tylko na Linuxie, potrzebne
+`dpkg-deb`, `mksquashfs` i środowisko AppImage `type2-runtime` ze sprawdzaną sumą). Ten sam przebieg instaluje pakiet,
+uruchamia LivePL z pakietu i z pliku AppImage i robi zrzuty ekranu (artefakt `livepl-linux-proba-<wersja>`).
+
+- Aktualizacje: te same podpisane paczki co w Windows. Pliki programu w AppImage są tylko do odczytu, a w `/opt` należą
+  do administratora, więc nowa wersja trafia do `~/.config/LivePL/program` (`src/nakladka-linux.js`), a `start.js` wczytuje ją
+  stamtąd, gdy jest nowsza od wbudowanej. Nowszy AppImage/.deb wygrywa i stara nakładka znika. Nowy plik AppImage/.deb
+  jest potrzebny tylko przy nowym silniku (`minSilnik` w manifeście). Test: `node narzedzia/linux/test-nakladka.mjs`.
+- Jak w Windows: zasobnik przy zegarze (GNOME potrzebuje rozszerzenia AppIndicator, w Ubuntu jest od razu), przyciski okna
+  w pasku LivePL, skróty z Ctrl. Licznik nieprzeczytanych na ikonie w doku. Autostart: `~/.config/autostart/livepl.desktop`.
+- Hasła i klucz DeepL szyfruje pęk kluczy pulpitu (GNOME Keyring albo KWallet). Bez niego LivePL ich nie zapisuje
+  (`src/szyfrowanie.js`), bo Electron „szyfrowałby” stałym hasłem.
+- Dostęp dla AI: gniazdo `dostep-ai.sock` w danych LivePL. Aplikacje AI uruchamiają `livepl --ai-most` (albo plik AppImage
+  z `--ai-most`), a `narzedzia/linux/livepl.sh` wybiera most z aktualizacji albo wbudowany.
+- Tylko w Windows (jak na Macu): rejestracja w urzędzie, YubiKey, certyfikaty z magazynu Windows.
+- Ikony: `python narzedzia/linux/ikony.py` robi `assets/linux/` z ikon Maca i wstęgi z Windows.
+
 ## Licencja
 
 LivePL jest otwartym oprogramowaniem na licencji MIT (plik `LICENSE`). Autor: Karol Kowalski. Copyright © 2026 Live Production Karol Kowalski. Te same dane są w `LivePL.exe` i w instalatorach (firma Live Production, prawa autorskie), we wpisie „Programy i funkcje” (wydawca) i w okienku „Licencje i podziękowania”. Programy podpisujemy certyfikatem Certum Open Source Code Signing wystawionym na Karola Kowalskiego, więc dane w programie mają się z nim zgadzać.

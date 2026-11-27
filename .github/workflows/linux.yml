@@ -1,0 +1,136 @@
+# LivePL na Linuxa: buduje LivePL-<wersja>-x86_64.AppImage i livepl_<wersja>_amd64.deb na Ubuntu GitHuba,
+# instaluje pakiet .deb, uruchamia LivePL (z pakietu i z pliku AppImage) i robi zrzuty ekranu.
+# Gotowe pliki leżą w artefakcie przebiegu („livepl-linux-<wersja>”), zrzuty i dzienniki w „livepl-linux-proba-<wersja>”;
+# na serwer trafiają dopiero po sprawdzeniu.
+name: LivePL na Linuxa
+
+on:
+  push:
+    branches: [linux]
+    paths:
+      - 'src/**'
+      - 'ui/**'
+      - 'assets/**'
+      - 'programy.json'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'narzedzia/zrob-linux.mjs'
+      - 'narzedzia/linux/**'
+      - '.github/workflows/linux.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  appimage-deb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Zależności
+        run: |
+          npm ci --no-audit --no-fund
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq squashfs-tools xvfb fuse3 > /dev/null
+
+      - name: Test aktualizacji (nakładka w ~/.config/LivePL/program)
+        run: node narzedzia/linux/test-nakladka.mjs
+
+      # środowisko AppImage z wydania 20251108; zrob-linux.mjs sprawdza jego sumę SHA-256
+      - name: Środowisko AppImage (type2-runtime)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/runtime-x86_64" https://github.com/AppImage/type2-runtime/releases/download/20251108/runtime-x86_64
+          echo "LIVEPL_APPIMAGE_RUNTIME=$RUNNER_TEMP/runtime-x86_64" >> "$GITHUB_ENV"
+
+      - name: Budowa AppImage i .deb
+        run: node narzedzia/zrob-linux.mjs
+
+      - name: Wersja
+        id: wersja
+        run: echo "wersja=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: livepl-linux-${{ steps.wersja.outputs.wersja }}
+          path: |
+            wydanie/linux/*.AppImage
+            wydanie/linux/*.deb
+            wydanie/linux/*.sha256
+          retention-days: 30
+          compression-level: 0
+
+      # Próba jak u klienta: instalacja .deb, start, zrzut ekranu; potem plik AppImage (na Ubuntu 24.04 ma pokazać
+      # prośbę o pakiet .deb, po zdjęciu blokady AppArmor ma działać jak zwykle); na końcu aktualizacja z nakładki.
+      - name: Próbne uruchomienie (zrzuty ekranu)
+        continue-on-error: true
+        run: |
+          set -x
+          P=wydanie/proba
+          mkdir -p $P
+          zrzut() { import -display :99 -window root "$P/$1.png" 2>/dev/null \
+            || ffmpeg -loglevel error -y -f x11grab -video_size 1440x900 -i :99 -frames:v 1 "$P/$1.png" \
+            || echo "bez zrzutu $1" >> $P/stan.txt; }
+          uruchom() { # nazwa, czas, polecenie...
+            n=$1; t=$2; shift 2
+            "$@" > "$P/dziennik-$n.txt" 2>&1 &
+            pid=$!
+            sleep $t
+            zrzut "$n"
+            if kill -0 $pid 2>/dev/null; then echo "$n: działał po $t s" >> $P/stan.txt; else echo "$n: ZAKOŃCZYŁ SIĘ przed zrzutem" >> $P/stan.txt; fi
+            kill $pid 2>/dev/null || true; sleep 3; pkill -9 -f /opt/LivePL/livepl 2>/dev/null || true; pkill -9 -f '.mount_LivePL' 2>/dev/null || true; sleep 1
+          }
+          echo "apparmor_restrict_unprivileged_userns=$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null)" > $P/stan.txt
+
+          Xvfb :99 -screen 0 1440x900x24 -nolisten tcp &
+          export DISPLAY=:99
+          sleep 2
+
+          # 1. pakiet .deb
+          sudo apt-get install -y -qq ./wydanie/linux/livepl_*_amd64.deb > $P/instalacja-deb.txt 2>&1 || echo "instalacja .deb NIEUDANA" >> $P/stan.txt
+          { ls -l /opt/LivePL/chrome-sandbox /usr/bin/livepl /etc/apparmor.d/livepl; sudo aa-status 2>/dev/null | grep -i livepl; } >> $P/stan.txt 2>&1
+          uruchom deb 25 env LIVEPL_DANE="$RUNNER_TEMP/dane-deb" livepl
+
+          # 2. AppImage z blokadą AppArmor (Ubuntu 24.04): okienko z prośbą o .deb
+          A="$(ls wydanie/linux/*.AppImage)"
+          chmod +x "$A"
+          uruchom appimage-ubuntu 12 env LIVEPL_DANE="$RUNNER_TEMP/dane-ai1" "$A"
+
+          # 3. AppImage bez blokady (jak w Debianie, Fedorze, Mincie 21): zwykły LivePL
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          uruchom appimage 25 env LIVEPL_DANE="$RUNNER_TEMP/dane-ai2" "$A"
+
+          # 4. aktualizacja z nakładki: kopia programu z wyższą wersją w ~/.config/LivePL/program wczytuje się zamiast wbudowanej
+          D="$RUNNER_TEMP/dane-nakladka"
+          mkdir -p "$D/program"
+          cp -r /opt/LivePL/resources/app/. "$D/program/"
+          node -e "const f=process.argv[1];const p=require(f);p.version='9.9.9';require('fs').writeFileSync(f,JSON.stringify(p))" "$D/program/package.json"
+          echo "require('fs').writeFileSync(process.env.LIVEPL_DANE + '/nakladka-dziala.txt', require('electron').app.getVersion());" >> "$D/program/src/main.js"
+          uruchom nakladka 20 env LIVEPL_DANE="$D" livepl
+          echo "nakładka: $(cat "$D/nakladka-dziala.txt" 2>/dev/null || echo BRAK)" >> $P/stan.txt
+
+          # 5. most AI (MCP): odpowiedź na „initialize”
+          printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1"}}}' \
+            | timeout 15 env LIVEPL_DANE="$RUNNER_TEMP/dane-deb" livepl --ai-most > $P/ai-most.txt 2>&1 || true
+          echo "most AI: $(head -c 300 $P/ai-most.txt)" >> $P/stan.txt
+
+          cat $P/stan.txt
+          for f in $P/dziennik-*.txt; do echo "--- $f"; tail -25 "$f"; done
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: livepl-linux-proba-${{ steps.wersja.outputs.wersja }}
+          path: wydanie/proba
+          retention-days: 14
+          if-no-files-found: ignore

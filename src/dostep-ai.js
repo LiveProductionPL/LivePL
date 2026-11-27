@@ -773,6 +773,12 @@ async function wykonaj(nazwa, a) {
 function konfiguracjaMCP() {
   const env = { ELECTRON_RUN_AS_NODE: '1' };
   if (process.env.LIVEPL_DANE) env.LIVEPL_DANE = path.resolve(process.env.LIVEPL_DANE);
+  // Linux (AppImage i .deb): pliki programu nie mają stałej ścieżki (AppImage) albo aktualizacje leżą w nakładce,
+  // więc AI uruchamia polecenie LivePL z --ai-most, a ono samo wybiera właściwy most (narzedzia/linux/livepl.sh)
+  if (process.platform === 'linux' && (process.env.APPIMAGE || require('./linux').uruchamiacz() === '/usr/bin/livepl')) {
+    delete env.ELECTRON_RUN_AS_NODE;
+    return { command: require('./linux').uruchamiacz(), args: ['--ai-most'], env };
+  }
   return { command: process.execPath, args: [path.join(__dirname, 'ai-most.js')], env };
 }
 
@@ -788,7 +794,10 @@ function tekstKonfiguracji() {
 
 // Claude (aplikacja na Windows) czyta claude_desktop_config.json z %APPDATA%\Claude;
 // wersja ze sklepu Microsoft może mieć ten folder w swoim pakiecie, więc zapisujemy w obu miejscach.
+// Mac: ~/Library/Application Support/Claude; Linux (wersje Claude budowane przez społeczność): ~/.config/Claude.
 function plikiClaudeDesktop() {
+  if (process.platform === 'darwin') return [path.join(os.homedir(), 'Library', 'Application Support', 'Claude', 'claude_desktop_config.json')];
+  if (process.platform === 'linux') return [path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'Claude', 'claude_desktop_config.json')];
   const appdata = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
   const lista = [path.join(appdata, 'Claude', 'claude_desktop_config.json')];
   const pakiety = path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Packages');

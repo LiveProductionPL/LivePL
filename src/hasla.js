@@ -1,7 +1,7 @@
 'use strict';
 
 // Zapamiętane loginy i hasła. Cały plik jest zaszyfrowany przez Windows (safeStorage, DPAPI):
-// odczyta go tylko to konto Windows na tym komputerze. Strony nigdy nie dostają listy haseł;
+// odczyta go tylko to konto Windows na tym komputerze (macOS: pęk kluczy, Linux: GNOME Keyring albo KWallet). Strony nigdy nie dostają listy haseł;
 // LivePL wypełnia formularz dopiero po kliknięciu konta w swoim okienku, i tylko na tej samej stronie
 // (ten sam adres: https, host i port).
 
@@ -9,6 +9,7 @@ const { app, safeStorage } = require('electron');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const szyfrowanie = require('./szyfrowanie');
 
 const plik = () => path.join(app.getPath('userData'), 'hasla.bin');
 let dane = null;
@@ -30,7 +31,7 @@ function wczytaj() {
 }
 
 function zapisz() {
-  if (!safeStorage.isEncryptionAvailable()) throw new Error('Windows nie pozwala teraz szyfrować danych');
+  if (!szyfrowanie.dostepne()) throw szyfrowanie.blad();
   const tymczasowy = plik() + '.tmp';
   fs.writeFileSync(tymczasowy, safeStorage.encryptString(JSON.stringify(dane)));
   fs.renameSync(tymczasowy, plik());
@@ -48,7 +49,7 @@ function zrodlo(url) {
   }
 }
 
-const dostepne = () => safeStorage.isEncryptionAvailable();
+const dostepne = () => szyfrowanie.dostepne();
 
 function konta(origin) {
   return wczytaj().wpisy

@@ -97,7 +97,7 @@ function kluczDeepL() {
 }
 
 function zapiszKlucz(k) {
-  if (!safeStorage.isEncryptionAvailable()) throw new Error('Windows nie pozwala teraz szyfrować danych');
+  if (!require('./szyfrowanie').dostepne()) throw require('./szyfrowanie').blad();
   const tymczasowy = plikKlucza() + '.tmp';
   fs.writeFileSync(tymczasowy, safeStorage.encryptString(k));
   fs.renameSync(tymczasowy, plikKlucza());
@@ -601,7 +601,7 @@ function danePanelu(k) {
     silnik: o.silnik,
     klucz: opisKlucza(),
     stanKlucza: stanDeepL,
-    szyfrowanie: safeStorage.isEncryptionAvailable(),
+    szyfrowanie: require('./szyfrowanie').dostepne(),
     zawsze: o.zawsze.map(kod => ({ kod, nazwa: jezyki.nazwa(kod) })),
     nigdy: o.nigdy,
     modele: opisPobranych(),

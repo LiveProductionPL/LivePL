@@ -6,6 +6,14 @@
 const P = window.panel;
 // macOS: skróty z ⌘ zamiast Ctrl (LivePL na Macu przyjmuje oba, a pokazuje te z Maca)
 const NA_MACU = /Mac/.test(navigator.platform);
+// Linux: jak Windows (Ctrl, zasobnik), bez funkcji opartych na magazynach Windows (certyfikaty, YubiKey, urząd)
+const NA_LINUXIE = /Linux/.test(navigator.platform);
+const NA_WINDOWS = !NA_MACU && !NA_LINUXIE;
+// nazwa systemu po „z” (DNS z Windows, z macOS, z Linuxa)
+const Z_SYSTEMU = NA_MACU ? 'macOS' : NA_LINUXIE ? 'Linuxa' : 'Windows';
+// pęk kluczy systemu, którym LivePL szyfruje hasła i klucz DeepL
+const SZYFRUJE = NA_MACU ? 'kluczem z pęku kluczy macOS' : NA_LINUXIE ? 'kluczem z pęku kluczy (GNOME Keyring albo KWallet)' : 'przez Windows';
+const BEZ_SZYFROWANIA = NA_MACU ? 'macOS nie pozwala teraz szyfrować danych' : NA_LINUXIE ? 'Linux nie ma teraz pęku kluczy (GNOME Keyring albo KWallet)' : 'Windows nie pozwala teraz szyfrować danych';
 const klaw = (t) => (NA_MACU ? String(t)
   .replace(/Ctrl\+Shift\+/g, '⇧⌘').replace(/Ctrl\s?\+\s?/g, '⌘').replace(/Ctrl /g, '⌘ ')
   .replace(/\(F5\)/g, '(⌘R)').replace(/Alt\+/g, '⌥').replace(/^F12$/, '⇧⌘I') : t);
@@ -152,7 +160,7 @@ function ekranMenu() {
   f.appendChild(kreska());
 
   f.appendChild(poz('pobrane', 'Pobrane pliki', { skrot: 'Ctrl+J', dalej: true, klik: () => { ekran = 'pobrane'; rysuj(); } }));
-  if (!NA_MACU) f.appendChild(poz('klodka', 'Certyfikaty', { dalej: true, klik: () => { ekran = 'certyfikaty'; rysuj(); P.akcja('cert-win-odswiez'); } }));
+  if (NA_WINDOWS) f.appendChild(poz('klodka', 'Certyfikaty', { dalej: true, klik: () => { ekran = 'certyfikaty'; rysuj(); P.akcja('cert-win-odswiez'); } }));
   f.appendChild(poz('ustawienia', 'Ustawienia', { dalej: true, klik: () => { ekran = 'ustawienia'; rysuj(); } }));
   f.appendChild(poz('kod', 'Narzędzia programisty', { skrot: 'F12', akcja: 'narzedzia', wylaczona: !D.adres }));
   f.appendChild(poz('info', 'O programie', { dalej: true, klik: () => { ekran = 'o-programie'; rysuj(); } }));
@@ -165,10 +173,10 @@ function ekranUstawienia() {
   const f = document.createDocumentFragment();
   f.appendChild(naglowek('Ustawienia', 'menu'));
   if (!NA_MACU) f.appendChild(zaznaczenie('Działaj w tle po zamknięciu okna', D.chowaj, 'tlo', () => { D.chowaj = !D.chowaj; }));
-  f.appendChild(zaznaczenie(NA_MACU ? 'Otwieraj po zalogowaniu do Maca' : 'Uruchamiaj razem z Windows', D.autostart, 'autostart', () => { D.autostart = !D.autostart; }));
+  f.appendChild(zaznaczenie(NA_MACU ? 'Otwieraj po zalogowaniu do Maca' : NA_LINUXIE ? 'Uruchamiaj po zalogowaniu' : 'Uruchamiaj razem z Windows', D.autostart, 'autostart', () => { D.autostart = !D.autostart; }));
   f.appendChild(zaznaczenie('Sprawdzaj aktualizacje przy starcie', D.aktualizacja && D.aktualizacja.auto, 'auto-aktualizacje', () => { D.aktualizacja.auto = !D.aktualizacja.auto; }));
   f.appendChild(kreska());
-  if (!NA_MACU) {
+  if (NA_WINDOWS) {
     f.appendChild(poz('klodka', 'Certyfikat osobisty (YubiKey)', { dalej: true, klik: () => { ekran = 'cert-osobisty'; rysuj(); P.akcja('cert-osobisty-odswiez'); } }));
     f.appendChild(poz('znacznik', 'Urząd LivePL w Windows', { dalej: true, klik: () => { ekran = 'zaufanie'; rysuj(); P.akcja('zaufanie-odswiez'); } }));
     f.appendChild(poz('serwer', 'Urządzenie LivePL', { dalej: true, klik: () => { ekran = 'urzadzenie'; rysuj(); P.akcja('urzadzenie-sprawdz'); } }));
@@ -431,7 +439,7 @@ function ekranAktualizacja() {
     przyciski('aktualizacje-pobierz', 'Spróbuj jeszcze raz', 'aktualizacje-pozniej', 'Zamknij');
   } else if (a.stan === 'silnik') {
     naglowekStanu('uwaga', 'uwaga', `Wersja ${a.wersja} wymaga nowego instalatora`);
-    f.appendChild(el('div', 'opis', 'Ta wersja potrzebuje nowego silnika LivePL. Pobierz instalator ze strony LivePL.'));
+    f.appendChild(el('div', 'opis', NA_LINUXIE ? 'Ta wersja potrzebuje nowego silnika LivePL. Pobierz nowy plik AppImage albo pakiet .deb ze strony app.livepl.eu.' : 'Ta wersja potrzebuje nowego silnika LivePL. Pobierz instalator ze strony LivePL.'));
     przyciski('aktualizacje-pozniej', 'Zamknij');
   } else {
     naglowekStanu('ok', 'klodka', 'Masz najnowszą wersję LivePL');
@@ -528,7 +536,7 @@ function ekranDns() {
   f.appendChild(naglowek('Bezpieczny DNS', 'ustawienia'));
   f.appendChild(el('div', 'opis', 'DNS zamienia adres strony (np. server.tvml.pl) na numer serwera. Zwykle robi to sieć, z której korzystasz, i czasem pamięta stare albo błędne wpisy. Bezpieczny DNS pyta zaufanego dostawcę przez szyfrowane połączenie.'));
   const opcje = [
-    ['wylaczony', 'Wyłączony', 'DNS z Windows i Twojej sieci'],
+    ['wylaczony', 'Wyłączony', `DNS z ${Z_SYSTEMU} i Twojej sieci`],
     ...d.dostawcy.map(x => [x.id, x.nazwa, x.id === 'cloudflare' ? '1.1.1.1, szyfrowany (DNS przez HTTPS)' : '8.8.8.8, szyfrowany (DNS przez HTTPS)'])
   ];
   for (const [id, tekst, podpis] of opcje) {
@@ -551,7 +559,7 @@ function ekranDns() {
     f.appendChild(b);
   }
   f.appendChild(kreska());
-  f.appendChild(el('div', 'opis', 'Gdy dostawca nie odpowiada, LivePL sam wraca do DNS z Windows, więc strony nie przestają działać. Zmiana działa od razu.'));
+  f.appendChild(el('div', 'opis', `Gdy dostawca nie odpowiada, LivePL sam wraca do DNS z ${Z_SYSTEMU}, więc strony nie przestają działać. Zmiana działa od razu.`));
   return f;
 }
 
@@ -965,7 +973,7 @@ function ekranZgoda() {
   const tylkoPowiadomienia = (z.klucze || []).every((x) => x === 'powiadomienia');
   if (media) {
     f.appendChild(el('div', 'opis', 'Strona dostanie obraz albo dźwięk tylko po Twojej zgodzie.'));
-    f.appendChild(el('div', 'opis slaby-maly', 'Po zgodzie antywirus (np. Norton) może jeszcze zapytać, czy LivePL.exe może używać kamery lub mikrofonu. Wtedy też wybierz „Zezwól”.'));
+    if (NA_WINDOWS) f.appendChild(el('div', 'opis slaby-maly', 'Po zgodzie antywirus (np. Norton) może jeszcze zapytać, czy LivePL.exe może używać kamery lub mikrofonu. Wtedy też wybierz „Zezwól”.'));
   } else if (tylkoPowiadomienia) {
     f.appendChild(el('div', 'opis', 'Powiadomienia pokażą się na pasku u góry, a ikona strony zamiga.'));
   }
@@ -1046,7 +1054,7 @@ function ekranHaslo() {
     l.append(el('span', '', a + ': '), el('b', '', b));
     f.appendChild(l);
   }
-  f.appendChild(el('div', 'opis', NA_MACU ? 'Hasło zostanie zaszyfrowane kluczem z pęku kluczy macOS i będzie działać tylko na tym koncie.' : 'Hasło zostanie zaszyfrowane przez Windows i będzie działać tylko na tym koncie.'));
+  f.appendChild(el('div', 'opis', `Hasło zostanie zaszyfrowane ${SZYFRUJE} i będzie działać tylko na tym koncie.`));
   const p = el('div', 'przyciski');
   const tak = el('button', 'przycisk czerwony', h.rodzaj === 'aktualizacja' ? 'Zaktualizuj' : 'Zapamiętaj'); tak.type = 'button';
   tak.addEventListener('click', () => P.akcja('haslo-zapisz', h.kartaId));
@@ -1080,7 +1088,7 @@ function ekranHasla() {
   const h = D.hasla || { wpisy: [], nigdy: [], wlaczone: true, dostepne: true };
   f.appendChild(naglowek('Hasła', 'ustawienia'));
   f.appendChild(zaznaczenie('Proponuj zapamiętywanie haseł', h.wlaczone, 'hasla-wlacz', () => { h.wlaczone = !h.wlaczone; }));
-  if (!h.dostepne) f.appendChild(el('div', 'opis zly', NA_MACU ? 'macOS nie pozwala teraz szyfrować danych, więc LivePL nie zapisze haseł.' : 'Windows nie pozwala teraz szyfrować danych, więc LivePL nie zapisze haseł.'));
+  if (!h.dostepne) f.appendChild(el('div', 'opis zly', `${BEZ_SZYFROWANIA}, więc LivePL nie zapisze haseł.`));
   if (!h.wpisy.length) {
     f.appendChild(el('div', 'opis', 'Nie ma jeszcze zapisanych haseł. Po zalogowaniu na stronie LivePL zapyta, czy je zapamiętać.'));
   }
@@ -1112,7 +1120,7 @@ function ekranHasla() {
     }
   }
   f.appendChild(kreska());
-  f.appendChild(el('div', 'opis', (NA_MACU ? 'Hasła są zaszyfrowane kluczem z pęku kluczy macOS i działają tylko na tym koncie Maca.' : 'Hasła są zaszyfrowane przez Windows (DPAPI) i działają tylko na tym koncie Windows.') + ' Strony nie widzą listy haseł; LivePL wypełnia formularz dopiero po wybraniu konta.'));
+  f.appendChild(el('div', 'opis', (NA_MACU ? 'Hasła są zaszyfrowane kluczem z pęku kluczy macOS i działają tylko na tym koncie Maca.' : NA_LINUXIE ? 'Hasła są zaszyfrowane kluczem z pęku kluczy (GNOME Keyring albo KWallet) i działają tylko na tym koncie Linuxa.' : 'Hasła są zaszyfrowane przez Windows (DPAPI) i działają tylko na tym koncie Windows.') + ' Strony nie widzą listy haseł; LivePL wypełnia formularz dopiero po wybraniu konta.'));
   return f;
 }
 
@@ -1281,7 +1289,7 @@ function ekranTlumaczUstawienia() {
         przyciskPanelu('Usuń klucz', 'tekstowy', () => P.akcja('tlumacz-klucz-usun')));
       f.appendChild(p);
     } else if (!t.szyfrowanie) {
-      f.appendChild(el('div', 'opis zly', 'Windows nie pozwala teraz szyfrować danych, więc LivePL nie zapisze klucza.'));
+      f.appendChild(el('div', 'opis zly', `${BEZ_SZYFROWANIA}, więc LivePL nie zapisze klucza.`));
     } else {
       const forma = el('form', 'dodaj-strone');
       const pole = el('input', 'pole-tekstu');
@@ -1298,7 +1306,7 @@ function ekranTlumaczUstawienia() {
         pole.value = '';
       });
       f.appendChild(forma);
-      f.appendChild(el('div', 'opis', 'Klucz zostanie zaszyfrowany przez Windows, jak zapisane hasła.'));
+      f.appendChild(el('div', 'opis', `Klucz zostanie zaszyfrowany ${SZYFRUJE}, jak zapisane hasła.`));
     }
     if (t.stanKlucza) f.appendChild(el('div', 'opis' + (t.stanKlucza.zly ? ' zly' : ''), t.stanKlucza.tekst));
     if (t.silnik === 'deepl' && !t.klucz) f.appendChild(el('div', 'opis', 'Bez klucza dalej tłumaczy ten komputer.'));

@@ -16,8 +16,11 @@ const { NARZEDZIA, INSTRUKCJE } = require('./ai-narzedzia');
 const WERSJE = ['2025-06-18', '2025-03-26', '2024-11-05'];
 const CZAS_NA_NARZEDZIE = 90 * 1000;
 
+// ten sam folder co app.getPath('userData') w LivePL (Electron, nazwa programu „LivePL”)
 function folderDanych() {
   if (process.env.LIVEPL_DANE) return path.resolve(process.env.LIVEPL_DANE);
+  if (process.platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support', 'LivePL');
+  if (process.platform === 'linux') return path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'LivePL');
   return path.join(process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming'), 'LivePL');
 }
 

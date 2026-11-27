@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=LivePL
+GenericName=Przeglądarka
+Comment=Poczta, strefa klienta i programy Live Production w jednym oknie
+Exec=livepl %U
+Icon=livepl
+Terminal=false
+Categories=Network;WebBrowser;
+MimeType=application/x-livepl-dodatek;
+Keywords=poczta;przeglądarka;livepl;
+StartupWMClass=LivePL
+StartupNotify=true

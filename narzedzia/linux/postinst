@@ -1,0 +1,19 @@
+#!/bin/sh
+# LivePL: po instalacji pakietu .deb
+set -e
+
+# piaskownica Chromium: pomocnik z uprawnieniami administratora, gdy system nie pozwala na przestrzenie nazw
+chown root:root /opt/LivePL/chrome-sandbox || true
+chmod 4755 /opt/LivePL/chrome-sandbox || true
+
+# Ubuntu 23.10+: profil AppArmor, bez którego piaskownica Chromium nie działa
+# (tylko gdy system zna składnię AppArmor 4, w której jest reguła „userns”)
+if [ -e /etc/apparmor.d/abi/4.0 ] && command -v apparmor_parser >/dev/null 2>&1; then
+  cp /opt/LivePL/apparmor-livepl /etc/apparmor.d/livepl
+  apparmor_parser --replace --write-cache --skip-read-cache /etc/apparmor.d/livepl || true
+fi
+
+command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database -q /usr/share/applications || true
+command -v update-mime-database >/dev/null 2>&1 && update-mime-database /usr/share/mime || true
+command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
+exit 0

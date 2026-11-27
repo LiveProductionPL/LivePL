@@ -11,6 +11,7 @@
     "url": "https://github.com/LiveProductionPL/LivePL.git"
   },
   "main": "src/start.js",
+  "desktopName": "livepl.desktop",
   "private": true,
   "scripts": {
     "start": "electron .",
@@ -20,7 +21,8 @@
     "instalator": "node narzedzia/zrob-instalator.mjs",
     "wtyczki": "node narzedzia/wtyczki.mjs",
     "dodatek": "node narzedzia/dodatek.mjs",
-    "mac": "node narzedzia/zrob-mac.mjs"
+    "mac": "node narzedzia/zrob-mac.mjs",
+    "linux": "node narzedzia/zrob-linux.mjs"
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",
