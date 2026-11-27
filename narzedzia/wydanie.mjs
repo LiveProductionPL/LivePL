@@ -53,7 +53,7 @@ const wpisy = pliki.map((pelna) => {
 const paczka = gzipSync(Buffer.from(JSON.stringify({ produkt: 'LivePL', wersja, pliki: wpisy })), { level: 9 });
 const nazwaPaczki = `livepl-${wersja}.json.gz`;
 const silnik = require('electron/package.json').version;
-const manifest = Buffer.from(JSON.stringify({
+const daneManifestu = {
   produkt: 'LivePL',
   wersja,
   plik: nazwaPaczki,
@@ -62,7 +62,17 @@ const manifest = Buffer.from(JSON.stringify({
   minSilnik: silnik.split('.')[0] + '.0.0',
   data: new Date().toISOString(),
   notatki: opis.join(' ').trim()
-}, null, 2));
+};
+// LivePL na Maca nie podmienia plików (podpis Apple), tylko proponuje nowy plik .dmg z app.livepl.eu/pobierz/.
+// LIVEPL_MAC_DMG=<ścieżka do LivePL-x.y.z.dmg> dopisuje pole „mac” (zob. wersjaNaMaca w src/aktualizacje.js).
+if (process.env.LIVEPL_MAC_DMG) {
+  const dmg = readFileSync(process.env.LIVEPL_MAC_DMG);
+  const nazwa = process.env.LIVEPL_MAC_DMG.split(/[\\/]/).pop();
+  const m = /^LivePL-(\d+\.\d+\.\d+)\.dmg$/.exec(nazwa);
+  if (!m) throw new Error('Plik na Maca musi się nazywać LivePL-x.y.z.dmg: ' + nazwa);
+  daneManifestu.mac = { wersja: m[1], plik: 'https://app.livepl.eu/pobierz/' + nazwa, rozmiar: dmg.length, sha256: sha(dmg), notatki: daneManifestu.notatki };
+}
+const manifest = Buffer.from(JSON.stringify(daneManifestu, null, 2));
 const podpis = sign(null, manifest, klucz).toString('base64');
 
 const wyjscie = join(katalog, 'wydanie');
@@ -79,5 +89,6 @@ mkdirSync(archiwum, { recursive: true });
 for (const n of [nazwaPaczki, 'manifest.json', 'manifest.json.sig']) writeFileSync(join(archiwum, n), readFileSync(join(wyjscie, n)));
 
 console.log(`Wydanie LivePL ${wersja}: ${wpisy.length} plików, paczka ${(paczka.length / 1024).toFixed(0)} KB`);
+if (daneManifestu.mac) console.log(`Mac: ${daneManifestu.mac.plik} (${daneManifestu.mac.wersja}, SHA-256 ${daneManifestu.mac.sha256})`);
 console.log('Folder do wgrania: ' + wyjscie);
 console.log('Kopia: ' + archiwum);
