@@ -72,7 +72,7 @@ if (kod === 'awaria') {
     mina: 'zdziwiony',
     naglowek: 'Nie mogę znaleźć tej strony',
     opis: ['Pod adresem ', H, ' nikt nie odpowiada. Może w adresie jest literówka?'],
-    rady: ['Sprawdź pisownię adresu (Ctrl+K, żeby go poprawić).', 'Jeśli adres jest dobry, sprawdź internet.'],
+    rady: [`Sprawdź pisownię adresu (${/Mac/.test(navigator.platform) ? '⌘K' : 'Ctrl+K'}, żeby go poprawić).`, 'Jeśli adres jest dobry, sprawdź internet.'],
     // literówka nie zniknie sama: przy obcej stronie tylko kilka prób, program LivePL próbuje bez końca
     ponawiaj: !!nazwa || proba < 3
   };

@@ -281,6 +281,27 @@ PowerShell (certyfikaty, urząd LivePL, YubiKey, BitLocker) LivePL uruchamia jaw
 
 Test instalatora bez dotykania systemu: `--cel=<folder>` instaluje do tego folderu bez skrótów, wpisu w Windows i certyfikatu. Zmienna `LIVEPL_PAKIET_ADRES` (tylko `https://` albo `http://127.0.0.1`) każe instalatorowi internetowemu pobrać pakiet z innego adresu, a suma i tak musi się zgadzać.
 
+## LivePL na Maca
+
+Ten sam program działa na macOS 12 i nowszych, na Macach z Intelem i z Apple Silicon (jeden plik „universal”).
+Buduje go Mac na GitHubie (`.github/workflows/mac.yml`, gałąź `mac`): `npm run mac` robi `LivePL.app` i `LivePL-<wersja>.dmg`
+(przeciągnij LivePL do Programów). Na Windows tego nie zbudujesz.
+
+- Podpis: certyfikat „Developer ID Application” (`narzedzia/mac/developer-id.mjs` robi klucz i wniosek; klucz prywatny zostaje
+  w `%USERPROFILE%\LivePL-klucze\apple`). Do GitHuba trafia tylko zaszyfrowany `.p12` (`narzedzia/mac/ustaw-sekrety-mac.mjs`,
+  uruchamia właściciel konta).
+- Notaryzacja: Apple sprawdza program i plik `.dmg` (ten sam klucz App Store Connect co dla iPhone'a). Bez tego macOS
+  nie otworzy programu pobranego z internetu. Bez certyfikatu powstaje tylko `LivePL-<wersja>-proba.dmg` do testów.
+- Na Macu: menu na górze ekranu (Edycja z ⌘C/⌘V), przyciski okna w lewym górnym rogu, licznik nieprzeczytanych na ikonie
+  w Docku, a w jej menu programy LivePL. Czerwony przycisk chowa okno, LivePL działa dalej (⌘Q kończy). Skróty z ⌘.
+- Hasła szyfruje klucz z pęku kluczy macOS. Dostęp dla AI idzie przez gniazdo `dostep-ai.sock` w danych LivePL.
+- Na razie tylko w Windows: rejestracja w urzędzie (klucz w TPM), YubiKey, certyfikaty z magazynu Windows i instalacja
+  certyfikatu urzędu w systemie. LivePL na Macu sam ufa urzędowi LivePL, tak jak w Windows.
+- Aktualizacje: pliki w podpisanej aplikacji nie mogą się zmieniać, więc na Macu aktualizacją jest nowy `.dmg`. Podpisany
+  manifest może mieć pole `mac: { wersja, plik, rozmiar, notatki }` (plik `.dmg` na `*.livepl.eu`); bez niego LivePL na Macu
+  nic nie proponuje.
+- Ikona: `python narzedzia/mac/ikona.py` robi `assets/mac/LivePL.icns` z `assets/mac/wstega-1024.png`.
+
 ## Licencja
 
 LivePL jest otwartym oprogramowaniem na licencji MIT (plik `LICENSE`). Autor: Karol Kowalski. Copyright © 2026 Live Production Karol Kowalski. Te same dane są w `LivePL.exe` i w instalatorach (firma Live Production, prawa autorskie), we wpisie „Programy i funkcje” (wydawca) i w okienku „Licencje i podziękowania”. Programy podpisujemy certyfikatem Certum Open Source Code Signing wystawionym na Karola Kowalskiego, więc dane w programie mają się z nim zgadzać.

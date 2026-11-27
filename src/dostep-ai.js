@@ -50,6 +50,8 @@ function plikDostepu() {
 }
 
 function nazwaRury() {
+  // macOS: gniazdo w danych LivePL (tylko dla tego użytkownika); Windows: potok o nazwie z folderu danych
+  if (process.platform !== 'win32') return path.join(L.userData(), 'dostep-ai.sock');
   const skrot = crypto.createHash('sha256').update(L.userData().toLowerCase()).digest('hex').slice(0, 16);
   return '\\\\.\\pipe\\livepl-ai-' + skrot;
 }
@@ -68,6 +70,8 @@ function wlacz() {
     token = null;
     usunPlik();
   });
+  // stare gniazdo po awarii blokowałoby listen (jeden LivePL naraz, więc nikt go nie używa)
+  if (process.platform !== 'win32') try { if (fs.statSync(nazwaRury()).isSocket()) fs.rmSync(nazwaRury()); } catch { /* nie było */ }
   serwer.listen(nazwaRury(), () => {
     try {
       fs.writeFileSync(plikDostepu(), JSON.stringify({ rura: nazwaRury(), token, wersja: 1 }), { mode: 0o600 });

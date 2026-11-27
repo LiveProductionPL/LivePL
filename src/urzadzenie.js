@@ -211,6 +211,8 @@ let trwa = false;
 
 // pierwszy krok: klucz, wniosek i wysłanie (albo ponowne wysłanie tego samego wniosku)
 async function zarejestruj() {
+  // klucz przeglądarki powstaje w TPM przez certreq (Windows); na Macu będzie w pęku kluczy, w kolejnej wersji
+  if (process.platform !== 'win32') throw new Error('Rejestracja w urzędzie LivePL działa na razie tylko w Windows');
   if (trwa) throw new Error('Rejestracja już trwa');
   // ten komputer był już zarejestrowany: wracamy do tamtej rejestracji, bez nowego wpisu w urzędzie
   try {

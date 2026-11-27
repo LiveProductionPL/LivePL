@@ -121,6 +121,16 @@ button {
   flex: none;
 }
 
+/* macOS: przyciski okna (czerwony, żółty, zielony) stoją w lewym górnym rogu, nad logo */
+.mac #logo {
+  height: 56px;
+  margin-top: 30px;
+}
+
+.mac #gora {
+  right: 12px;
+}
+
 #logo img {
   width: 44px;
   height: 44px;

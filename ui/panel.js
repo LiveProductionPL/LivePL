@@ -4,6 +4,11 @@
 // Dane przychodzą z procesu głównego, akcje wracają tą samą drogą.
 
 const P = window.panel;
+// macOS: skróty z ⌘ zamiast Ctrl (LivePL na Macu przyjmuje oba, a pokazuje te z Maca)
+const NA_MACU = /Mac/.test(navigator.platform);
+const klaw = (t) => (NA_MACU ? String(t)
+  .replace(/Ctrl\+Shift\+/g, '⇧⌘').replace(/Ctrl\s?\+\s?/g, '⌘').replace(/Ctrl /g, '⌘ ')
+  .replace(/\(F5\)/g, '(⌘R)').replace(/Alt\+/g, '⌥').replace(/^F12$/, '⇧⌘I') : t);
 const panelEl = document.getElementById('panel');
 let D = null;
 let ekran = null;
@@ -52,7 +57,7 @@ function poz(nazwaIkony, tekst, opcje = {}) {
   b.setAttribute('role', 'menuitem');
   if (nazwaIkony) b.appendChild(ikonaEl(nazwaIkony));
   b.appendChild(el('span', 'tekst', tekst));
-  if (opcje.skrot) b.appendChild(el('span', 'skrot', opcje.skrot));
+  if (opcje.skrot) b.appendChild(el('span', 'skrot', klaw(opcje.skrot)));
   if (opcje.dalej) b.appendChild(ikonaEl('dalej', 'dalej-ik'));
   if (opcje.wylaczona) b.disabled = true;
   b.addEventListener('click', () => {
@@ -132,11 +137,11 @@ function ekranMenu() {
   const w = el('div', 'wiersz');
   w.append(ikonaEl('szukaj'), el('span', 'tekst', 'Powiększenie'));
   const s = el('div', 'sterowanie');
-  const minus = el('button', 'maly'); minus.type = 'button'; minus.title = 'Pomniejsz (Ctrl −)'; minus.appendChild(ikonaEl('minus'));
+  const minus = el('button', 'maly'); minus.type = 'button'; minus.title = klaw('Pomniejsz (Ctrl −)'); minus.appendChild(ikonaEl('minus'));
   minus.addEventListener('click', () => P.akcja('zoom-'));
-  const wart = el('button', 'wartosc', D.zoom + '%'); wart.type = 'button'; wart.title = 'Domyślny rozmiar (Ctrl+0)';
+  const wart = el('button', 'wartosc', D.zoom + '%'); wart.type = 'button'; wart.title = klaw('Domyślny rozmiar (Ctrl+0)');
   wart.addEventListener('click', () => P.akcja('zoom0'));
-  const plus = el('button', 'maly'); plus.type = 'button'; plus.title = 'Powiększ (Ctrl +)'; plus.appendChild(ikonaEl('plus'));
+  const plus = el('button', 'maly'); plus.type = 'button'; plus.title = klaw('Powiększ (Ctrl +)'); plus.appendChild(ikonaEl('plus'));
   plus.addEventListener('click', () => P.akcja('zoom+'));
   s.append(minus, wart, plus);
   w.appendChild(s);
@@ -147,7 +152,7 @@ function ekranMenu() {
   f.appendChild(kreska());
 
   f.appendChild(poz('pobrane', 'Pobrane pliki', { skrot: 'Ctrl+J', dalej: true, klik: () => { ekran = 'pobrane'; rysuj(); } }));
-  f.appendChild(poz('klodka', 'Certyfikaty', { dalej: true, klik: () => { ekran = 'certyfikaty'; rysuj(); P.akcja('cert-win-odswiez'); } }));
+  if (!NA_MACU) f.appendChild(poz('klodka', 'Certyfikaty', { dalej: true, klik: () => { ekran = 'certyfikaty'; rysuj(); P.akcja('cert-win-odswiez'); } }));
   f.appendChild(poz('ustawienia', 'Ustawienia', { dalej: true, klik: () => { ekran = 'ustawienia'; rysuj(); } }));
   f.appendChild(poz('kod', 'Narzędzia programisty', { skrot: 'F12', akcja: 'narzedzia', wylaczona: !D.adres }));
   f.appendChild(poz('info', 'O programie', { dalej: true, klik: () => { ekran = 'o-programie'; rysuj(); } }));
@@ -159,13 +164,15 @@ function ekranMenu() {
 function ekranUstawienia() {
   const f = document.createDocumentFragment();
   f.appendChild(naglowek('Ustawienia', 'menu'));
-  f.appendChild(zaznaczenie('Działaj w tle po zamknięciu okna', D.chowaj, 'tlo', () => { D.chowaj = !D.chowaj; }));
-  f.appendChild(zaznaczenie('Uruchamiaj razem z Windows', D.autostart, 'autostart', () => { D.autostart = !D.autostart; }));
+  if (!NA_MACU) f.appendChild(zaznaczenie('Działaj w tle po zamknięciu okna', D.chowaj, 'tlo', () => { D.chowaj = !D.chowaj; }));
+  f.appendChild(zaznaczenie(NA_MACU ? 'Otwieraj po zalogowaniu do Maca' : 'Uruchamiaj razem z Windows', D.autostart, 'autostart', () => { D.autostart = !D.autostart; }));
   f.appendChild(zaznaczenie('Sprawdzaj aktualizacje przy starcie', D.aktualizacja && D.aktualizacja.auto, 'auto-aktualizacje', () => { D.aktualizacja.auto = !D.aktualizacja.auto; }));
   f.appendChild(kreska());
-  f.appendChild(poz('klodka', 'Certyfikat osobisty (YubiKey)', { dalej: true, klik: () => { ekran = 'cert-osobisty'; rysuj(); P.akcja('cert-osobisty-odswiez'); } }));
-  f.appendChild(poz('znacznik', 'Urząd LivePL w Windows', { dalej: true, klik: () => { ekran = 'zaufanie'; rysuj(); P.akcja('zaufanie-odswiez'); } }));
-  f.appendChild(poz('serwer', 'Urządzenie LivePL', { dalej: true, klik: () => { ekran = 'urzadzenie'; rysuj(); P.akcja('urzadzenie-sprawdz'); } }));
+  if (!NA_MACU) {
+    f.appendChild(poz('klodka', 'Certyfikat osobisty (YubiKey)', { dalej: true, klik: () => { ekran = 'cert-osobisty'; rysuj(); P.akcja('cert-osobisty-odswiez'); } }));
+    f.appendChild(poz('znacznik', 'Urząd LivePL w Windows', { dalej: true, klik: () => { ekran = 'zaufanie'; rysuj(); P.akcja('zaufanie-odswiez'); } }));
+    f.appendChild(poz('serwer', 'Urządzenie LivePL', { dalej: true, klik: () => { ekran = 'urzadzenie'; rysuj(); P.akcja('urzadzenie-sprawdz'); } }));
+  }
   f.appendChild(poz('pinezka', 'Ikony na pasku', { dalej: true, klik: () => { ekran = 'strony'; rysuj(); } }));
   f.appendChild(poz('klucz', 'Hasła', { dalej: true, klik: () => { ekran = 'hasla'; rysuj(); P.akcja('hasla-odswiez'); } }));
   f.appendChild(poz('uwaga', 'Wyjątki certyfikatów', { dalej: true, klik: () => { ekran = 'wyjatki'; rysuj(); } }));
@@ -406,9 +413,10 @@ function ekranAktualizacja() {
   };
   if (a.stan === 'dostepna') {
     naglowekStanu('ok', 'pobrane', `Jest nowa wersja LivePL ${a.wersja}`);
-    f.appendChild(el('div', 'opis', `Masz wersję ${D.wersja}.` + (a.rozmiar ? ` Do pobrania ${Math.max(1, Math.round(a.rozmiar / 1024))} kB, podpisane kluczem LivePL.` : '')));
+    if (NA_MACU) f.appendChild(el('div', 'opis', `Masz wersję ${D.wersja}.` + (a.rozmiar ? ` Do pobrania ${Math.max(1, Math.round(a.rozmiar / 1048576))} MB, podpisane i sprawdzone przez Apple.` : '') + ' Po pobraniu otwórz plik i przeciągnij LivePL do Programów.'));
+    else f.appendChild(el('div', 'opis', `Masz wersję ${D.wersja}.` + (a.rozmiar ? ` Do pobrania ${Math.max(1, Math.round(a.rozmiar / 1024))} kB, podpisane kluczem LivePL.` : '')));
     coNowego();
-    przyciski('aktualizacje-pobierz', 'Pobierz i zainstaluj', 'aktualizacje-pozniej', 'Później');
+    przyciski('aktualizacje-pobierz', NA_MACU ? 'Pobierz nową wersję' : 'Pobierz i zainstaluj', 'aktualizacje-pozniej', 'Później');
   } else if (a.stan === 'pobieram' || a.stan === 'sprawdzam') {
     naglowekStanu('ok', 'pobrane', a.stan === 'pobieram' ? `Pobieram wersję ${a.wersja}…` : 'Sprawdzam aktualizacje…');
     f.appendChild(el('div', 'opis', 'To potrwa chwilę. Możesz dalej korzystać z LivePL.'));
@@ -1038,7 +1046,7 @@ function ekranHaslo() {
     l.append(el('span', '', a + ': '), el('b', '', b));
     f.appendChild(l);
   }
-  f.appendChild(el('div', 'opis', 'Hasło zostanie zaszyfrowane przez Windows i będzie działać tylko na tym koncie.'));
+  f.appendChild(el('div', 'opis', NA_MACU ? 'Hasło zostanie zaszyfrowane kluczem z pęku kluczy macOS i będzie działać tylko na tym koncie.' : 'Hasło zostanie zaszyfrowane przez Windows i będzie działać tylko na tym koncie.'));
   const p = el('div', 'przyciski');
   const tak = el('button', 'przycisk czerwony', h.rodzaj === 'aktualizacja' ? 'Zaktualizuj' : 'Zapamiętaj'); tak.type = 'button';
   tak.addEventListener('click', () => P.akcja('haslo-zapisz', h.kartaId));
@@ -1072,7 +1080,7 @@ function ekranHasla() {
   const h = D.hasla || { wpisy: [], nigdy: [], wlaczone: true, dostepne: true };
   f.appendChild(naglowek('Hasła', 'ustawienia'));
   f.appendChild(zaznaczenie('Proponuj zapamiętywanie haseł', h.wlaczone, 'hasla-wlacz', () => { h.wlaczone = !h.wlaczone; }));
-  if (!h.dostepne) f.appendChild(el('div', 'opis zly', 'Windows nie pozwala teraz szyfrować danych, więc LivePL nie zapisze haseł.'));
+  if (!h.dostepne) f.appendChild(el('div', 'opis zly', NA_MACU ? 'macOS nie pozwala teraz szyfrować danych, więc LivePL nie zapisze haseł.' : 'Windows nie pozwala teraz szyfrować danych, więc LivePL nie zapisze haseł.'));
   if (!h.wpisy.length) {
     f.appendChild(el('div', 'opis', 'Nie ma jeszcze zapisanych haseł. Po zalogowaniu na stronie LivePL zapyta, czy je zapamiętać.'));
   }
@@ -1104,7 +1112,7 @@ function ekranHasla() {
     }
   }
   f.appendChild(kreska());
-  f.appendChild(el('div', 'opis', 'Hasła są zaszyfrowane przez Windows (DPAPI) i działają tylko na tym koncie Windows. Strony nie widzą listy haseł; LivePL wypełnia formularz dopiero po wybraniu konta.'));
+  f.appendChild(el('div', 'opis', (NA_MACU ? 'Hasła są zaszyfrowane kluczem z pęku kluczy macOS i działają tylko na tym koncie Maca.' : 'Hasła są zaszyfrowane przez Windows (DPAPI) i działają tylko na tym koncie Windows.') + ' Strony nie widzą listy haseł; LivePL wypełnia formularz dopiero po wybraniu konta.'));
   return f;
 }
 

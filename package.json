@@ -19,9 +19,11 @@
     "wydanie": "node narzedzia/wydanie.mjs",
     "instalator": "node narzedzia/zrob-instalator.mjs",
     "wtyczki": "node narzedzia/wtyczki.mjs",
-    "dodatek": "node narzedzia/dodatek.mjs"
+    "dodatek": "node narzedzia/dodatek.mjs",
+    "mac": "node narzedzia/zrob-mac.mjs"
   },
   "devDependencies": {
+    "@electron/packager": "20.3.0",
     "electron": "^45.3.2",
     "rcedit": "^5.0.2"
   }
