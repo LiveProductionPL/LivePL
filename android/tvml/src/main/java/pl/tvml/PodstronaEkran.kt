@@ -112,8 +112,10 @@ private fun obsluzLink(m: Magazyn, kontekst: Context, slug: String, u: Uri) {
 }
 
 /**
- * Treść HTML w WebView bez JavaScriptu: [adres] (strona dla aplikacji) albo [html] z API.
- * Każde stuknięcie w link trafia do [link], a nie do tego samego widoku; błąd wczytania strony do [blad].
+ * Treść HTML w WebView: [adres] (strona dla aplikacji z tvml.pl, z JavaScriptem, bo np. „Salon wróżb” na podstronie
+ * Andrzejek działa na skrypcie strony) albo [html] z API (bez JavaScriptu). Skoki w obrębie tej samej strony (#wosk)
+ * zostają w widoku (Karol 28.11: „klikam na linki od wrozba na aplikacji ale nie nie dziala”); każdy inny link trafia
+ * do [link], a nie do tego samego widoku; błąd wczytania strony do [blad].
  */
 @Composable
 private fun HtmlWidok(adres: String?, html: String?, link: (Uri) -> Unit, blad: () -> Unit, modifier: Modifier) {
@@ -127,13 +129,20 @@ private fun HtmlWidok(adres: String?, html: String?, link: (Uri) -> Unit, blad: 
         factory = { ctx ->
             WebView(ctx).apply {
                 setBackgroundColor(android.graphics.Color.TRANSPARENT)
-                settings.javaScriptEnabled = false
+                // skrypty tylko na stronie dla aplikacji z tvml.pl (adres z config.pages), treść z API bez nich
+                settings.javaScriptEnabled = adres?.let { Uri.parse(it) }?.let { it.scheme == "https" && it.host?.endsWith("tvml.pl") == true } == true
+                settings.domStorageEnabled = settings.javaScriptEnabled
+                settings.javaScriptCanOpenWindowsAutomatically = false
+                settings.setSupportMultipleWindows(false)
                 settings.allowFileAccess = false
                 settings.allowContentAccess = false
                 settings.userAgentString = settings.userAgentString + " " + Siec.agent
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean {
                         if (!r.isForMainFrame || r.isRedirect) return false
+                        // skok do miejsca na tej samej stronie (spis treści #wosk, #buty…): przewija widok
+                        val obecny = v.url?.let { Uri.parse(it) }
+                        if (r.url.fragment != null && obecny != null && r.url.host == obecny.host && r.url.path.orEmpty().trimEnd('/') == obecny.path.orEmpty().trimEnd('/')) return false
                         aktualnyLink(r.url)
                         return true
                     }
