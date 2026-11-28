@@ -175,6 +175,8 @@ struct BlokWidok: View {
             }
         case "poll":
             BlokSpotlight(blok: blok, strona: $strona)
+        case "banner":
+            if let b = blok.baner { BanerStartu(baner: b, zapasowyTytul: blok.tytul) }
         case "classifieds":
             if !m.ogloszenia.isEmpty {
                 Naglowek(tytul: blok.tytul.isEmpty ? Napisy.t("app.classifieds", "Ogłoszenia drobne") : blok.tytul)
@@ -254,6 +256,57 @@ struct BlokWidok: View {
                 .background(Barwy.karta, in: RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(Barwy.ramka))
         }
+    }
+}
+
+/// Baner z panelu (blok banner, API 1.10.0): obraz, tytuł, tekst i przycisk; stuknięcie otwiera podstronę
+/// w aplikacji albo inny adres w przeglądarce (Magazyn.otworzAdres, to samo co belka motywu).
+struct BanerStartu: View {
+    @EnvironmentObject private var m: Magazyn
+    let baner: BlokStartu.Baner
+    let zapasowyTytul: String
+
+    private var tytul: String? { baner.tytul ?? (zapasowyTytul.isEmpty ? nil : zapasowyTytul) }
+
+    var body: some View {
+        Button { m.otworzAdres(baner.adres) } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                if let obraz = baner.obraz {
+                    Color.clear
+                        .aspectRatio(baner.proporcja, contentMode: .fit)
+                        .frame(maxWidth: .infinity)
+                        .overlay { Obraz(url: obraz) }
+                        .clipped()
+                }
+                if tytul != nil || baner.tekst != nil || baner.przycisk != nil {
+                    VStack(alignment: .leading, spacing: 6) {
+                        if let tytul {
+                            Text(tytul).font(Czcionka.naglowek(19)).foregroundStyle(Barwy.tekst)
+                                .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+                        }
+                        if let tekst = baner.tekst {
+                            Text(tekst).czcionka(14).foregroundStyle(Barwy.slaby)
+                                .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+                        }
+                        if let przycisk = baner.przycisk {
+                            Text(przycisk + " →").czcionka(14, .bold).foregroundStyle(m.motyw.napisNaAkcencie)
+                                .padding(.horizontal, 16).frame(minHeight: 40)
+                                .background(m.motyw.akcent, in: Capsule())
+                                .padding(.top, 4)
+                        }
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .background(Barwy.karta)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Barwy.ramka))
+            .contentShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isLink)
     }
 }
 

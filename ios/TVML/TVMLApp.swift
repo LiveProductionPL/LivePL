@@ -163,7 +163,7 @@ struct Baner: View {
                 Group {
                     if let adres = pasek.adres {
                         // belka z adresem z panelu (theme.topbar.url) otwiera podstronę albo artykuł
-                        Button { m.otworzZBelki(adres) } label: { PasekZyczen(pasek: pasek, motyw: motyw).contentShape(Rectangle()) }
+                        Button { m.otworzAdres(adres) } label: { PasekZyczen(pasek: pasek, motyw: motyw).contentShape(Rectangle()) }
                             .buttonStyle(.plain)
                             .accessibilityAddTraits(.isLink)
                     } else {

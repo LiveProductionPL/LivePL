@@ -1190,6 +1190,35 @@ struct BlokStartu: Identifiable, Hashable {
     let filtr: String?
     /// Sonda bloku poll (props.pollId); nil = pierwsza z układu strony.
     let ankieta: String?
+    /// Blok banner (API 1.10.0): obraz, tytuł, tekst i przycisk z panelu, stuknięcie otwiera url.
+    var baner: Baner? = nil
+
+    /// Baner Startu ustawiany w panelu (Karol 28.11: „trzeba dac w nowej wersji opcje tez ze mozamy dodac jakis baner
+    /// gdzie podzie jakas podstorna”). Serwer wysyła blok tylko w oknie from–until.
+    struct Baner: Hashable {
+        let obraz: URL?
+        /// szerokość / wysokość obrazu (imageRatio), domyślnie 2,5
+        let proporcja: Double
+        let tytul: String?
+        let tekst: String?
+        let przycisk: String?
+        let adres: URL
+
+        init?(_ p: Slownik) {
+            guard let adres = URL(string: p.s("url")), adres.scheme == "https" || adres.scheme == "http" else { return nil }
+            self.adres = adres
+            obraz = p.s("image").isEmpty ? nil : URL(string: p.s("image"))
+            let r = p.d("imageRatio") ?? 2.5
+            proporcja = r > 0.3 && r < 10 ? r : 2.5
+            func tekstLubNil(_ k: String) -> String? {
+                let t = Html.tekst(p.s(k)).trimmingCharacters(in: .whitespacesAndNewlines)
+                return t.isEmpty ? nil : t
+            }
+            tytul = tekstLubNil("title")
+            tekst = tekstLubNil("text")
+            przycisk = tekstLubNil("button")
+        }
+    }
 
     static let domyslne: [BlokStartu] = [
         BlokStartu(id: "hero", typ: "hero", tytul: "", ukryjTytul: true, limit: 5, kategoria: nil),
@@ -1207,7 +1236,7 @@ struct BlokStartu: Identifiable, Hashable {
     init?(_ j: Slownik) {
         let p = j.slownik("props")
         let typ = j.s("type")
-        guard ["hero", "weather", "alert", "video", "posts", "mostread", "gallery", "counties", "social", "classifieds", "events", "poll"].contains(typ) else { return nil }
+        guard ["hero", "weather", "alert", "video", "posts", "mostread", "gallery", "counties", "social", "classifieds", "events", "poll", "banner"].contains(typ) else { return nil }
         // artykuły sponsorowane są w aplikacji wyłączone (Karol, 22.11.2026): bez bloku sponsored i bez list sponsorowanych
         if p.s("category") == "artykuly-sponsorowane" || p.b("sponsored") { return nil }
         self.typ = typ
@@ -1218,6 +1247,11 @@ struct BlokStartu: Identifiable, Hashable {
         kategoria = p.s("category").isEmpty ? nil : p.s("category")
         filtr = ["featured", "urgent", "photoReport"].first { p.b($0) }
         ankieta = p.s("pollId").isEmpty ? nil : p.s("pollId")
+        if typ == "banner" {
+            // baner bez poprawnego adresu nie ma sensu
+            guard let b = Baner(p) else { return nil }
+            baner = b
+        }
     }
 
     /// Klucz własnej listy bloku posts (kategoria albo flaga); nil, gdy blok pokazuje kolejne najnowsze.

@@ -53,16 +53,16 @@ extension Magazyn {
         }
     }
 
-    /// Adres z belki motywu (theme.topbar.url): podstrona tvml.pl/strona/{slug} i artykuł w aplikacji, jak w „Więcej”,
-    /// inne adresy w przeglądarce (Karol 28.11: „górna belka w telefonie nie działa, nic nie otwiera, jak klikam”).
-    func otworzZBelki(_ url: URL) {
-        let host = (url.host ?? "").lowercased()
-        let nasz = host == "tvml.pl" || host == "www.tvml.pl"
-        let czesci = url.pathComponents.filter { $0 != "/" }
-        if nasz, czesci.first == "strona", let slug = czesci.dropFirst().first, !slug.isEmpty {
+    /// Adres z panelu, wspólny dla belki motywu (theme.topbar.url) i banera Startu (blok banner): podstrona
+    /// tvml.pl/strona/{slug} i artykuł w aplikacji, jak w „Więcej”, inne adresy w przeglądarce
+    /// (Karol 28.11: „górna belka w telefonie nie działa, nic nie otwiera, jak klikam”).
+    func otworzAdres(_ url: URL) {
+        if let slug = Linki.podstrona(url) {
             otworz(EkranWiecej.strona(slug))
-        } else if nasz, czesci.first == "artykul" {
-            otworzLink(url)
+        } else if let id = Linki.artykul(url) {
+            Task { @MainActor in
+                if let a = await artykul(id) { otworz(a) } else { _ = await UIApplication.shared.open(url) }
+            }
         } else if url.scheme == "https" || url.scheme == "http" {
             UIApplication.shared.open(url)
         }
