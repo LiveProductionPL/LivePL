@@ -57,8 +57,12 @@ extension Magazyn {
     /// tvml.pl/strona/{slug} i artykuł w aplikacji, jak w „Więcej”, inne adresy w przeglądarce
     /// (Karol 28.11: „górna belka w telefonie nie działa, nic nie otwiera, jak klikam”).
     func otworzAdres(_ url: URL) {
+        let pogoda = Linki.tvml(url) && url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")) == "pogoda"
         if let slug = Linki.podstrona(url) {
             otworz(EkranWiecej.strona(slug))
+        } else if pogoda {
+            // tvml.pl/pogoda: zakładka Pogoda w aplikacji, jak na Androidzie
+            pokaz(.pogoda)
         } else if let id = Linki.artykul(url) {
             Task { @MainActor in
                 if let a = await artykul(id) { otworz(a) } else { _ = await UIApplication.shared.open(url) }
