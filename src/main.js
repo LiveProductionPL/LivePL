@@ -175,7 +175,7 @@ const ID_STRONY = /^w-[a-f0-9]{8}$/;
 function bezpiecznaIkonka(u) {
   if (typeof u !== 'string') return null;
   if (/^https?:\/\//i.test(u) && u.length < 600) return u;
-  if (/^data:image\/(png|x-icon|vnd\.microsoft\.icon|gif|webp|jpeg|svg\+xml);base64,/i.test(u) && u.length < 24000) return u;
+  if (/^data:image\/(png|x-icon|vnd\.microsoft\.icon|gif|webp|jpeg|svg\+xml);base64,/i.test(u) && u.length < 100000) return u;
   return null;
 }
 
@@ -242,6 +242,7 @@ function zbudujProgramy() {
     adres: s.adres,
     ikona: 'strona',
     ikonka: bezpiecznaIkonka(s.ikonka),
+    ikonkaZ: typeof s.ikonkaZ === 'string' ? s.ikonkaZ : '',
     wlasny: true,
     host: hostZ(s.adres)
   }));
@@ -414,17 +415,121 @@ function zamknijKarteProgramu(id) {
   }
 }
 
-// ikonka przypiętej strony zapamiętana na następny start
-function zapamietajIkonke(k) {
-  if (!k.program || !k.program.wlasny) return;
-  const ikonka = bezpiecznaIkonka(k.ikonka);
-  if (!ikonka) return;
+// Ikonka przypiętej strony na następny start. Zapisujemy sam obrazek (data:), pobrany w sesji stron LivePL
+// (ciasteczka, wyjątki certyfikatów, urząd LivePL), a nie tylko jego adres: pasek nie musi go potem pobierać sam,
+// więc ikonka jest od razu po uruchomieniu także przy stronach z logowaniem i urządzeniach w sieci z własnym
+// certyfikatem (zgłoszenie Karola 28.11: po ponownym uruchomieniu same globusy). ikonkaZ: adres, z którego jest obrazek.
+const NAJWIEKSZA_IKONKA = 72 * 1024;
+
+function typIkonki(b, naglowek) {
+  if (b.length > 8 && b[0] === 0x89 && b.toString('latin1', 1, 4) === 'PNG') return 'image/png';
+  if (b.length > 6 && b[0] === 0 && b[1] === 0 && (b[2] === 1 || b[2] === 2) && b[3] === 0) return 'image/x-icon';
+  if (b.toString('latin1', 0, 4) === 'GIF8') return 'image/gif';
+  if (b[0] === 0xff && b[1] === 0xd8) return 'image/jpeg';
+  if (b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP') return 'image/webp';
+  const poczatek = b.toString('utf8', 0, Math.min(b.length, 1024)).toLowerCase();
+  if (poczatek.includes('<svg') && (/svg/.test(String(naglowek || '')) || /^\s*(<\?xml|<svg|<!--)/.test(poczatek))) return 'image/svg+xml';
+  return null;
+}
+
+async function pobierzIkonke(url) {
+  if (/^data:/i.test(url)) return bezpiecznaIkonka(url);
+  if (!/^https?:\/\//i.test(url)) return null;
+  const przerwij = new AbortController();
+  const czas = setTimeout(() => przerwij.abort(), 15000);
+  try {
+    const odp = await session.fromPartition(PARTYCJA).fetch(url, { signal: przerwij.signal, credentials: 'include' });
+    if (!odp.ok) return null;
+    let bufor = Buffer.from(await odp.arrayBuffer());
+    if (!bufor.length || bufor.length > NAJWIEKSZA_IKONKA) return null;
+    let typ = typIkonki(bufor, odp.headers.get('content-type'));
+    if (!typ) return null;
+    // duży obrazek PNG/JPEG zmniejszamy do 64 px, żeby ustawienia zostały małe
+    if (bufor.length > 16 * 1024 && (typ === 'image/png' || typ === 'image/jpeg')) {
+      const obraz = nativeImage.createFromBuffer(bufor);
+      if (!obraz.isEmpty()) {
+        const mniejszy = obraz.resize({ width: 64, quality: 'best' }).toPNG();
+        if (mniejszy.length && mniejszy.length < bufor.length) { bufor = mniejszy; typ = 'image/png'; }
+      }
+    }
+    return bezpiecznaIkonka(`data:${typ};base64,${bufor.toString('base64')}`);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(czas);
+  }
+}
+
+function zapiszIkonke(id, url, obrazek) {
   const lista = listaWlasnych();
-  const s = lista.find(x => x.id === k.program.id);
-  if (!s || s.ikonka === ikonka) return;
-  s.ikonka = ikonka;
+  const s = lista.find(x => x.id === id);
+  if (!s) return;
+  const nowa = obrazek || url;
+  if (s.ikonka === nowa && s.ikonkaZ === url) return;
+  s.ikonka = nowa;
+  s.ikonkaZ = url;
   ustawienia.wlasneStrony = lista;
   zapiszUstawienia();
+  const p = programy.find(x => x.id === id);
+  if (p) { p.ikonka = bezpiecznaIkonka(nowa); p.ikonkaZ = url; }
+  wyslijStan();
+}
+
+function zapamietajIkonke(k) {
+  if (!k.program || !k.program.wlasny) return;
+  const url = bezpiecznaIkonka(k.ikonka);
+  if (!url) return;
+  const id = k.program.id;
+  const s = listaWlasnych().find(x => x.id === id);
+  if (!s || (s.ikonkaZ === url && /^data:/i.test(s.ikonka || ''))) return;
+  pobierzIkonke(url)
+    .then((obrazek) => obrazek || ikonkaZeStrony(k, url))
+    .then((obrazek) => zapiszIkonke(id, url, obrazek));
+}
+
+// Gdy sesja nie pobierze ikonki (np. urządzenie w sieci z certyfikatem przyjętym przez „Wejdź mimo to”),
+// a ikonka jest z tej samej strony: pobieramy ją z wnętrza otwartej strony (w osobnym świecie JavaScriptu).
+async function ikonkaZeStrony(k, url) {
+  try {
+    const wc = k.wc;
+    if (!wc || wc.isDestroyed() || new URL(url).origin !== new URL(wc.getURL()).origin) return null;
+    const kod = `fetch(${JSON.stringify(url)}).then((r) => (r.ok ? r.arrayBuffer() : null)).then((b) => {
+      if (!b || b.byteLength > ${NAJWIEKSZA_IKONKA}) return null;
+      let s = ''; const u = new Uint8Array(b);
+      for (let i = 0; i < u.length; i++) s += String.fromCharCode(u[i]);
+      return btoa(s);
+    }).catch(() => null)`;
+    const b64 = await wc.executeJavaScriptInIsolatedWorld(1999, [{ code: kod }]);
+    if (typeof b64 !== 'string' || !b64) return null;
+    const typ = typIkonki(Buffer.from(b64, 'base64'), '');
+    return typ ? bezpiecznaIkonka(`data:${typ};base64,${b64}`) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Przy starcie: strony zapisane z samym adresem ikonki (sprzed 0.1.28) albo bez ikonki dostają obrazek w tle.
+// Strona bez ikonki: /favicon.ico z jej adresu. Nieudana próba co najwyżej raz na dobę (ikonkaProba).
+async function uzupelnijIkonki() {
+  for (const s of listaWlasnych()) {
+    if (/^data:/i.test(s.ikonka || '')) continue;
+    if (s.ikonkaProba && Date.now() - s.ikonkaProba < 24 * 3600 * 1000) continue;
+    let url = bezpiecznaIkonka(s.ikonka);
+    if (!url) { try { url = new URL('/favicon.ico', s.adres).href; } catch { continue; } }
+    const obrazek = await pobierzIkonke(url);
+    if (obrazek) zapiszIkonke(s.id, url, obrazek);
+    else {
+      s.ikonkaProba = Date.now();
+      zapiszUstawienia();
+    }
+  }
+}
+
+// przypięta strona: zapisany obrazek, chyba że otwarta strona ma ikonkę z innego adresu (wtedy ten adres)
+function ikonkaWlasnej(p, k) {
+  const teraz = bezpiecznaIkonka(k && k.ikonka);
+  if (p.ikonka && /^data:/i.test(p.ikonka) && (!teraz || teraz === p.ikonkaZ)) return p.ikonka;
+  return teraz || p.ikonka || '';
 }
 
 function hostZ(url) {
@@ -1144,7 +1249,7 @@ function stan() {
       skrot: p.skrot || p.nazwa,
       podpis: podpisIkony(p.id),
       ikona: p.ikona || 'strona',
-      ikonka: p.wlasny ? (bezpiecznaIkonka(k && k.ikonka) || p.ikonka || '') : obrazekProgramu(p),
+      ikonka: p.wlasny ? ikonkaWlasnej(p, k) : obrazekProgramu(p),
       szeroki: !!p.szeroki,
       wlasny: !!p.wlasny,
       licznik: k ? k.licznik : 0,
@@ -2052,7 +2157,7 @@ function danePanelu() {
     moznaPrzypiac: !!(k && !k.program && !k.nowa && /^https?:/i.test(k.adres || '')),
     wlasneStrony: programy.filter(p => p.wlasny).map(p => ({
       id: p.id, nazwa: p.nazwa, adres: p.adres,
-      ikonka: bezpiecznaIkonka((karty.get(p.id) || {}).ikonka) || p.ikonka || ''
+      ikonka: ikonkaWlasnej(p, karty.get(p.id))
     })),
     uprawnieniaStron: [...new Set([...Object.keys(zapisaneZgody()), ...Object.keys(zapisaneUrzadzenia())])]
       .map(host => {
@@ -3369,6 +3474,8 @@ app.whenReady().then(() => {
   utworzZasobnik();
   odswiezSkrot();
   utworzPanel();
+  // ikonki przypiętych stron jako obrazki (zob. zapamietajIkonke), w tle po starcie
+  setTimeout(() => { uzupelnijIkonki().catch(() => {}); }, 10000);
 
   // aktualizacje: kilka sekund po włączeniu, potem co 4 godziny (jeśli włączone). Nowa wersja:
   // okienko „Jest nowa wersja. Pobrać?”; po pobraniu „Uruchomić ponownie?”. Bez zgody nic się nie pobiera.
