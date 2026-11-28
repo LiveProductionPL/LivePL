@@ -64,13 +64,14 @@ const daneManifestu = {
   notatki: opis.join(' ').trim()
 };
 // LivePL na Maca nie podmienia plików (podpis Apple), tylko proponuje nowy plik .dmg z app.livepl.eu/pobierz/.
-// LIVEPL_MAC_DMG=<ścieżka do LivePL-x.y.z.dmg> dopisuje pole „mac” (zob. wersjaNaMaca w src/aktualizacje.js).
+// LIVEPL_MAC_DMG=<ścieżka do LivePL-x.y.z.dmg> dopisuje pole „mac” (zob. wersjaNaMaca w src/aktualizacje.js),
+// a LIVEPL_MAC_NOTATKI jego opis, gdy plik na Maca jest z wcześniejszego wydania niż paczka dla Windows i Linuxa.
 if (process.env.LIVEPL_MAC_DMG) {
   const dmg = readFileSync(process.env.LIVEPL_MAC_DMG);
   const nazwa = process.env.LIVEPL_MAC_DMG.split(/[\\/]/).pop();
   const m = /^LivePL-(\d+\.\d+\.\d+)\.dmg$/.exec(nazwa);
   if (!m) throw new Error('Plik na Maca musi się nazywać LivePL-x.y.z.dmg: ' + nazwa);
-  daneManifestu.mac = { wersja: m[1], plik: 'https://app.livepl.eu/pobierz/' + nazwa, rozmiar: dmg.length, sha256: sha(dmg), notatki: daneManifestu.notatki };
+  daneManifestu.mac = { wersja: m[1], plik: 'https://app.livepl.eu/pobierz/' + nazwa, rozmiar: dmg.length, sha256: sha(dmg), notatki: process.env.LIVEPL_MAC_NOTATKI || daneManifestu.notatki };
 }
 const manifest = Buffer.from(JSON.stringify(daneManifestu, null, 2));
 const podpis = sign(null, manifest, klucz).toString('base64');
