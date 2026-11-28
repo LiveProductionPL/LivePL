@@ -409,15 +409,37 @@ struct HtmlWidok: UIViewRepresentable {
         var zaladowane = ""
         init(link: @escaping (URL) -> Void) { self.link = link }
 
-        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
-                     decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void) {
-            guard navigationAction.navigationType == .linkActivated, let u = navigationAction.request.url else {
-                decisionHandler(.allow)
+        /// JavaScript tylko dla strony w wersji dla aplikacji z tvml.pl (?widok=app, np. salon wróżb Andrzejek),
+        /// treść z API dalej bez skryptów. Kotwica na tej samej stronie (#wosk) przewija w widoku, a nie otwiera
+        /// go od nowa (Karol 28.11: „klikam na linki od wrozba na aplikacji ale nie nie dziala”).
+        func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, preferences: WKWebpagePreferences,
+                     decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy, WKWebpagePreferences) -> Void) {
+            let u = navigationAction.request.url
+            preferences.allowsContentJavaScript = u.map(HtmlWidok.stronaDlaAplikacji) ?? false
+            guard navigationAction.navigationType == .linkActivated, let u else {
+                decisionHandler(.allow, preferences)
                 return
             }
-            decisionHandler(.cancel)
+            if u.fragment != nil, let teraz = webView.url, HtmlWidok.bezKotwicy(u) == HtmlWidok.bezKotwicy(teraz) {
+                decisionHandler(.allow, preferences)
+                return
+            }
+            decisionHandler(.cancel, preferences)
             link(u)
         }
+    }
+
+    /// https://tvml.pl/…?widok=app: strona przygotowana dla aplikacji (może mieć skrypty, np. salon wróżb).
+    static func stronaDlaAplikacji(_ u: URL) -> Bool {
+        let host = u.host?.lowercased() ?? ""
+        guard u.scheme == "https", host == "tvml.pl" || host == "www.tvml.pl" else { return false }
+        return URLComponents(url: u, resolvingAgainstBaseURL: false)?.queryItems?.contains { $0.name == "widok" && $0.value == "app" } ?? false
+    }
+
+    static func bezKotwicy(_ u: URL) -> String {
+        var c = URLComponents(url: u, resolvingAgainstBaseURL: false)
+        c?.fragment = nil
+        return c?.string ?? u.absoluteString
     }
 }
 
