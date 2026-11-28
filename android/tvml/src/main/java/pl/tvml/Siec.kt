@@ -3,6 +3,7 @@ package pl.tvml
 import android.content.Context
 import android.os.Build
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -37,12 +38,13 @@ object Siec {
      */
     private var schowek: File? = null
 
-    /** Najstarsza odpowiedź wzięta z pamięci telefonu w bieżącym odświeżeniu (ms); null = wszystko prosto z sieci. Jak na iOS. */
-    @Volatile var zPamieciOd: Long? = null
-
-    private fun zPamieci(zapis: File): Any {
-        val kiedy = zapis.lastModified()
-        synchronized(this) { zPamieciOd = zPamieciOd?.let { minOf(it, kiedy) } ?: kiedy }
+    /**
+     * Odpowiedź z pamięci telefonu. Data trafia tylko do znacznika [ZPamieci] odświeżenia, w którym padło zapytanie
+     * (Karol 28.11: fałszywe „Bez internetu” na iPhonie, bo liczyły się zapytania z innych ekranów i przerwane).
+     */
+    private fun zPamieci(zapis: File, znacznik: ZPamieci?, powod: String): Any {
+        if (BuildConfig.DEBUG) android.util.Log.d("TVML-Siec", "z pamięci ($powod): ${zapis.name}")
+        znacznik?.zapisz(zapis.lastModified())
         return parsuj(zapis.readText())
     }
 
@@ -58,6 +60,7 @@ object Siec {
 
     /** JSON (obiekt albo tablica) z adresu względnego wobec tvml.pl. */
     suspend fun json(sciezka: String): Any = withContext(Dispatchers.IO) {
+        val znacznik = coroutineContext[ZPamieci]
         val adres = if (sciezka.startsWith("http")) sciezka else BAZA + sciezka
         val zapis = plik(adres)
         val etagPlik = zapis?.let { File(it.path + ".etag") }
@@ -75,9 +78,11 @@ object Siec {
             val kod = try {
                 polaczenie.responseCode
             } catch (e: Exception) {
+                // przerwane zapytanie (np. odświeżenie anulowane) to nie brak internetu: bez pamięci i bez napisu
                 if (e is kotlinx.coroutines.CancellationException) throw e
+                ensureActive()
                 // bez internetu: ostatnia zapisana odpowiedź
-                if (zapis?.exists() == true) return@withContext zPamieci(zapis)
+                if (zapis?.exists() == true) return@withContext zPamieci(zapis, znacznik, e.javaClass.simpleName)
                 throw e
             }
             if (BuildConfig.DEBUG) android.util.Log.d("TVML-Siec", "$kod $adres")
@@ -85,7 +90,7 @@ object Siec {
                 // serwer potwierdził, że zapis jest aktualny: data zapisu = teraz (do napisu „Bez internetu” później)
                 304 -> zapis!!.also { it.setLastModified(System.currentTimeMillis()) }.let { parsuj(it.readText()) }
                 // awaria serwera: ostatnia zapisana odpowiedź, jak bez internetu
-                in 500..599 -> if (zapis?.exists() == true) zPamieci(zapis) else throw java.io.IOException("HTTP $kod: $adres")
+                in 500..599 -> if (zapis?.exists() == true) zPamieci(zapis, znacznik, "HTTP $kod") else throw java.io.IOException("HTTP $kod: $adres")
                 200 -> {
                     val tekst = polaczenie.inputStream.bufferedReader().use { it.readText() }
                     val wynik = parsuj(tekst)
@@ -102,6 +107,22 @@ object Siec {
     }
 
     private fun parsuj(tekst: String): Any = JSONTokener(tekst).nextValue()
+
+    /**
+     * Znacznik jednego odświeżenia (jak TaskLocal ZPamieci na iOS, commit 37c1cdf): najstarsza odpowiedź wzięta
+     * z pamięci telefonu w tym odświeżeniu. Idzie w kontekście korutyny, więc zapytania innych ekranów
+     * (kategorie, sonda, starsze filmy) go nie zapalają.
+     */
+    class ZPamieci : kotlin.coroutines.AbstractCoroutineContextElement(ZPamieci) {
+        companion object Klucz : kotlin.coroutines.CoroutineContext.Key<ZPamieci>
+
+        @Volatile var od: Long? = null
+            private set
+
+        @Synchronized fun zapisz(kiedy: Long) {
+            od = od?.let { minOf(it, kiedy) } ?: kiedy
+        }
+    }
 
     /**
      * Trasa API v1, np. v1("articles", mapOf("limit" to "20")). Każde zapytanie ma lang= (API 1.8.0) z wybranym językiem,

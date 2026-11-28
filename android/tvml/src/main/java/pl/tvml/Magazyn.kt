@@ -407,16 +407,17 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
         // przy podglądzie bez przerwy 2 min: każde odświeżenie pobiera szkic od nowa
         if (!wymus && podglad == null && System.currentTimeMillis() - ostatnio < 120_000) return
         laduje = true
-        Siec.zPamieciOd = null
+        // znacznik tylko tego odświeżenia (Karol 28.11: fałszywe „Bez internetu”); przerwane odświeżenie nie zmienia napisu
+        val z = Siec.ZPamieci()
         try {
-            if (odswiezV1()) {
+            if (odswiezV1(z)) {
                 blad = null
                 // dane z pamięci telefonu: napis „Bez internetu” na Starcie i bez przerwy 2 minut przed kolejną próbą
-                daneZPamieci = Siec.zPamieciOd
+                daneZPamieci = z.od
                 if (daneZPamieci == null) ostatnio = System.currentTimeMillis()
             } else {
-                odswiezStare()
-                daneZPamieci = Siec.zPamieciOd?.takeIf { najnowsze.isNotEmpty() }
+                odswiezStare(z)
+                daneZPamieci = z.od?.takeIf { najnowsze.isNotEmpty() }
                 if (daneZPamieci != null) ostatnio = 0L
             }
         } finally {
@@ -430,6 +431,17 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
     }
 
     /** Do zrzutów: --es komunikat aktualizacja|redakcja|pilny|wymagana. */
+    /** Do zrzutów w wersji debug (--ez banerTestowy true): przykładowy baner Andrzejek na Starcie, zanim poda go serwer. */
+    var banerTestowy = false
+
+    private fun przykladBanera() = BlokStartu(
+        "banner-test", "banner", "Andrzejki – noc wróżb", false, 0, null,
+        baner = BlokStartu.Baner(
+            najnowsze.firstOrNull()?.obraz?.ifEmpty { null }, 2.5f, "Andrzejki – noc wróżb ✦", "Wosk, tarot, szklana kula…", "Wróż z nami",
+            "https://tvml.pl/strona/andrzejki", "https://tvml.pl/strona/andrzejki?widok=app",
+        ),
+    )
+
     var komunikatTestowy: String? = null
         set(v) {
             field = v
@@ -442,14 +454,14 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
         }
 
     /** Nowe API (/api/v1): config, artykuły, najczęściej czytane, wideo, pogoda. */
-    private suspend fun odswiezV1(): Boolean {
+    private suspend fun odswiezV1(z: Siec.ZPamieci): Boolean {
         val jezykZapytan = Jezyk.biezacy
         // API 1.8.3 podaje scenę SVG motywów ze Studia motywów zawsze (weatherSceneType/weatherSceneSvgUrl), bez features
-        val k = zakres.async { pobierzKonfiguracje() }
-        val a = zakres.async { Siec.v1Obiekt("articles", mapOf("limit" to "20")) }
-        val b = zakres.async { Siec.v1Obiekt("articles/most-read", mapOf("limit" to "10")) }
-        val d = zakres.async { Siec.v1Obiekt("videos", mapOf("limit" to "15")) }
-        val e = zakres.async { Siec.v1Obiekt("weather") }
+        val k = zakres.async(z) { pobierzKonfiguracje() }
+        val a = zakres.async(z) { Siec.v1Obiekt("articles", mapOf("limit" to "20")) }
+        val b = zakres.async(z) { Siec.v1Obiekt("articles/most-read", mapOf("limit" to "10")) }
+        val d = zakres.async(z) { Siec.v1Obiekt("videos", mapOf("limit" to "15")) }
+        val e = zakres.async(z) { Siec.v1Obiekt("weather") }
         val lista = a.await() ?: return false
         // podgląd bez sieci albo z błędem serwera: zostaje to, co widać (bez przechodzenia na stare API)
         val konf = k.await() ?: return podglad != null
@@ -528,7 +540,7 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
             if (gotowe.none { it.id == zakladka }) zakladka = gotowe[0].id
         }
         val bl = konf.lista("home").mapIndexedNotNull { i, j -> BlokStartu.z(j, i) }
-        if (bl.isNotEmpty()) bloki = bl
+        if (bl.isNotEmpty()) bloki = if (banerTestowy) bl.take(2) + przykladBanera() + bl.drop(2) else bl
         val t = konf.o("ticker")
         pasek = Artykul.widoczne(t.lista("items"))
         pasekWlaczony = !t.ma("enabled") || t.b("enabled")
@@ -561,12 +573,12 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
     }
 
     /** Zapas: te same akcje co strona (tvml-db.php i tvml-portal.php). */
-    private suspend fun odswiezStare() {
-        val a = zakres.async { runCatching { Siec.json("tvml-db.php?action=latest&limit=20") } }
-        val b = zakres.async { Siec.staraLista("tvml-db.php?action=most-read&limit=10") }
-        val c = zakres.async { Siec.staraLista("tvml-db.php?action=ticker&category=aktualnosci&limit=10") }
-        val d = zakres.async { Siec.staryObiekt("tvml-portal.php?action=youtube&channel=@TVMLlive&limit=12") }
-        val e = zakres.async { Siec.staryObiekt("tvml-portal.php?action=weather-full") }
+    private suspend fun odswiezStare(z: Siec.ZPamieci) {
+        val a = zakres.async(z) { runCatching { Siec.json("tvml-db.php?action=latest&limit=20") } }
+        val b = zakres.async(z) { Siec.staraLista("tvml-db.php?action=most-read&limit=10") }
+        val c = zakres.async(z) { Siec.staraLista("tvml-db.php?action=ticker&category=aktualnosci&limit=10") }
+        val d = zakres.async(z) { Siec.staryObiekt("tvml-portal.php?action=youtube&channel=@TVMLlive&limit=12") }
+        val e = zakres.async(z) { Siec.staryObiekt("tvml-portal.php?action=weather-full") }
         val wynik = a.await()
         val lista = (wynik.getOrNull() as? org.json.JSONArray)?.obiekty()
         if (lista != null) {

@@ -58,6 +58,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -91,8 +92,15 @@ fun Baner(m: Magazyn) {
     Column {
         val pasek = motyw.pasek
         if (pasek != null) {
-            Box(Modifier.background(Brush.verticalGradient(motyw.tloPaska))) {
-                PasekZyczen(pasek, motyw, Modifier.windowInsetsPadding(WindowInsets.statusBars))
+            val kontekst = LocalContext.current
+            // belka z adresem (theme.topbar.url) otwiera go: podstronę albo artykuł w aplikacji, resztę w przeglądarce
+            // (Karol 28.11: „górna belka w telefonie nie działa, nic nie otwiera, jak klikam”), jak na iOS (37c1cdf)
+            val otworz: (() -> Unit)? = pasek.adres?.let { a -> { otworzAdresAplikacji(m, kontekst, a) } }
+            Box(
+                Modifier.background(Brush.verticalGradient(motyw.tloPaska))
+                    .then(if (otworz != null) Modifier.clickable(role = Role.Button, onClickLabel = pasek.etykieta) { otworz() } else Modifier),
+            ) {
+                PasekZyczen(pasek, motyw, Modifier.windowInsetsPadding(WindowInsets.statusBars), zLinkiem = otworz != null)
             }
         }
         Box(Modifier.fillMaxWidth().background(Brush.verticalGradient(motyw.naglowek.map { it.w(ciemny) }))) {
@@ -155,11 +163,13 @@ fun Baner(m: Magazyn) {
 }
 
 @Composable
-fun PasekZyczen(pasek: Motyw.Pasek, motyw: Motyw, modifier: Modifier = Modifier) {
+fun PasekZyczen(pasek: Motyw.Pasek, motyw: Motyw, modifier: Modifier = Modifier, zLinkiem: Boolean = false) {
     Column(modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 6.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Canvas(Modifier.size(12.dp)) { drawPath(gwiazda(Rect(Offset.Zero, size)), motyw.zlotoPaska) }
             Text(pasek.etykieta, color = motyw.zlotoPaska, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
+            // strzałka: belkę można stuknąć (jak „›” na iOS)
+            if (zLinkiem) Text("›", color = motyw.zlotoPaska, fontSize = 15.sp, fontWeight = FontWeight.Black, lineHeight = 11.sp)
         }
         Text(pasek.tekst, color = kolor(0xf6efe3), fontSize = 13.sp)
         val doKiedy = pasek.odliczanieDo
@@ -233,6 +243,22 @@ fun Flaga(jezyk: String, modifier: Modifier = Modifier) {
         modifier.clip(RoundedCornerShape(2.5.dp)).border(0.5.dp, Color.Black.copy(alpha = 0.2f), RoundedCornerShape(2.5.dp)),
         contentScale = ContentScale.Crop,
     )
+}
+
+/**
+ * Adres z panelu (belka motywu): tvml.pl/strona/{slug} jako podstrona w aplikacji (jak w „Więcej”), tvml.pl/artykul/…
+ * jako artykuł w aplikacji, Pogoda w zakładce, inne adresy http(s) w karcie przeglądarki.
+ */
+fun otworzAdresAplikacji(m: Magazyn, kontekst: android.content.Context, adres: String) {
+    val u = android.net.Uri.parse(adres)
+    val strona = Linki.podstrona(u)
+    val artykul = Linki.artykul(u)
+    when {
+        strona != null -> m.otworz(Ekran.Strona(strona))
+        artykul != null -> m.otworzArtykul(artykul) { otworzStrone(kontekst, adres) }
+        Linki.pogoda(u) -> m.pokaz(ZakladkaApp.Cel.Pogoda)
+        u.scheme == "https" || u.scheme == "http" -> otworzStrone(kontekst, adres)
+    }
 }
 
 fun odliczanie(od: ZonedDateTime, koniec: ZonedDateTime): String {

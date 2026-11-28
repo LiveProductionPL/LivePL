@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.key
 import androidx.compose.ui.unit.Dp
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -200,6 +201,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.blok(m: Magazyn, blok
                 }
             }
         }
+        // baner z panelu: karta bez nagłówka sekcji, cała klikalna (jak na iOS, bd428b3)
+        "banner" -> blok.baner?.let { b -> item(key = blok.id) { BanerStartu(m, b) } }
         "social" -> {
             tytul()
             item(key = blok.id) { Spolecznosc() }
@@ -220,6 +223,40 @@ private fun androidx.compose.foundation.lazy.LazyListScope.blok(m: Magazyn, blok
         "events" -> if (m.wydarzenia.isNotEmpty() && m.bloki.none { it.typ == "poll" }) {
             if (!blok.ukryjTytul) item(key = "${blok.id}-tytul") { Naglowek(blok.tytul.ifEmpty { tl("app.events", "Kalendarz wydarzeń") }) }
             item(key = blok.id) { ListaWydarzen(m, m.wydarzenia.take(if (blok.limit > 0) blok.limit else 5)) }
+        }
+    }
+}
+
+/**
+ * Baner z panelu (blok „banner”, API 1.10.0): karta jak inne na Starcie (tło karty, ramka, rogi 16), u góry obraz
+ * w proporcji imageRatio, pod nim tytuł, tekst i „{button} →” w kolorze akcentu motywu. Stuknięcie w całą kartę
+ * otwiera adres tak samo jak górna belka motywu ([otworzAdresAplikacji]): podstronę albo artykuł w aplikacji, resztę
+ * w przeglądarce. Tak samo na iOS.
+ */
+@Composable
+fun BanerStartu(m: Magazyn, baner: BlokStartu.Baner) {
+    val b = LocalBarwy.current
+    val ciemny = LocalCiemny.current
+    val kontekst = LocalContext.current
+    val ksztalt = RoundedCornerShape(16.dp)
+    Column(
+        Modifier.fillMaxWidth().clip(ksztalt).background(b.karta).border(1.dp, b.ramka, ksztalt)
+            .clickable(role = Role.Button, onClickLabel = baner.przycisk.ifEmpty { null }) { otworzAdresAplikacji(m, kontekst, baner.adres) }
+            .semantics(mergeDescendants = true) { },
+    ) {
+        baner.obraz?.let { adres ->
+            // zdjęcia z tvml.pl przez pośrednika WebP, jak miniatury artykułów
+            val zrodlo = if (android.net.Uri.parse(adres).host?.endsWith("tvml.pl") == true) Siec.obraz(adres, 900) else adres
+            Obraz(zrodlo, Modifier.fillMaxWidth().aspectRatio(baner.proporcja))
+        }
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (baner.tytul.isNotEmpty()) {
+                Text(baner.tytul, color = b.tekst, fontSize = 18.sp, lineHeight = 23.sp, fontWeight = FontWeight.Bold, fontFamily = KrojNaglowkow)
+            }
+            if (baner.tekst.isNotEmpty()) Text(baner.tekst, color = b.slaby, fontSize = 14.sp, lineHeight = 19.sp)
+            if (baner.przycisk.isNotEmpty()) {
+                Text(baner.przycisk + " →", color = m.motyw.akcent.w(ciemny), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

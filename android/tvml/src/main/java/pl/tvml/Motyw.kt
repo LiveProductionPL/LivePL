@@ -55,7 +55,8 @@ data class Motyw(
 ) {
     enum class Rodzaj { ZWYKLY, ZALOBA, LISTOPAD, ZIMA, MIKOLAJKI, CZAPECZKA, WIGILIA, SWIETA, SYLWESTER, NOWY_ROK, ANDRZEJKI }
     enum class Scena { WIOSNA, LATO, JESIEN, ZIMA, SWIETA, SYLWESTER, LISTOPAD }
-    data class Pasek(val etykieta: String, val tekst: String, val stopka: String? = null, val odliczanieDo: ZonedDateTime? = null)
+    /** Górna belka motywu; [adres] z theme.topbar.url (API 1.5.1), np. https://tvml.pl/strona/andrzejki. */
+    data class Pasek(val etykieta: String, val tekst: String, val stopka: String? = null, val odliczanieDo: ZonedDateTime? = null, val adres: String? = null)
 
     /** Kolory wersji z panelu (API 1.1: theme.colors.light i .dark). */
     class Paleta private constructor(
@@ -234,7 +235,10 @@ data class Motyw(
                     Rodzaj.NOWY_ROK -> "NOWY ROK"
                     else -> "TVML"
                 }
-                Pasek(p.s("label").ifEmpty { domyslna }, p.s("text"), p.s("foot").ifEmpty { null }, Daty.iso(p.s("countdownTo")))
+                Pasek(
+                    p.s("label").ifEmpty { domyslna }, p.s("text"), p.s("foot").ifEmpty { null }, Daty.iso(p.s("countdownTo")),
+                    p.s("url").trim().takeIf { it.startsWith("https://") || it.startsWith("http://") },
+                )
             }
             // API 1.0 podawało tu kolory bazowe portalu, dopiero 1.1 kolory wersji
             val kolory = if (rodzaj != Rodzaj.ZWYKLY && porownajWersje(wersjaApi, "1.1") >= 0) Paleta.z(t.o("colors")) else null

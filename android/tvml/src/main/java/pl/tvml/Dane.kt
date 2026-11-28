@@ -203,9 +203,20 @@ data class ZakladkaApp(val id: String, val tytul: String, val ikona: String, val
 data class BlokStartu(
     val id: String, val typ: String, val tytul: String, val ukryjTytul: Boolean, val limit: Int, val kategoria: String?,
     val ankieta: String? = null,
+    /** Blok „banner” (API 1.10.0): obraz, tytuł, tekst i przycisk z adresem z panelu. */
+    val baner: Baner? = null,
 ) {
+    /**
+     * Baner na Starcie ustawiany w panelu (Karol 28.11: „trzeba dac w nowej wersji opcje tez ze mozamy dodac jakis baner
+     * gdzie podzie jakas podstorna”). Format od TVML Connect; serwer wysyła blok tylko w oknie from–until.
+     */
+    data class Baner(
+        val obraz: String?, val proporcja: Float, val tytul: String, val tekst: String, val przycisk: String,
+        val adres: String, val adresApp: String?,
+    )
+
     companion object {
-        val znane = setOf("hero", "weather", "alert", "video", "posts", "mostread", "gallery", "counties", "social", "poll", "events")
+        val znane = setOf("hero", "weather", "alert", "video", "posts", "mostread", "gallery", "counties", "social", "poll", "events", "banner")
         val domyslne get() = listOf(
             BlokStartu("hero", "hero", "", true, 5, null),
             BlokStartu("weather", "weather", tl("app.weather", "Pogoda"), true, 0, null),
@@ -221,9 +232,19 @@ data class BlokStartu(
             val p = j.o("props")
             // artykuły sponsorowane są w aplikacji wyłączone (Karol, 22.11.2026): bez list z ich kategorią albo flagą
             if (p.s("category") == Artykul.SPONSOROWANE || p.b("sponsored")) return null
+            // baner bez poprawnego adresu https jest pomijany (jak na iOS)
+            val baner = if (typ == "banner") {
+                val adres = p.s("url").trim().takeIf { it.startsWith("https://") } ?: return null
+                Baner(
+                    p.s("image").trim().takeIf { it.startsWith("https://") || it.startsWith("http://") },
+                    p.d("imageRatio")?.toFloat()?.takeIf { it in 0.5f..6f } ?: 2.5f,
+                    Html.tekst(p.s("title")).ifEmpty { Html.tekst(j.s("title")) }, Html.tekst(p.s("text")), Html.tekst(p.s("button")),
+                    adres, p.s("appUrl").trim().takeIf { it.startsWith("https://") },
+                )
+            } else null
             return BlokStartu(
                 j.s("id").ifEmpty { "$typ-$nr" }, typ, Html.tekst(j.s("title")), p.b("hideTitle"), p.i("limit"),
-                p.s("category").ifEmpty { null }, p.s("pollId").ifEmpty { null },
+                p.s("category").ifEmpty { null }, p.s("pollId").ifEmpty { null }, baner,
             )
         }
     }
