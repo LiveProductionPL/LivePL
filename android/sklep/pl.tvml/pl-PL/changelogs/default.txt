@@ -1,7 +1,6 @@
-Nowości w TVML 2.2:
-• Zgłoś zdarzenie ma własny formularz: wybierz rodzaj zdarzenia, opisz je, dodaj zdjęcie lub film i, jeśli chcesz, swoje położenie.
-• Nowa karta pogody na Starcie, jak na TVML.pl.
-• Filmy obejrzysz na pełnym ekranie, w poziomie.
-• Powiadomienia o nowych wpisach włączysz jednym „Tak” przy pierwszym uruchomieniu; tematy zmienisz w Więcej → Powiadomienia.
-• Linki do artykułów z TVML.pl otwierają się w aplikacji.
-• Świąteczny wygląd: Andrzejki, Mikołajki, Wigilia i Sylwester.
+Nowości w TVML 2.3:
+• Pogoda jak na TVML.pl: Rynek z nowym ratuszem, te same ikony i scena prosto ze strony.
+• Bez internetu zobaczysz ostatnie wiadomości i pogodę.
+• W zakładce Wideo jest więcej filmów: stuknij „Starsze filmy”, aby zobaczyć kolejne.
+• Kropki pod karuzelami pokazują, że można je przesunąć palcem.
+• Świąteczna belka i banery na Starcie otwierają strony, np. andrzejkową.
