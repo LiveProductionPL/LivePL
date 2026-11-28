@@ -289,9 +289,11 @@ struct PodstronaWidok: View {
     }
 
     /// appUrl podstrony z config.pages (w motywie aplikacji); nil, gdy strony nie ma w config.pages.
+    /// bezTytulu=1: tytuł i datę pokazuje aplikacja nad stroną, więc strona ich nie powtarza (PR #246 w Panel-TVML;
+    /// Karol 28.11: „Podwójnie widać tak ma być ?”). Android rysuje tytuł ze strony i tego parametru nie wysyła.
     private var adresDlaAplikacji: URL? {
         guard let baza = m.strony.first(where: { $0.slug == slug })?.adresApp?.absoluteString else { return nil }
-        return URL(string: baza + (baza.contains("?") ? "&" : "?") + "motyw=" + (schemat == .dark ? "ciemny" : "jasny"))
+        return URL(string: baza + (baza.contains("?") ? "&" : "?") + "motyw=" + (schemat == .dark ? "ciemny" : "jasny") + "&bezTytulu=1")
     }
 
     /// Zapas, gdy API nie odpowie: strona w wersji dla aplikacji, w motywie aplikacji.
