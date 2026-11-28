@@ -3,4 +3,3 @@ Nowości w TVML 2.3:
 • Bez internetu zobaczysz ostatnie wiadomości i pogodę.
 • W zakładce Wideo jest więcej filmów: stuknij „Starsze filmy”, aby zobaczyć kolejne.
 • Kropki pod karuzelami pokazują, że można je przesunąć palcem.
-• Świąteczna belka u góry otwiera stronę, np. andrzejkową.
