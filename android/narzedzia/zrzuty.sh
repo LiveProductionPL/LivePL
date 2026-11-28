@@ -91,12 +91,19 @@ if [ -n "$APK_TVML" ]; then
     adb exec-out screencap -p > "$WYJSCIE/$nazwa.png"
     echo "zrzut: $nazwa"
   }
-  zrzutTvml 11-tvml-start no
-  zrzutTvml 12-tvml-artykul no --es ekran artykul
-  zrzutTvml 13-tvml-pogoda no --es ekran pogoda
-  zrzutTvml 14-tvml-wideo yes --es ekran wideo
-  zrzutTvml 15-tvml-zima no --es motyw zima
-  zrzutTvml 16-tvml-noc yes --es motyw wigilia
+  # bez przerywania, jak tvml.pl w przeglądarce niżej: od motywu Andrzejek (28.11) emulator GitHuba wyłączał się
+  # zaraz po starcie TVML także ze sceną wbudowaną (budowy 31–33), a lokalny emulator i telefony działają.
+  # Limit czasu, bo zawieszony emulator nie odpowiada na adb; wcześniejsze zrzuty zostają.
+  export -f zrzutTvml
+  export ID_TVML WYJSCIE CZEKAJ
+  timeout 420 bash -c '
+    zrzutTvml 11-tvml-start no &&
+    zrzutTvml 12-tvml-artykul no --es ekran artykul &&
+    zrzutTvml 13-tvml-pogoda no --es ekran pogoda &&
+    zrzutTvml 14-tvml-wideo yes --es ekran wideo &&
+    zrzutTvml 15-tvml-zima no --es motyw zima &&
+    zrzutTvml 16-tvml-noc yes --es motyw wigilia
+  ' || echo "::warning::Emulator przestał odpowiadać przy zrzutach TVML; pozostałe zrzuty są."
 fi
 
 # tvml.pl w przeglądarce na końcu i bez przerywania: strona z animowaną pogodą potrafi zabić emulator GitHuba
