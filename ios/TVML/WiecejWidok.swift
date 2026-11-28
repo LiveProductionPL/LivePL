@@ -255,13 +255,17 @@ struct PodstronaWidok: View {
                     .font(.system(size: 15, weight: .bold)).foregroundStyle(Barwy.tekst).frame(height: 44)
             }
             .padding(.horizontal, 16)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(tytul).font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst).accessibilityAddTraits(.isHeader)
-                if let d = tresc?.aktualizacja {
-                    Text(Napisy.t("app.updated", "Aktualizacja") + ": " + PodstronaWidok.data.string(from: d)).czcionka(12).foregroundStyle(Barwy.slaby)
+            // strona dla aplikacji ma własny tytuł i datę: bez natywnego nagłówka, jak na Androidzie
+            // (Karol 28.11: „Podwójnie widać tak ma być ?”)
+            if adresDlaAplikacji == nil || bladStronyApp {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(tytul).font(Czcionka.naglowek(26)).foregroundStyle(Barwy.tekst).accessibilityAddTraits(.isHeader)
+                    if let d = tresc?.aktualizacja {
+                        Text(Napisy.t("app.updated", "Aktualizacja") + ": " + PodstronaWidok.data.string(from: d)).czcionka(12).foregroundStyle(Barwy.slaby)
+                    }
                 }
+                .padding(.horizontal, 16).padding(.bottom, 6)
             }
-            .padding(.horizontal, 16).padding(.bottom, 6)
             if let u = adresDlaAplikacji, !bladStronyApp {
                 // najpierw strona dla aplikacji z config.pages (appUrl), jak na Androidzie: ma skrypty (np. salon
                 // wróżb Andrzejek) i kotwice tej strony; treść z API zostaje zapasem (Karol 28.11: linki wróżb nie działały)
