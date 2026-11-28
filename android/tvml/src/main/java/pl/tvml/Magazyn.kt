@@ -434,6 +434,13 @@ class Magazyn(kontekst: Context, private val zakres: CoroutineScope) {
     /** Do zrzutów w wersji debug (--ez banerTestowy true): przykładowy baner Andrzejek na Starcie, zanim poda go serwer. */
     var banerTestowy = false
 
+    /**
+     * Do zrzutów na emulatorze GitHuba (--ez scenaWbudowana true): tylko scena wbudowana, bez sceny ze strony w WebView.
+     * Animowana scena strony (zwłaszcza Andrzejki) wyłączała emulator GitHuba (budowy 31 i 32, „error: closed”),
+     * tak jak tvml.pl w przeglądarce (narzedzia/zrzuty.sh).
+     */
+    var scenaWbudowana by mutableStateOf(false)
+
     private fun przykladBanera() = BlokStartu(
         "banner-test", "banner", "Andrzejki – noc wróżb", false, 0, null,
         baner = BlokStartu.Baner(

@@ -85,7 +85,8 @@ if [ -n "$APK_TVML" ]; then
     adb shell pm clear "$ID_TVML" > /dev/null
     # zrzuty po polsku niezależnie od języka emulatora (TVML ma wybór PL/UK/EN, domyślnie jak w systemie),
     # bez okna zgody na powiadomienia i bez rejestracji urządzenia na serwerze
-    adb shell am start -W -n "$ID_TVML/pl.tvml.MainActivity" --es jezyk pl --ez bezPowiadomien true "$@" > /dev/null
+    # scena wbudowana: animowana scena ze strony w WebView wyłączała emulator GitHuba (budowy 31 i 32, Andrzejki)
+    adb shell am start -W -n "$ID_TVML/pl.tvml.MainActivity" --es jezyk pl --ez bezPowiadomien true --ez scenaWbudowana true "$@" > /dev/null
     sleep "$CZEKAJ"
     adb exec-out screencap -p > "$WYJSCIE/$nazwa.png"
     echo "zrzut: $nazwa"

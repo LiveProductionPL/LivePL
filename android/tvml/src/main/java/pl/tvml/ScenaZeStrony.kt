@@ -66,7 +66,7 @@ object AdresSceny {
      * albo porze wymuszonej argumentem do zrzutów zostaje wbudowana, bo strona pokazuje dzisiejszy dzień i pogodę.
      */
     fun dla(m: Magazyn, tryb: String): String? {
-        if (m.podgladDniaTrwa || m.scenaTestowa != null || m.motywTestowy != null || m.nocTestowa != null) return null
+        if (m.podgladDniaTrwa || m.scenaTestowa != null || m.motywTestowy != null || m.nocTestowa != null || m.scenaWbudowana) return null
         val p = m.podglad
         return adres(tryb, !ValueAnimator.areAnimatorsEnabled(), p?.takeIf { !it.testowy }?.token)
     }

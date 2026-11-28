@@ -141,6 +141,7 @@ class MainActivity : ComponentActivity() {
         i.getStringExtra("scena")?.let { m.scenaTestowa = it; m.zegarScen++ }
         i.getStringExtra("komunikat")?.let { m.komunikatTestowy = it }
         if (BuildConfig.DEBUG && i.getBooleanExtra("banerTestowy", false)) m.banerTestowy = true
+        if (BuildConfig.DEBUG && i.getBooleanExtra("scenaWbudowana", false)) m.scenaWbudowana = true
         if (BuildConfig.DEBUG) i.getStringExtra("wylacz")?.let { ScenyStrony.wylaczone = it.split(',').map { s -> s.trim() }.toSet() }
         if (i.getBooleanExtra("dzienTestowy", false)) {
             m.dzienTestowy = true
