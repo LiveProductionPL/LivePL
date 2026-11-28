@@ -62,7 +62,8 @@ struct StartWidok: View {
             }
             .padding(16)
         }
-        .refreshable { await m.odswiez(wymus: true) }
+        // własne zadanie: SwiftUI anulowało odświeżenie przy przerysowaniu (laduje), a to dawało „Bez internetu”
+        .refreshable { await Task { await m.odswiez(wymus: true) }.value }
         .background(Barwy.tlo)
         // #alert: formularz w aplikacji, gdy serwer go zgłasza (config.alerts.native), inaczej strona
         .sheet(item: $strona) { s in OknoStrony(strona: s) }
@@ -313,7 +314,7 @@ struct ListaKategorii: View {
             }
             .padding(16)
         }
-        .refreshable { await m.kategoria(slug) }
+        .refreshable { await Task { await m.kategoria(slug) }.value }
         .task { if m.wKategorii[slug] == nil { await m.kategoria(slug) } }
         .background(Barwy.tlo)
     }

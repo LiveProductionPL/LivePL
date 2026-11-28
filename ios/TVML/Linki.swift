@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Linki do aplikacji (TVML 2.2, Karol 24.11: „Oba do 2.2”):
 /// - https://tvml.pl/artykul/<id>… (Universal Links, applinks:tvml.pl) otwiera artykuł w aplikacji, jak App Links na Androidzie;
@@ -49,6 +50,21 @@ extension Magazyn {
         // /artykul/678328 albo /artykul/678328-tytul: numer z początku (tak jak Android)
         if nasz, czesci.first == "artykul", let s = czesci.dropFirst().first, let id = Int(s.prefix(while: { $0.isASCII && $0.isNumber })) {
             Task { if let a = await artykul(id) { otworz(a) } }
+        }
+    }
+
+    /// Adres z belki motywu (theme.topbar.url): podstrona tvml.pl/strona/{slug} i artykuł w aplikacji, jak w „Więcej”,
+    /// inne adresy w przeglądarce (Karol 28.11: „górna belka w telefonie nie działa, nic nie otwiera, jak klikam”).
+    func otworzZBelki(_ url: URL) {
+        let host = (url.host ?? "").lowercased()
+        let nasz = host == "tvml.pl" || host == "www.tvml.pl"
+        let czesci = url.pathComponents.filter { $0 != "/" }
+        if nasz, czesci.first == "strona", let slug = czesci.dropFirst().first, !slug.isEmpty {
+            otworz(EkranWiecej.strona(slug))
+        } else if nasz, czesci.first == "artykul" {
+            otworzLink(url)
+        } else if url.scheme == "https" || url.scheme == "http" {
+            UIApplication.shared.open(url)
         }
     }
 

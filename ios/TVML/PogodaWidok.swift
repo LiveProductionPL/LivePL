@@ -125,7 +125,8 @@ struct PogodaWidok: View {
             }
             .padding(16)
         }
-        .refreshable { await m.odswiez(wymus: true) }
+        // własne zadanie: SwiftUI anulowało odświeżenie przy przerysowaniu (laduje), a to dawało „Bez internetu”
+        .refreshable { await Task { await m.odswiez(wymus: true) }.value }
         .background(Barwy.tlo)
     }
 }

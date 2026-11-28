@@ -197,20 +197,35 @@ enum Siec {
                 if doPamieci { Pamiec.zapisz(j, klucz: klucz) }
                 return j
             } catch {
+                // anulowane zadanie (np. przerwane odświeżenie) to nie brak sieci: bez pamięci i bez „Bez internetu”
+                // (Karol 28.11: napis „Bez internetu” przy każdym odświeżeniu, na Wi-Fi i w sieci komórkowej)
+                if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled { throw error }
                 ostatni = error
             }
         }
         // bez internetu albo przy awarii serwera: ostatnia odpowiedź z telefonu (błąd 4xx to prawdziwa odmowa, nie brak sieci)
         let odmowa = (ostatni as? BladHttp).map { (400..<500).contains($0.kod) } ?? false
         if doPamieci, !odmowa, let zapis = Pamiec.wczytaj(klucz) {
-            zPamieciOd = min(zPamieciOd ?? zapis.kiedy, zapis.kiedy)
+            zPamieci?.dodaj(zapis.kiedy)
             return zapis.json
         }
         throw ostatni
     }
 
-    /// Najstarsza odpowiedź wzięta z pamięci telefonu w bieżącym odświeżeniu; nil = wszystko prosto z sieci.
-    static var zPamieciOd: Date?
+    /// Odpowiedzi z pamięci telefonu w jednym odświeżeniu Startu (Magazyn.odswiez). Wartość zadania, a nie zmienna
+    /// globalna: zapytania z innych ekranów (bloki, artykuł) w tym czasie nie zapalają napisu „Bez internetu”.
+    @TaskLocal static var zPamieci: ZPamieci?
+
+    /// Najstarsza odpowiedź wzięta z pamięci telefonu; nil = wszystko prosto z sieci.
+    final class ZPamieci: @unchecked Sendable {
+        private let zamek = NSLock()
+        private var data: Date?
+        var najstarsza: Date? { zamek.lock(); defer { zamek.unlock() }; return data }
+        func dodaj(_ kiedy: Date) {
+            zamek.lock(); defer { zamek.unlock() }
+            data = min(data ?? kiedy, kiedy)
+        }
+    }
 
     /// Ostatnie odpowiedzi API w pamięci podręcznej telefonu (Caches/tvml-api), żeby bez internetu było widać
     /// ostatnie wiadomości, pogodę i ustawienia z panelu (Karol 25.11: „Aplikacja może pokazywać wczytuje pogodę
@@ -630,6 +645,9 @@ final class Magazyn: ObservableObject {
             try? await Task.sleep(nanoseconds: UInt64(sekundy * 1_000_000_000))
             guard !Task.isCancelled, let self else { return }
             self.chwilaSceny = Date()
+            // odswiezV1 woła zaplanujZmianeSceny, a ta anulowała to zadanie w połowie odświeżania (część danych
+            // kończyła się anulowaniem i napisem „Bez internetu”); zadanie już nie jest do anulowania
+            self.zegarSceny = nil
             await self.odswiez(wymus: true)
         }
     }
@@ -699,11 +717,14 @@ final class Magazyn: ObservableObject {
         if !wymus, podglad == nil, let ostatnio, Date().timeIntervalSince(ostatnio) < 120 { return }
         laduje = true
         defer { laduje = false }
-        Siec.zPamieciOd = nil
-        if await odswiezV1() {
+        let zPamieci = Siec.ZPamieci()
+        let udane = await Siec.$zPamieci.withValue(zPamieci) { await odswiezV1() }
+        // przerwane odświeżenie (np. nowe w jego miejsce) nie zmienia napisu „Bez internetu”
+        if Task.isCancelled { return }
+        if udane {
             blad = nil
             // dane z pamięci telefonu: napis „Bez internetu” na Starcie i bez przerwy 2 minut przed kolejną próbą
-            daneZPamieci = Siec.zPamieciOd
+            daneZPamieci = zPamieci.najstarsza
             if daneZPamieci == nil { ostatnio = Date() }
             await sprawdzNowaWersje()
             return

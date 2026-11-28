@@ -10,6 +10,8 @@ struct Motyw: Equatable {
         var tekst: String
         var stopka: String?
         var odliczanieDo: Date?
+        /// API 1.5.1: theme.topbar.url, np. https://tvml.pl/strona/andrzejki; stuknięcie w belkę go otwiera
+        var adres: URL?
     }
     enum Scena { case wiosna, lato, jesien, zima, swieta, sylwester, listopad }
 
@@ -312,7 +314,8 @@ struct Motyw: Equatable {
             pasek = Pasek(etykieta: p.s("label").isEmpty ? domyslna : p.s("label"),
                           tekst: p.s("text"),
                           stopka: p.s("foot").isEmpty ? nil : p.s("foot"),
-                          odliczanieDo: ISO8601DateFormatter().date(from: p.s("countdownTo")))
+                          odliczanieDo: ISO8601DateFormatter().date(from: p.s("countdownTo")),
+                          adres: p.s("url").isEmpty ? nil : URL(string: p.s("url")))
         }
         // API 1.0 podawało tu kolory bazowe portalu, dopiero 1.1 kolory wersji
         let kolory = rodzaj != .zwykly && wersjaApi.compare("1.1", options: .numeric) != .orderedAscending ? Paleta(t.slownik("colors")) : nil

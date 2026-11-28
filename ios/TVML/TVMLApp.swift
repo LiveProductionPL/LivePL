@@ -160,8 +160,17 @@ struct Baner: View {
         let motyw = m.motyw
         VStack(spacing: 0) {
             if let pasek = motyw.pasek {
-                PasekZyczen(pasek: pasek, motyw: motyw)
-                    .background(LinearGradient(colors: motyw.tloPaska, startPoint: .top, endPoint: .bottom).ignoresSafeArea(edges: .top))
+                Group {
+                    if let adres = pasek.adres {
+                        // belka z adresem z panelu (theme.topbar.url) otwiera podstronę albo artykuł
+                        Button { m.otworzZBelki(adres) } label: { PasekZyczen(pasek: pasek, motyw: motyw).contentShape(Rectangle()) }
+                            .buttonStyle(.plain)
+                            .accessibilityAddTraits(.isLink)
+                    } else {
+                        PasekZyczen(pasek: pasek, motyw: motyw)
+                    }
+                }
+                .background(LinearGradient(colors: motyw.tloPaska, startPoint: .top, endPoint: .bottom).ignoresSafeArea(edges: .top))
             }
             HStack(spacing: 8) {
                 Button { m.naStart() } label: {
@@ -317,6 +326,11 @@ struct PasekZyczen: View {
             HStack(spacing: 8) {
                 Gwiazda().fill(motyw.zlotoPaska).frame(width: 12, height: 12)
                 Text(pasek.etykieta).czcionka(11, .heavy).kerning(1.4)
+                if pasek.adres != nil {
+                    // znak, że belkę można stuknąć
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right").font(.system(size: 12, weight: .bold)).accessibilityHidden(true)
+                }
             }
             .foregroundStyle(motyw.zlotoPaska)
             Text(pasek.tekst).czcionka(13).foregroundStyle(Color(hex: "#f6efe3"))
