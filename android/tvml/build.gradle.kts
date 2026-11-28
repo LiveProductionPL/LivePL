@@ -40,15 +40,13 @@ val firebase: Map<String, String> = run {
 android {
     namespace = "pl.tvml"
     compileSdk = 37
-    // NDK z obrazu GitHuba: bez niego AGP nie umie wyciągnąć symboli kodu natywnego („Unable to strip … packaging
-    // them as they are”, budowy 27 i 28), a Google Play ostrzega o ich braku. Najpierw zmienne obrazu, potem
-    // najnowszy katalog $ANDROID_HOME/ndk/*; lokalnie (bez NDK) nic się nie zmienia.
+    // NDK z obrazu GitHuba (zmienne obrazu albo najnowszy $ANDROID_HOME/ndk/*), na wypadek bibliotek z symbolami.
+    // Ostrzeżenie Google Play o symbolach zostaje (budowy 27–29: androidx.graphics.path i datastore są już odarte).
     val ndk = listOf("ANDROID_NDK_LATEST_HOME", "ANDROID_NDK_HOME", "ANDROID_NDK_ROOT", "ANDROID_NDK")
         .firstNotNullOfOrNull { providers.environmentVariable(it).orNull?.takeIf { p -> file(p).isDirectory } }
         ?: providers.environmentVariable("ANDROID_HOME").orNull?.let { file("$it/ndk") }
             ?.listFiles { f -> f.isDirectory }?.maxByOrNull { it.name }?.path
     if (ndk != null) ndkPath = ndk
-    if (providers.environmentVariable("CI").orNull != null) logger.lifecycle("TVML NDK: ${ndk ?: "brak"}")
 
     defaultConfig {
         // nazwa pakietu w Google Play (wybór Karola 19.11.2026; na iPhonie com.LiveProduction.TVML).
