@@ -99,6 +99,9 @@ if [ -n "${5:-}" ] && [ -d "$5" ]; then
   zrzut 24-tvml-podglad light -ekran podglad -tvml-jezyk pl
   # okno „Włączyć powiadomienia o nowych wpisach?” z pierwszego uruchomienia (w symulatorze tylko na ten zrzut)
   zrzut 25-tvml-pytanie-push dark -ekran pytanie-push -tvml-jezyk pl
+  # baner Startu z panelu (blok banner, przykład) i belka motywu z adresem; nic nie idzie do serwera
+  zrzut 26-tvml-baner light -ekran baner -tvml-jezyk pl
+  zrzut 27-tvml-baner-noc dark -ekran baner -tvml-jezyk pl
   # „Większy tekst” na poziomie AX3 (górna granica w aplikacji)
   xcrun simctl ui "$UDID" content_size accessibility-extra-large || true
   zrzut 15-tvml-duzy-tekst light

@@ -26,7 +26,7 @@ struct TVMLApp: App {
 struct Glowny: View {
     @EnvironmentObject private var m: Magazyn
     @Environment(\.scenePhase) private var faza
-    /// Do zrzutów ekranu: -ekran pogoda|artykul|wideo|wiecej|zakladka2 (druga zakładka z panelu)|powiadomienia|film|podglad, -motyw zima|wigilia|…
+    /// Do zrzutów ekranu: -ekran pogoda|artykul|wideo|wiecej|zakladka2 (druga zakładka z panelu)|powiadomienia|film|podglad|baner, -motyw zima|wigilia|…
     private let ekranStartowy = UserDefaults.standard.string(forKey: "ekran")
     private let motywTestowy = Motyw.zArgumentu(UserDefaults.standard.string(forKey: "motyw"))
     /// Do zrzutu odtwarzacza (-ekran film): pierwszy film z kanału na pełnym ekranie.
@@ -87,6 +87,17 @@ struct Glowny: View {
                 var p = Podglad(token: Podglad.tokenZrzutu)
                 p.etykieta = "Podgląd: Karol, 14:05"
                 m.podglad = p
+            case "baner":
+                // zrzut: przykładowy baner z panelu (blok banner) na górze Startu i belka motywu z adresem (strzałka „›”)
+                var props: Slownik = ["title": "Andrzejki – noc wróżb ✦", "text": "Wosk, tarot, szklana kula… Zajrzyj na naszą andrzejkową stronę.",
+                                      "button": "Wróż z nami", "url": "https://tvml.pl/strona/andrzejki", "imageRatio": 2.5]
+                if let obraz = m.najnowsze.dropFirst(5).first?.miniatura(900) { props["image"] = obraz.absoluteString }
+                if let b = BlokStartu(["id": "baner-zrzut", "type": "banner", "props": props]) {
+                    m.bloki.insert(b, at: 0)
+                }
+                m.motyw = Motyw(rodzaj: .andrzejki,
+                                pasek: Motyw.Pasek(etykieta: "ANDRZEJKI", tekst: "Andrzejkowe wróżby z TVML.PL – stuknij i sprawdź, co Cię czeka!",
+                                                   adres: URL(string: "https://tvml.pl/strona/andrzejki")))
             default: break
             }
         }
