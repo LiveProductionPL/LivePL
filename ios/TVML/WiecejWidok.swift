@@ -243,6 +243,8 @@ struct PodstronaWidok: View {
     let slug: String
     @State private var tresc: TrescPodstrony?
     @State private var laduje = true
+    /// strona dla aplikacji (appUrl) nie wczytała się: zostaje treść z API
+    @State private var bladStronyApp = false
 
     private var tytul: String { tresc?.tytul ?? m.strony.first { $0.slug == slug }?.tytul ?? "" }
 
@@ -260,7 +262,11 @@ struct PodstronaWidok: View {
                 }
             }
             .padding(.horizontal, 16).padding(.bottom, 6)
-            if laduje {
+            if let u = adresDlaAplikacji, !bladStronyApp {
+                // najpierw strona dla aplikacji z config.pages (appUrl), jak na Androidzie: ma skrypty (np. salon
+                // wróżb Andrzejek) i kotwice tej strony; treść z API zostaje zapasem (Karol 28.11: linki wróżb nie działały)
+                HtmlWidok(zrodlo: .adres(u), ciemny: schemat == .dark, link: obsluz, blad: { bladStronyApp = true })
+            } else if laduje {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let t = tresc {
                 if t.html.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -280,6 +286,12 @@ struct PodstronaWidok: View {
             tresc = await m.podstrona(slug)
             laduje = false
         }
+    }
+
+    /// appUrl podstrony z config.pages (w motywie aplikacji); nil, gdy strony nie ma w config.pages.
+    private var adresDlaAplikacji: URL? {
+        guard let baza = m.strony.first(where: { $0.slug == slug })?.adresApp?.absoluteString else { return nil }
+        return URL(string: baza + (baza.contains("?") ? "&" : "?") + "motyw=" + (schemat == .dark ? "ciemny" : "jasny"))
     }
 
     /// Zapas, gdy API nie odpowie: strona w wersji dla aplikacji, w motywie aplikacji.
@@ -352,6 +364,8 @@ struct HtmlWidok: UIViewRepresentable {
     let zrodlo: Zrodlo
     let ciemny: Bool
     let link: (URL) -> Void
+    /// strona z adresu nie wczytała się (brak sieci, błąd HTTP)
+    var blad: (() -> Void)? = nil
 
     func makeCoordinator() -> Koordynator { Koordynator(link: link) }
 
@@ -368,6 +382,7 @@ struct HtmlWidok: UIViewRepresentable {
 
     func updateUIView(_ w: WKWebView, context: Context) {
         context.coordinator.link = link
+        context.coordinator.blad = blad
         let klucz = "\(zrodlo.hashValue)|\(ciemny)|\(UIFont.preferredFont(forTextStyle: .body).pointSize)"
         guard context.coordinator.zaladowane != klucz else { return }
         context.coordinator.zaladowane = klucz
@@ -406,8 +421,28 @@ struct HtmlWidok: UIViewRepresentable {
 
     final class Koordynator: NSObject, WKNavigationDelegate {
         var link: (URL) -> Void
+        var blad: (() -> Void)?
         var zaladowane = ""
         init(link: @escaping (URL) -> Void) { self.link = link }
+
+        private func zglosBlad() {
+            guard let blad else { return }
+            DispatchQueue.main.async { blad() }
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            if (error as? URLError)?.code != .cancelled { zglosBlad() }
+        }
+
+        func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse,
+                     decisionHandler: @escaping @MainActor @Sendable (WKNavigationResponsePolicy) -> Void) {
+            if navigationResponse.isForMainFrame, let http = navigationResponse.response as? HTTPURLResponse, http.statusCode >= 400 {
+                decisionHandler(.cancel)
+                zglosBlad()
+                return
+            }
+            decisionHandler(.allow)
+        }
 
         /// JavaScript tylko dla strony w wersji dla aplikacji z tvml.pl (?widok=app, np. salon wróżb Andrzejek),
         /// treść z API dalej bez skryptów. Kotwica na tej samej stronie (#wosk) przewija w widoku, a nie otwiera
